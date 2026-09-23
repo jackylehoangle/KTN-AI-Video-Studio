@@ -284,3 +284,100 @@ jobs:
           name: mpt-03c-full-e2e
           path: mpt03c-artifact
           retention-days: 7
+
+  mpt03c-full-e2e-local-llm:
+    name: MPT-03C topic to MP4 with local LLM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+
+      - name: Pull local Qwen model
+        run: ollama pull qwen2.5:0.5b
+
+      - name: Configure MoneyPrinterTurbo for Ollama
+        run: |
+          cp config.example.toml config.toml
+          sed -i 's/llm_provider = "moonshot"/llm_provider = "ollama"/' config.toml
+          sed -i 's#ollama_base_url = ""#ollama_base_url = "http://127.0.0.1:11434/v1"#' config.toml
+          sed -i 's/ollama_model_name = ""/ollama_model_name = "qwen2.5:0.5b"/' config.toml
+
+      - name: Create local source footage
+        run: |
+          mkdir -p test/resources/mpt03c
+          ffmpeg -y -f lavfi -i "color=c=0x203040:s=960x540:r=30:d=20"             -c:v libx264 -pix_fmt yuv420p test/resources/mpt03c/source.mp4
+
+      - name: Run full topic-to-video E2E
+        run: |
+          set -o pipefail
+          uv run --no-sync python cli.py             --video-subject "Vì sao con người thường trì hoãn những việc quan trọng?"             --video-source local             --video-materials "test/resources/mpt03c/source.mp4"             --voice-name "vi-VN-HoaiMyNeural-Female"             --bgm-type none             --font-name "BeVietnamPro-Medium.ttf"             --video-aspect "16:9"             --video-clip-duration 5             --paragraph-number 1             --video-script-prompt "Viết ngắn gọn khoảng 3 câu, tự nhiên, dễ nghe."             --subtitle-enabled             --stop-at video | tee mpt03c-result.json
+
+      - name: Verify AI script and final MP4
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          raw = Path("mpt03c-result.json").read_text(encoding="utf-8").strip().splitlines()
+          payload = json.loads(raw[-1])
+          result = payload.get("result") or payload
+          script = str(result.get("script") or "").strip()
+          if not script:
+              raise SystemExit("AI script is empty")
+          print("AI_SCRIPT:", script)
+          PY
+          VIDEO_PATH="$(find storage/tasks -type f -name 'final-*.mp4' | head -n 1)"
+          test -n "$VIDEO_PATH"
+          echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height             -show_entries format=duration,size             -of json "$VIDEO_PATH"
+          test "$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)" -ge 1
+          test "$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)" -ge 1
+
+      - name: Collect MPT-03C artifact
+        if: always()
+        run: |
+          mkdir -p mpt03c-artifact
+          cp mpt03c-result.json mpt03c-artifact/ 2>/dev/null || true
+          if [ -n "${VIDEO_PATH:-}" ] && [ -f "$VIDEO_PATH" ]; then
+            cp "$VIDEO_PATH" mpt03c-artifact/final.mp4
+          fi
+          cp /tmp/ollama.log mpt03c-artifact/ollama.log 2>/dev/null || true
+
+      - name: Upload MPT-03C artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03c-topic-to-mp4
+          path: mpt03c-artifact
+          retention-days: 7
