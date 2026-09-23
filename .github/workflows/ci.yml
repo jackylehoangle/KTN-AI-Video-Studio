@@ -111,3 +111,65 @@ jobs:
           test/services/test_controller_video.py
           test/services/test_webui_task.py
           test/services/test_webui_headless_task_actions.py
+
+  mpt03b-e2e-video:
+    name: MPT-03B real video E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Ensure FFmpeg is available
+        run: |
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Create local source footage
+        run: |
+          mkdir -p test/resources/mpt03b
+          ffmpeg -y -f lavfi -i "color=c=0x203040:s=960x540:r=30:d=12"             -c:v libx264 -pix_fmt yuv420p test/resources/mpt03b/source.mp4
+          ffprobe -v error -show_entries format=duration             -of default=noprint_wrappers=1:nokey=1 test/resources/mpt03b/source.mp4
+
+      - name: Run real MoneyPrinterTurbo E2E
+        run: |
+          set -o pipefail
+          uv run --no-sync python cli.py             --video-subject "KTN AI Video Studio baseline test"             --video-script "This is a real end to end test of the KTN AI Video Studio production engine. The system creates narration, subtitles, edits local footage, and renders a final MP4 video."             --video-source local             --video-materials "test/resources/mpt03b/source.mp4"             --voice-name "zh-CN-XiaoxiaoNeural-Female"             --bgm-type none             --font-name "BeVietnamPro-Medium.ttf"             --video-aspect "16:9"             --video-clip-duration 5             --subtitle-enabled             --stop-at video | tee mpt03b-result.json
+
+      - name: Verify final MP4
+        run: |
+          VIDEO_PATH="$(find storage/tasks -type f -name '*.mp4' | head -n 1)"
+          test -n "$VIDEO_PATH"
+          echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
+          ffprobe -v error -show_entries stream=codec_name,width,height             -show_entries format=duration,size             -of json "$VIDEO_PATH"
+
+      - name: Collect E2E artifact
+        if: always()
+        run: |
+          mkdir -p mpt03b-artifact
+          cp mpt03b-result.json mpt03b-artifact/ 2>/dev/null || true
+          if [ -n "${VIDEO_PATH:-}" ] && [ -f "$VIDEO_PATH" ]; then
+            cp "$VIDEO_PATH" mpt03b-artifact/final.mp4
+          fi
+
+      - name: Upload E2E artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03b-video-e2e
+          path: mpt03b-artifact
+          retention-days: 7
