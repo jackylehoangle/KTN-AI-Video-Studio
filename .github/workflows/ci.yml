@@ -157,10 +157,14 @@ jobs:
 
       - name: Verify final MP4
         run: |
-          VIDEO_PATH="$(find storage/tasks -type f -name '*.mp4' | head -n 1)"
+          VIDEO_PATH="$(find storage/tasks -type f -name 'final-*.mp4' | head -n 1)"
           test -n "$VIDEO_PATH"
           echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
-          ffprobe -v error -show_entries stream=codec_name,width,height             -show_entries format=duration,size             -of json "$VIDEO_PATH"
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height             -show_entries format=duration,size             -of json "$VIDEO_PATH"
+          VIDEO_STREAMS="$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)"
+          AUDIO_STREAMS="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)"
+          test "$VIDEO_STREAMS" -ge 1
+          test "$AUDIO_STREAMS" -ge 1
 
       - name: Collect E2E artifact
         if: always()
