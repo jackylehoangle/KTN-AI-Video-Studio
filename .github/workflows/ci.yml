@@ -381,3 +381,177 @@ jobs:
           name: mpt-03c-topic-to-mp4
           path: mpt03c-artifact
           retention-days: 7
+
+  mpt03d-local-llm-quality-and-stock:
+    name: MPT-03D upgraded local LLM and real stock gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      COVERR_API_KEY: ${{ secrets.COVERR_API_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama-mpt03d.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+
+      - name: Pull upgraded Qwen model
+        run: ollama pull qwen2.5:3b
+
+      - name: Configure MoneyPrinterTurbo for upgraded local LLM
+        run: |
+          cp config.example.toml config.toml
+          sed -i 's/llm_provider = "moonshot"/llm_provider = "ollama"/' config.toml
+          sed -i 's#ollama_base_url = ""#ollama_base_url = "http://127.0.0.1:11434/v1"#' config.toml
+          sed -i 's/ollama_model_name = ""/ollama_model_name = "qwen2.5:3b"/' config.toml
+
+      - name: Generate AI script and search terms
+        run: |
+          set -o pipefail
+          uv run --no-sync python cli.py             --video-subject "Vì sao con người thường trì hoãn những việc quan trọng?"             --paragraph-number 2             --video-script-prompt "Viết bằng tiếng Việt tự nhiên, rõ ý, không đánh số câu, không nói về việc đang viết kịch bản. Mỗi đoạn 2 đến 3 câu, phù hợp giọng đọc video."             --stop-at terms | tee mpt03d-terms.json
+
+      - name: Validate script and generated terms quality
+        run: |
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          lines = Path("mpt03d-terms.json").read_text(encoding="utf-8").strip().splitlines()
+          payload = json.loads(lines[-1])
+          result = payload.get("result") or payload
+          script = str(result.get("script") or "").strip()
+          terms = result.get("terms")
+          if not script:
+              raise SystemExit("AI script is empty")
+          if re.search(r"(?i)câu\s+(đầu tiên|hai|ba|bốn|năm|sáu|bảy|một|[0-9]+)", script):
+              raise SystemExit("Script still contains numbered-sentence artifacts")
+          if len(script) < 180:
+              raise SystemExit("Script is too short for quality gate")
+          if not terms:
+              raise SystemExit("AI search terms are empty")
+          print("SCRIPT_OK")
+          print(script)
+          print("TERMS_OK")
+          print(terms)
+          PY
+
+      - name: Select available real stock provider
+        id: stock
+        shell: bash
+        run: |
+          if [ -n "$PEXELS_API_KEY" ]; then
+            echo "provider=pexels" >> "$GITHUB_OUTPUT"
+            echo "key=$PEXELS_API_KEY" >> "$GITHUB_OUTPUT"
+          elif [ -n "$PIXABAY_API_KEY" ]; then
+            echo "provider=pixabay" >> "$GITHUB_OUTPUT"
+            echo "key=$PIXABAY_API_KEY" >> "$GITHUB_OUTPUT"
+          elif [ -n "$COVERR_API_KEY" ]; then
+            echo "provider=coverr" >> "$GITHUB_OUTPUT"
+            echo "key=$COVERR_API_KEY" >> "$GITHUB_OUTPUT"
+          else
+            echo "provider=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure selected stock provider
+        if: steps.stock.outputs.provider != 'none'
+        env:
+          STOCK_PROVIDER: ${{ steps.stock.outputs.provider }}
+          STOCK_KEY: ${{ steps.stock.outputs.key }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path("config.toml")
+          s=p.read_text(encoding="utf-8")
+          provider=os.environ["STOCK_PROVIDER"]
+          key=os.environ["STOCK_KEY"].replace('"','')
+          if provider=="pexels":
+              s=s.replace("pexels_api_keys = []", f'pexels_api_keys = ["{key}"]')
+          elif provider=="pixabay":
+              s=s.replace("pixabay_api_keys = []", f'pixabay_api_keys = ["{key}"]')
+          elif provider=="coverr":
+              s=s.replace("coverr_api_keys = []", f'coverr_api_keys = ["{key}"]')
+          p.write_text(s, encoding="utf-8")
+          PY
+
+      - name: Real stock retrieval and final render
+        if: steps.stock.outputs.provider != 'none'
+        env:
+          STOCK_PROVIDER: ${{ steps.stock.outputs.provider }}
+        run: |
+          set -o pipefail
+          uv run --no-sync python cli.py             --video-subject "Vì sao con người thường trì hoãn những việc quan trọng?"             --video-source "$STOCK_PROVIDER"             --voice-name "vi-VN-HoaiMyNeural-Female"             --bgm-type none             --font-name "BeVietnamPro-Medium.ttf"             --video-aspect "16:9"             --video-clip-duration 4             --paragraph-number 1             --video-script-prompt "Viết bằng tiếng Việt tự nhiên, rõ ý, không đánh số câu, khoảng 3 câu."             --subtitle-enabled             --stop-at video | tee mpt03d-stock-result.json
+
+      - name: Verify real stock source records and final MP4
+        if: steps.stock.outputs.provider != 'none'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          files=list(Path("storage/tasks").glob("*/script.json"))
+          if not files:
+              raise SystemExit("script.json not found")
+          data=json.loads(files[-1].read_text(encoding="utf-8"))
+          sources=data.get("material_sources") or []
+          if not sources:
+              raise SystemExit("No real stock material source records")
+          print("MATERIAL_SOURCES_OK")
+          for x in sources:
+              print({k:x.get(k) for k in ("provider","search_term","asset_id","source_page","local_file")})
+          PY
+          VIDEO_PATH="$(find storage/tasks -type f -name 'final-*.mp4' | tail -n 1)"
+          test -n "$VIDEO_PATH"
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height             -show_entries format=duration,size -of json "$VIDEO_PATH"
+
+      - name: Report stock key gate
+        if: steps.stock.outputs.provider == 'none'
+        run: |
+          echo "STOCK_KEY_GATE=BLOCKED"
+          echo "No PEXELS_API_KEY, PIXABAY_API_KEY, or COVERR_API_KEY GitHub Actions secret is configured."
+          exit 2
+
+      - name: Collect MPT-03D diagnostics
+        if: always()
+        run: |
+          mkdir -p mpt03d-artifact
+          cp mpt03d-terms.json mpt03d-artifact/ 2>/dev/null || true
+          cp mpt03d-stock-result.json mpt03d-artifact/ 2>/dev/null || true
+          cp /tmp/ollama-mpt03d.log mpt03d-artifact/ 2>/dev/null || true
+          find storage/tasks -type f -name 'final-*.mp4' -exec cp {} mpt03d-artifact/final.mp4 \; 2>/dev/null || true
+
+      - name: Upload MPT-03D artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03d-local-llm-and-stock
+          path: mpt03d-artifact
+          retention-days: 7
