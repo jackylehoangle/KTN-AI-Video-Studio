@@ -555,3 +555,89 @@ jobs:
           name: mpt-03d-local-llm-and-stock
           path: mpt03d-artifact
           retention-days: 7
+
+  mpt03d-qwen7b-quality:
+    name: MPT-03D Qwen 7B script and English terms quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > /tmp/ollama-mpt03d-7b.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+
+      - name: Pull Qwen 7B
+        run: ollama pull qwen2.5:7b
+
+      - name: Configure MoneyPrinterTurbo for Qwen 7B
+        run: |
+          cp config.example.toml config.toml
+          sed -i 's/llm_provider = "moonshot"/llm_provider = "ollama"/' config.toml
+          sed -i 's#ollama_base_url = ""#ollama_base_url = "http://127.0.0.1:11434/v1"#' config.toml
+          sed -i 's/ollama_model_name = ""/ollama_model_name = "qwen2.5:7b"/' config.toml
+
+      - name: Generate script and terms with Qwen 7B
+        run: |
+          set -o pipefail
+          uv run --no-sync python cli.py             --video-subject "Vì sao con người thường trì hoãn những việc quan trọng?"             --paragraph-number 2             --video-script-prompt "Viết bằng tiếng Việt tự nhiên, rõ ý, không đánh số câu, không nói về việc đang viết kịch bản. Mỗi đoạn 2 đến 3 câu, phù hợp giọng đọc video."             --stop-at terms | tee mpt03d-qwen7b.json
+
+      - name: Strict quality gate
+        run: |
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          lines=Path("mpt03d-qwen7b.json").read_text(encoding="utf-8").strip().splitlines()
+          payload=json.loads(lines[-1])
+          result=payload.get("result") or payload
+          script=str(result.get("script") or "").strip()
+          terms=result.get("terms") or []
+          if len(script) < 180:
+              raise SystemExit("Script too short")
+          if re.search(r"(?i)câu\s+(đầu tiên|hai|ba|bốn|năm|sáu|bảy|một|[0-9]+)", script):
+              raise SystemExit("Numbered-sentence artifact detected")
+          if not isinstance(terms,list) or len(terms) < 5:
+              raise SystemExit("Not enough search terms")
+          ascii_terms=[]
+          for term in terms:
+              if not isinstance(term,str) or not term.strip():
+                  raise SystemExit("Invalid empty term")
+              if re.search(r"[\u4e00-\u9fff]", term):
+                  raise SystemExit(f"Chinese search term detected: {term}")
+              if len(term.split()) > 3:
+                  raise SystemExit(f"Search term too long: {term}")
+              ascii_terms.append(term)
+          print("QWEN7B_SCRIPT_OK")
+          print(script)
+          print("QWEN7B_TERMS_OK")
+          print(ascii_terms)
+          PY
+
+      - name: Upload Qwen 7B quality artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03d-qwen7b-quality
+          path: mpt03d-qwen7b.json
+          retention-days: 7
