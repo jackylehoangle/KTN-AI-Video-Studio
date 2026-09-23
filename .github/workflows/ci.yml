@@ -832,3 +832,206 @@ jobs:
           name: mpt-03e5d-scene-assets-to-final-mp4
           path: mpt03e5d-artifact
           retention-days: 7
+
+
+  mpt03e5c-real-ai-image:
+    name: MPT-03E.5C-REAL real AI images to 5D pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Real AI image credential gate
+        run: |
+          if [ -z "${POLLINATIONS_API_KEY:-}" ]; then
+            echo "MPT03E5C_REAL_GATE=BLOCKED"
+            echo "Missing GitHub Actions secret POLLINATIONS_API_KEY"
+            exit 2
+          fi
+          echo "MPT03E5C_REAL_GATE=READY"
+
+      - name: Create canonical scene prompts
+        run: |
+          mkdir -p test/resources/mpt03e5c-real
+          cat > test/resources/mpt03e5c-real/scenes.json <<'JSON'
+          {
+            "project_title": "Vì sao con người thường trì hoãn những việc quan trọng?",
+            "video_style": "realistic cinematic",
+            "aspect_ratio": "16:9",
+            "scenes": [
+              {
+                "scene_id": "scene_01",
+                "scene_order": 1,
+                "voice_text": "Rất nhiều người biết mình cần làm gì, nhưng vẫn chần chừ chưa bắt đầu.",
+                "image_prompt": "A Vietnamese office worker sitting at a desk in front of an open laptop, hesitating to start an important task, thoughtful expression, evening indoor lighting, realistic cinematic photography, medium shot, soft shadows, widescreen composition, no text, no watermark"
+              },
+              {
+                "scene_id": "scene_02",
+                "scene_order": 2,
+                "voice_text": "Đôi khi trì hoãn không phải vì lười, mà vì áp lực và nỗi sợ làm không tốt.",
+                "image_prompt": "A stressed Vietnamese office worker looking between a laptop and a wall clock as a deadline approaches, tense mood, modern workspace, realistic cinematic photography, dramatic soft lighting, widescreen composition, no text, no watermark"
+              },
+              {
+                "scene_id": "scene_03",
+                "scene_order": 3,
+                "voice_text": "Khi chia một việc lớn thành việc nhỏ, chúng ta sẽ dễ bắt đầu hơn.",
+                "image_prompt": "A close-up of a simple productivity checklist on a desk with small tasks being completed one by one, calm organized workspace, realistic cinematic photography, natural light, widescreen composition, no readable text, no watermark"
+              },
+              {
+                "scene_id": "scene_04",
+                "scene_order": 4,
+                "voice_text": "Bắt đầu nhỏ hôm nay luôn tốt hơn chờ cảm hứng hoàn hảo vào ngày mai.",
+                "image_prompt": "A relaxed Vietnamese office worker after completing an important task, tidy desk, laptop closed, subtle relieved smile, warm cinematic evening light, realistic photography, medium shot, widescreen composition, no text, no watermark"
+              }
+            ]
+          }
+          JSON
+
+      - name: Configure OpenAI-compatible real image provider
+        run: |
+          cp config.example.toml config.toml
+          uv run --no-sync python - <<'PY'
+          import os, toml
+          p="config.toml"
+          cfg=toml.load(p)
+          app=cfg.setdefault("app", {})
+          app["openai_image_base_url"]="https://gen.pollinations.ai/v1"
+          app["openai_image_model"]="flux"
+          app["openai_image_api_keys"]=[os.environ["POLLINATIONS_API_KEY"]]
+          app["openai_image_size"]="1024x1024"
+          app["openai_image_prompt_template"]="{term}"
+          with open(p,"w",encoding="utf-8") as fh:
+              toml.dump(cfg,fh)
+          print("REAL_IMAGE_PROVIDER_READY=pollinations-openai-compatible; key=***")
+          PY
+
+      - name: Generate real AI image assets and motion clips
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          from pathlib import Path
+          from app.models.schema import VideoAspect
+          from app.services import material
+
+          root=Path("test/resources/mpt03e5c-real")
+          assets=root/"assets"
+          clips=root/"clips"
+          assets.mkdir(parents=True, exist_ok=True)
+          clips.mkdir(parents=True, exist_ok=True)
+          data=json.loads((root/"scenes.json").read_text(encoding="utf-8"))
+          generated=[]
+          for scene in data["scenes"]:
+              items=material.generate_images_openai(
+                  search_term=scene["image_prompt"],
+                  minimum_duration=4,
+                  video_aspect=VideoAspect.landscape,
+                  save_dir=str(assets),
+              )
+              if not items:
+                  raise SystemExit(f'AI image generation failed for {scene["scene_id"]}')
+              item=items[0]
+              image_path=Path(item.url)
+              if not image_path.exists() or image_path.stat().st_size <= 1000:
+                  raise SystemExit(f'Invalid generated image for {scene["scene_id"]}')
+              clip_path=material._render_openai_image_video(str(image_path), 4)
+              clip=Path(clip_path)
+              if not clip.exists() or clip.stat().st_size <= 1000:
+                  raise SystemExit(f'Motion clip failed for {scene["scene_id"]}')
+              target=clips/f'{scene["scene_id"]}.mp4'
+              if clip.resolve() != target.resolve():
+                  target.write_bytes(clip.read_bytes())
+              scene["generated_image"]=str(image_path)
+              scene["motion_clip"]=str(target)
+              generated.append(str(target))
+              print("REAL_AI_ASSET_OK", scene["scene_id"], image_path.name, image_path.stat().st_size)
+          (root/"scenes-generated.json").write_text(
+              json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          (root/"materials.txt").write_text("\n".join(generated), encoding="utf-8")
+          print("REAL_AI_IMAGES_COUNT=", len(generated))
+          PY
+
+      - name: Verify images are decoded real files
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          root=Path("test/resources/mpt03e5c-real")
+          data=json.loads((root/"scenes-generated.json").read_text(encoding="utf-8"))
+          assert len(data["scenes"]) == 4
+          for scene in data["scenes"]:
+              p=Path(scene["generated_image"])
+              with Image.open(p) as im:
+                  im.verify()
+              with Image.open(p) as im:
+                  w,h=im.size
+              assert w > 0 and h > 0
+              print("IMAGE_DECODE_OK", scene["scene_id"], w, h, p.stat().st_size)
+          PY
+
+      - name: Reuse 5D pipeline and render final MP4
+        run: |
+          set -o pipefail
+          MATERIALS="$(paste -sd, test/resources/mpt03e5c-real/materials.txt)"
+          SCRIPT="$(uv run --no-sync python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("test/resources/mpt03e5c-real/scenes.json").read_text(encoding="utf-8"))
+          print(" ".join(s["voice_text"] for s in data["scenes"]))
+          PY
+          )"
+          uv run --no-sync python cli.py             --video-subject "KTN real AI-generated scene pipeline test"             --video-script "$SCRIPT"             --video-source local             --video-materials "$MATERIALS"             --voice-name "vi-VN-HoaiMyNeural-Female"             --bgm-type none             --font-name "BeVietnamPro-Medium.ttf"             --video-aspect "16:9"             --video-clip-duration 4             --subtitle-enabled             --stop-at video | tee mpt03e5c-real-result.json
+
+      - name: Final real-AI E2E validation
+        run: |
+          VIDEO_PATH="$(find storage/tasks -type f -name 'final-*.mp4' | tail -n 1)"
+          test -n "$VIDEO_PATH"
+          echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
+          ffprobe -v error             -show_entries stream=codec_type,codec_name,width,height             -show_entries format=duration,size             -of json "$VIDEO_PATH"
+          test "$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)" -ge 1
+          test "$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)" -ge 1
+          test "$(find test/resources/mpt03e5c-real/assets -type f -name '*.png' | wc -l)" -ge 4
+          echo "MPT03E5C_REAL_E2E_PASS"
+
+      - name: Collect real AI E2E artifact
+        if: always()
+        run: |
+          mkdir -p mpt03e5c-real-artifact/assets mpt03e5c-real-artifact/clips
+          cp test/resources/mpt03e5c-real/scenes*.json mpt03e5c-real-artifact/ 2>/dev/null || true
+          cp test/resources/mpt03e5c-real/assets/*.png mpt03e5c-real-artifact/assets/ 2>/dev/null || true
+          cp test/resources/mpt03e5c-real/clips/*.mp4 mpt03e5c-real-artifact/clips/ 2>/dev/null || true
+          cp mpt03e5c-real-result.json mpt03e5c-real-artifact/ 2>/dev/null || true
+          if [ -n "${VIDEO_PATH:-}" ] && [ -f "$VIDEO_PATH" ]; then
+            cp "$VIDEO_PATH" mpt03e5c-real-artifact/final.mp4
+          fi
+
+      - name: Upload real AI E2E artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03e5c-real-ai-images-to-final-mp4
+          path: mpt03e5c-real-artifact
+          retention-days: 7
