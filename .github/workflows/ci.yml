@@ -182,3 +182,105 @@ jobs:
           name: mpt-03b-video-e2e
           path: mpt03b-artifact
           retention-days: 7
+
+  mpt03c-full-e2e:
+    name: MPT-03C topic to final video
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Check OpenRouter secret
+        run: |
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "::error::Missing GitHub Actions secret OPENROUTER_API_KEY"
+            exit 1
+          fi
+
+      - name: Build runtime config safely
+        run: |
+          cp config.example.toml config.toml
+          uv run --no-sync python - <<'PY'
+          import os, toml
+          p="config.toml"
+          cfg=toml.load(p)
+          app=cfg.setdefault("app", {})
+          app["llm_provider"]="openrouter"
+          app["openrouter_api_key"]=os.environ["OPENROUTER_API_KEY"]
+          app["openrouter_model_name"]=""
+          app["openrouter_base_url"]=""
+          with open(p,"w",encoding="utf-8") as fh:
+              toml.dump(cfg,fh)
+          print("runtime config ready: provider=openrouter; key=***")
+          PY
+
+      - name: Create local source footage
+        run: |
+          mkdir -p test/resources/mpt03c
+          ffmpeg -y -f lavfi -i "color=c=0x182433:s=960x540:r=30:d=20"             -c:v libx264 -pix_fmt yuv420p test/resources/mpt03c/source.mp4
+
+      - name: Run full topic-to-video E2E
+        run: |
+          set -o pipefail
+          uv run --no-sync python cli.py             --video-subject "Why do people procrastinate on important tasks?"             --video-source local             --video-materials "test/resources/mpt03c/source.mp4"             --voice-name "zh-CN-XiaoxiaoNeural-Female"             --bgm-type none             --font-name "BeVietnamPro-Medium.ttf"             --video-aspect "16:9"             --video-clip-duration 5             --subtitle-enabled             --stop-at video | tee mpt03c-result.json
+
+      - name: Verify AI script and final MP4
+        run: |
+          VIDEO_PATH="$(find storage/tasks -type f -name 'final-*.mp4' | head -n 1)"
+          SCRIPT_PATH="$(find storage/tasks -type f -name 'script.json' | head -n 1)"
+          test -n "$VIDEO_PATH"
+          test -n "$SCRIPT_PATH"
+          uv run --no-sync python - <<'PY'
+          import json, glob
+          paths=glob.glob("storage/tasks/*/script.json")
+          assert paths, "script.json missing"
+          data=json.load(open(paths[0],encoding="utf-8"))
+          script=str(data.get("script") or data.get("video_script") or "").strip()
+          assert len(script) >= 80, f"AI script too short: {len(script)}"
+          print("AI_SCRIPT_LENGTH=",len(script))
+          print("AI_SCRIPT_PREVIEW=",script[:240].replace("\n"," "))
+          PY
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height             -show_entries format=duration,size -of json "$VIDEO_PATH"
+          test "$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)" -ge 1
+          test "$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)" -ge 1
+          echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
+
+      - name: Collect MPT-03C artifact
+        if: always()
+        run: |
+          mkdir -p mpt03c-artifact
+          cp mpt03c-result.json mpt03c-artifact/ 2>/dev/null || true
+          if [ -n "${VIDEO_PATH:-}" ] && [ -f "$VIDEO_PATH" ]; then
+            cp "$VIDEO_PATH" mpt03c-artifact/final.mp4
+          fi
+          find storage/tasks -type f -name 'script.json' -exec cp {} mpt03c-artifact/script.json \; 2>/dev/null || true
+
+      - name: Upload MPT-03C artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03c-full-e2e
+          path: mpt03c-artifact
+          retention-days: 7
