@@ -134,6 +134,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --python 3.11
 
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Ensure FFmpeg is available
         run: |
           ffmpeg -version
