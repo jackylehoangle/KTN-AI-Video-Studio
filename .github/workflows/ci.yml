@@ -641,3 +641,194 @@ jobs:
           name: mpt-03d-qwen7b-quality
           path: mpt03d-qwen7b.json
           retention-days: 7
+
+
+  mpt03e5d-image-assets-to-final-mp4:
+    name: MPT-03E.5D scene image assets to final MP4
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --python 3.11
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Create canonical scene JSON and image-asset fixtures
+        run: |
+          mkdir -p test/resources/mpt03e5d/assets test/resources/mpt03e5d/clips
+          cat > test/resources/mpt03e5d/scenes.json <<'JSON'
+          {
+            "project_title": "Vì sao con người thường trì hoãn những việc quan trọng?",
+            "video_style": "realistic cinematic",
+            "aspect_ratio": "16:9",
+            "scenes": [
+              {
+                "scene_id": "scene_01",
+                "scene_order": 1,
+                "scene_title": "Chần chừ khi bắt đầu",
+                "voice_text": "Rất nhiều người biết mình cần làm gì, nhưng vẫn chần chừ chưa bắt đầu.",
+                "visual_description": "Một người ngồi trước laptop, do dự, chưa bắt đầu làm việc.",
+                "duration_seconds": 4,
+                "asset_file": "assets/scene-01.png"
+              },
+              {
+                "scene_id": "scene_02",
+                "scene_order": 2,
+                "scene_title": "Áp lực deadline",
+                "voice_text": "Đôi khi trì hoãn không phải vì lười, mà vì áp lực và nỗi sợ làm không tốt.",
+                "visual_description": "Người nhìn đồng hồ và màn hình laptop với vẻ căng thẳng.",
+                "duration_seconds": 4,
+                "asset_file": "assets/scene-02.png"
+              },
+              {
+                "scene_id": "scene_03",
+                "scene_order": 3,
+                "scene_title": "Bắt đầu từ việc nhỏ",
+                "voice_text": "Khi chia một việc lớn thành việc nhỏ, chúng ta sẽ dễ bắt đầu hơn.",
+                "visual_description": "Một checklist đơn giản với từng mục nhỏ được đánh dấu hoàn thành.",
+                "duration_seconds": 4,
+                "asset_file": "assets/scene-03.png"
+              },
+              {
+                "scene_id": "scene_04",
+                "scene_order": 4,
+                "scene_title": "Hoàn thành và nhẹ nhõm",
+                "voice_text": "Bắt đầu nhỏ hôm nay luôn tốt hơn chờ cảm hứng hoàn hảo vào ngày mai.",
+                "visual_description": "Người thư giãn sau khi hoàn thành công việc.",
+                "duration_seconds": 4,
+                "asset_file": "assets/scene-04.png"
+              }
+            ]
+          }
+          JSON
+
+          uv run --no-sync python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          root = Path("test/resources/mpt03e5d")
+          data = json.loads((root / "scenes.json").read_text(encoding="utf-8"))
+          palette = [(32,48,64), (58,43,70), (34,73,66), (78,62,42)]
+          for idx, scene in enumerate(data["scenes"]):
+              image = Image.new("RGB", (1920,1080), palette[idx % len(palette)])
+              draw = ImageDraw.Draw(image)
+              draw.rectangle((120,120,1800,960), outline=(230,230,230), width=8)
+              draw.text((170,180), scene["scene_id"], fill=(255,255,255))
+              draw.text((170,260), scene["scene_title"], fill=(255,255,255))
+              draw.text((170,360), scene["visual_description"], fill=(235,235,235))
+              out = root / scene["asset_file"]
+              out.parent.mkdir(parents=True, exist_ok=True)
+              image.save(out)
+              assert out.exists() and out.stat().st_size > 1000
+              print("ASSET_OK", out)
+          PY
+
+      - name: Convert scene images into motion clips
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+
+          root = Path("test/resources/mpt03e5d")
+          data = json.loads((root / "scenes.json").read_text(encoding="utf-8"))
+          clip_paths = []
+          for scene in data["scenes"]:
+              image = root / scene["asset_file"]
+              clip = root / "clips" / f'{scene["scene_id"]}.mp4'
+              duration = float(scene["duration_seconds"])
+              frames = max(1, int(duration * 30))
+              vf = (
+                  "zoompan=z='min(zoom+0.0008,1.08)':"
+                  "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+                  f"d={frames}:s=1920x1080:fps=30,format=yuv420p"
+              )
+              subprocess.run([
+                  "ffmpeg","-y","-loop","1","-i",str(image),
+                  "-vf",vf,"-t",str(duration),"-an",
+                  "-c:v","libx264","-pix_fmt","yuv420p",str(clip)
+              ], check=True)
+              clip_paths.append(str(clip))
+              print("MOTION_CLIP_OK", clip)
+          (root / "materials.txt").write_text("\n".join(clip_paths), encoding="utf-8")
+          PY
+
+      - name: Verify scene-to-asset-to-clip mapping
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("test/resources/mpt03e5d")
+          data = json.loads((root / "scenes.json").read_text(encoding="utf-8"))
+          assert len(data["scenes"]) == 4
+          for expected_order, scene in enumerate(data["scenes"], 1):
+              assert scene["scene_order"] == expected_order
+              image = root / scene["asset_file"]
+              clip = root / "clips" / f'{scene["scene_id"]}.mp4'
+              assert image.exists() and image.stat().st_size > 1000
+              assert clip.exists() and clip.stat().st_size > 1000
+          print("SCENE_ASSET_CLIP_MAPPING_OK=4")
+          PY
+
+      - name: Run MoneyPrinterTurbo with scene motion materials
+        run: |
+          set -o pipefail
+          MATERIALS="$(paste -sd, test/resources/mpt03e5d/materials.txt)"
+          SCRIPT="$(uv run --no-sync python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("test/resources/mpt03e5d/scenes.json").read_text(encoding="utf-8"))
+          print(" ".join(s["voice_text"] for s in data["scenes"]))
+          PY
+          )"
+          uv run --no-sync python cli.py             --video-subject "KTN AI-generated media scene pipeline test"             --video-script "$SCRIPT"             --video-source local             --video-materials "$MATERIALS"             --voice-name "vi-VN-HoaiMyNeural-Female"             --bgm-type none             --font-name "BeVietnamPro-Medium.ttf"             --video-aspect "16:9"             --video-clip-duration 4             --subtitle-enabled             --stop-at video | tee mpt03e5d-result.json
+
+      - name: Verify final MP4 with video and audio
+        run: |
+          VIDEO_PATH="$(find storage/tasks -type f -name 'final-*.mp4' | tail -n 1)"
+          test -n "$VIDEO_PATH"
+          echo "VIDEO_PATH=$VIDEO_PATH" >> "$GITHUB_ENV"
+          ffprobe -v error             -show_entries stream=codec_type,codec_name,width,height             -show_entries format=duration,size             -of json "$VIDEO_PATH"
+          VIDEO_STREAMS="$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)"
+          AUDIO_STREAMS="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$VIDEO_PATH" | wc -l)"
+          test "$VIDEO_STREAMS" -ge 1
+          test "$AUDIO_STREAMS" -ge 1
+          echo "MPT03E5D_FINAL_MP4_PASS"
+
+      - name: Collect MPT-03E.5D artifact
+        if: always()
+        run: |
+          mkdir -p mpt03e5d-artifact/assets mpt03e5d-artifact/clips
+          cp test/resources/mpt03e5d/scenes.json mpt03e5d-artifact/ 2>/dev/null || true
+          cp test/resources/mpt03e5d/assets/*.png mpt03e5d-artifact/assets/ 2>/dev/null || true
+          cp test/resources/mpt03e5d/clips/*.mp4 mpt03e5d-artifact/clips/ 2>/dev/null || true
+          cp mpt03e5d-result.json mpt03e5d-artifact/ 2>/dev/null || true
+          if [ -n "${VIDEO_PATH:-}" ] && [ -f "$VIDEO_PATH" ]; then
+            cp "$VIDEO_PATH" mpt03e5d-artifact/final.mp4
+          fi
+
+      - name: Upload MPT-03E.5D artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpt-03e5d-scene-assets-to-final-mp4
+          path: mpt03e5d-artifact
+          retention-days: 7
