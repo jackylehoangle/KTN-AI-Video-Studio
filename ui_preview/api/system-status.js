@@ -1,6 +1,6 @@
 const DEFAULTS={
   gemini:{
-    scriptModel:'gemini-2.5-flash',
+    scriptModel:'gemini-3.8-flash',
     imageModel:'gemini-3.1-flash-image',
     ttsModel:'gemini-3.8-flash-lite-tts'
   },

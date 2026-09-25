@@ -1,5 +1,5 @@
 const PROVIDERS={
-  gemini:{label:'Gemini',keyEnv:'GEMINI_API_KEY',modelEnv:'GEMINI_SCRIPT_MODEL',defaultModel:'gemini-2.5-flash'},
+  gemini:{label:'Gemini',keyEnv:'GEMINI_API_KEY',modelEnv:'GEMINI_SCRIPT_MODEL',defaultModel:'gemini-3.8-flash'},
   openai:{label:'OpenAI',keyEnv:'OPENAI_API_KEY',modelEnv:'OPENAI_SCRIPT_MODEL',defaultModel:'gpt-4.1-mini'}
 };
 
@@ -18,7 +18,7 @@ function normalizeBody(body){
 
 function parseJsonText(text){
   let value=String(text||'').trim();
-  value=value.replace(/^\s*\`\`\`(?:json)?/i,'').replace(/\`\`\`\s*$/,'').trim();
+  value=value.replace(/^\s*\x60\x60\x60(?:json)?/i,'').replace(/\x60\x60\x60\s*$/,'').trim();
   try{return JSON.parse(value)}catch{}
   const start=value.indexOf('{');
   const end=value.lastIndexOf('}');
@@ -26,19 +26,93 @@ function parseJsonText(text){
   throw new Error('AI trả về JSON không hợp lệ.');
 }
 
-async function callGeminiJson(key,model,prompt){
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);
-  const response=await fetch(url,{
+function extractInteractionText(data){
+  if(typeof data?.output_text==='string' && data.output_text.trim()){
+    return data.output_text.trim();
+  }
+  const steps=Array.isArray(data?.steps)?data.steps:[];
+  for(let i=steps.length-1;i>=0;i--){
+    const step=steps[i];
+    if(step?.type!=='model_output') continue;
+    const content=Array.isArray(step?.content)?step.content:[];
+    const text=content
+      .filter(item=>item?.type==='text' && typeof item?.text==='string')
+      .map(item=>item.text)
+      .join('')
+      .trim();
+    if(text) return text;
+  }
+  return '';
+}
+
+function keywordSchema(){
+  return {
+    type:'object',
+    properties:{
+      keywords:{
+        type:'array',
+        items:{
+          type:'object',
+          properties:{
+            keyword:{type:'string'},
+            visual_keyword:{type:'string'}
+          },
+          required:['keyword','visual_keyword']
+        }
+      }
+    },
+    required:['keywords']
+  };
+}
+
+function sceneSchema(){
+  return {
+    type:'object',
+    properties:{
+      scenes:{
+        type:'array',
+        items:{
+          type:'object',
+          properties:{
+            title:{type:'string'},
+            narration:{type:'string'},
+            duration_seconds:{type:'integer'},
+            visual_description:{type:'string'},
+            image_prompt:{type:'string'}
+          },
+          required:['title','narration','duration_seconds','visual_description','image_prompt']
+        }
+      }
+    },
+    required:['scenes']
+  };
+}
+
+async function callGeminiJson(key,model,prompt,action){
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
     method:'POST',
-    headers:{'content-type':'application/json'},
+    headers:{
+      'content-type':'application/json',
+      'x-goog-api-key':key
+    },
     body:JSON.stringify({
-      contents:[{role:'user',parts:[{text:prompt}]}],
-      generationConfig:{temperature:0.35,maxOutputTokens:8192,responseMimeType:'application/json'}
+      model,
+      input:prompt,
+      generation_config:{
+        temperature:0.35,
+        max_output_tokens:8192,
+        thinking_level:'low'
+      },
+      response_format:{
+        type:'text',
+        mime_type:'application/json',
+        schema:action==='keywords'?keywordSchema():sceneSchema()
+      }
     })
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok) throw new Error(data?.error?.message||('Gemini HTTP '+response.status));
-  const text=(data.candidates||[]).flatMap(c=>c?.content?.parts||[]).map(p=>p?.text||'').join('').trim();
+  const text=extractInteractionText(data);
   if(!text) throw new Error('Gemini không trả về dữ liệu phân tích.');
   return parseJsonText(text);
 }
@@ -108,13 +182,10 @@ function normalizeScenes(payload){
 
 function keywordPrompt({script,language,topic}){
   return [
-    'Phân tích kịch bản video sau và trả về JSON hợp lệ.',
+    'Phân tích kịch bản video sau.',
     'Mục tiêu: tạo 8-12 từ khóa đại diện cho nội dung và hình ảnh của video.',
-    'Mỗi phần tử trong keywords phải có:',
-    '- keyword: từ khóa ngắn gọn bằng '+(language==='en'?'English':'Tiếng Việt')+'.',
-    '- visual_keyword: cụm từ hình ảnh tương ứng bằng English, dùng được cho AI image/search.',
-    'Không thêm giải thích ngoài JSON.',
-    'Schema chính xác: {"keywords":[{"keyword":"...","visual_keyword":"..."}]}',
+    'keyword: từ khóa ngắn gọn bằng '+(language==='en'?'English':'Tiếng Việt')+'.',
+    'visual_keyword: cụm từ hình ảnh tương ứng bằng English, dùng được cho AI image/search.',
     topic?'Chủ đề: '+topic:'',
     'Kịch bản:',
     script
@@ -124,16 +195,13 @@ function keywordPrompt({script,language,topic}){
 function scenePrompt({script,language,topic}){
   return [
     'Bạn là storyboard planner cho KTN AI Video Studio.',
-    'Hãy chia kịch bản thành các scene liên tiếp và trả về JSON hợp lệ.',
+    'Hãy chia kịch bản thành các scene liên tiếp.',
     'Mỗi scene phải đủ ngắn để dùng cho một hình hoặc một clip hình ảnh riêng.',
     'Không bỏ sót ý quan trọng và không tự thêm dữ kiện mới.',
     'narration phải giữ nguyên ý từ kịch bản và dùng '+(language==='en'?'English':'Tiếng Việt')+'.',
     'visual_description mô tả hình cần thấy bằng '+(language==='en'?'English':'Tiếng Việt')+'.',
     'image_prompt phải viết bằng English, giàu chi tiết thị giác, không chứa chữ cần hiển thị trong ảnh, dùng được trực tiếp cho Gemini/OpenAI image generation.',
     'duration_seconds là thời lượng ước tính cho narration, số nguyên khoảng 3-20 giây khi có thể.',
-    'Schema chính xác:',
-    '{"scenes":[{"title":"...","narration":"...","duration_seconds":8,"visual_description":"...","image_prompt":"..."}]}',
-    'Không Markdown, không giải thích ngoài JSON.',
     topic?'Chủ đề: '+topic:'',
     'Kịch bản:',
     script
@@ -148,6 +216,10 @@ export default async function handler(req,res){
       providers:{
         gemini:Boolean(process.env.GEMINI_API_KEY),
         openai:Boolean(process.env.OPENAI_API_KEY)
+      },
+      models:{
+        gemini:process.env.GEMINI_SCRIPT_MODEL||PROVIDERS.gemini.defaultModel,
+        openai:process.env.OPENAI_SCRIPT_MODEL||PROVIDERS.openai.defaultModel
       },
       actions:['keywords','scenes']
     });
@@ -177,7 +249,7 @@ export default async function handler(req,res){
 
   try{
     const payload=provider==='gemini'
-      ? await callGeminiJson(key,model,prompt)
+      ? await callGeminiJson(key,model,prompt,action)
       : await callOpenAIJson(key,model,prompt);
 
     if(action==='keywords'){

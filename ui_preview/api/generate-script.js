@@ -3,7 +3,7 @@ const PROVIDERS = {
     label: 'Gemini',
     keyEnv: 'GEMINI_API_KEY',
     modelEnv: 'GEMINI_SCRIPT_MODEL',
-    defaultModel: 'gemini-2.5-flash'
+    defaultModel: 'gemini-3.8-flash'
   },
   openai: {
     label: 'OpenAI',
@@ -50,26 +50,47 @@ function buildPrompt({topic,language,paragraphs,duration,extraInstruction}){
   ].filter(Boolean).join('\n');
 }
 
+function extractInteractionText(data){
+  if(typeof data?.output_text==='string' && data.output_text.trim()){
+    return data.output_text.trim();
+  }
+  const steps=Array.isArray(data?.steps)?data.steps:[];
+  for(let i=steps.length-1;i>=0;i--){
+    const step=steps[i];
+    if(step?.type!=='model_output') continue;
+    const content=Array.isArray(step?.content)?step.content:[];
+    const text=content
+      .filter(item=>item?.type==='text' && typeof item?.text==='string')
+      .map(item=>item.text)
+      .join('')
+      .trim();
+    if(text) return text;
+  }
+  return '';
+}
+
 async function generateGemini(key,model,prompt){
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);
-  const response=await fetch(url,{
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
     method:'POST',
-    headers:{'content-type':'application/json'},
+    headers:{
+      'content-type':'application/json',
+      'x-goog-api-key':key
+    },
     body:JSON.stringify({
-      contents:[{role:'user',parts:[{text:prompt}]}],
-      generationConfig:{temperature:0.8,maxOutputTokens:8192}
+      model,
+      input:prompt,
+      generation_config:{
+        temperature:0.8,
+        max_output_tokens:8192,
+        thinking_level:'low'
+      }
     })
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
-    const message=data?.error?.message||('Gemini HTTP '+response.status);
-    throw new Error(message);
+    throw new Error(data?.error?.message||('Gemini HTTP '+response.status));
   }
-  const text=(data.candidates||[])
-    .flatMap(c=>c?.content?.parts||[])
-    .map(p=>p?.text||'')
-    .join('')
-    .trim();
+  const text=extractInteractionText(data);
   if(!text) throw new Error('Gemini không trả về nội dung kịch bản.');
   return text;
 }
@@ -92,8 +113,7 @@ async function generateOpenAI(key,model,prompt){
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
-    const message=data?.error?.message||('OpenAI HTTP '+response.status);
-    throw new Error(message);
+    throw new Error(data?.error?.message||('OpenAI HTTP '+response.status));
   }
   const text=data?.choices?.[0]?.message?.content?.trim();
   if(!text) throw new Error('OpenAI không trả về nội dung kịch bản.');
@@ -108,6 +128,10 @@ export default async function handler(req,res){
       providers:{
         gemini:Boolean(process.env.GEMINI_API_KEY),
         openai:Boolean(process.env.OPENAI_API_KEY)
+      },
+      models:{
+        gemini:process.env.GEMINI_SCRIPT_MODEL||PROVIDERS.gemini.defaultModel,
+        openai:process.env.OPENAI_SCRIPT_MODEL||PROVIDERS.openai.defaultModel
       }
     });
   }
