@@ -113,7 +113,7 @@
           </details>
 
           <div class="actions">
-            <button class="secondary" id="keywordBtn">Tạo từ khóa trước</button>
+            <button class="secondary" id="keywordBtn" disabled>Tạo từ khóa từ kịch bản</button>
             <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
           </div>
         </div>
@@ -161,9 +161,9 @@
             <p>Kết quả AI sẽ hiển thị tại đây để chỉnh sửa trước khi chia cảnh.</p>
           </div>
           <div class="segmented">
-            <button class="active">Kịch bản</button>
-            <button>Từ khóa</button>
-            <button>Lịch sử</button>
+            <button class="active" id="scriptTabBtn">Kịch bản</button>
+            <button id="keywordTabBtn">Từ khóa</button>
+            <button id="historyTabBtn">Lịch sử</button>
           </div>
         </div>
         <div id="scriptEmpty" class="empty-state">
@@ -182,6 +182,41 @@
           <h3 id="scriptTitle">Kịch bản AI</h3>
           <textarea id="scriptResult" readonly></textarea>
         </div>
+
+        <div id="keywordPanel" class="keyword-panel hidden">
+          <div class="keyword-head">
+            <div>
+              <strong>Từ khóa nội dung</strong>
+              <p>Dùng để định hướng hình ảnh, tìm kiếm và kiểm tra độ phủ nội dung.</p>
+            </div>
+            <span id="keywordMeta"></span>
+          </div>
+          <div id="keywordList" class="keyword-list"></div>
+        </div>
+
+        <div id="historyPanel" class="empty-state hidden">
+          <div class="empty-icon">↺</div>
+          <strong>Lịch sử phiên</strong>
+          <p>Lịch sử phiên bản sẽ được hoàn thiện ở bước quản lý dự án. Hiện tại chưa lưu lâu dài.</p>
+        </div>
+      </section>
+
+      <section class="panel scene-panel" id="sceneSection">
+        <div class="panel-head">
+          <div>
+            <h2>Chia cảnh</h2>
+            <p>AI tách kịch bản thành các scene có lời đọc, thời lượng và prompt hình ảnh.</p>
+          </div>
+          <button class="primary compact-btn" id="sceneBtn" disabled>
+            <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
+          </button>
+        </div>
+        <div id="sceneEmpty" class="empty-state">
+          <div class="empty-icon">▦</div>
+          <strong>Chưa có cảnh</strong>
+          <p>Tạo hoặc nhập kịch bản trước, sau đó chọn “Chia cảnh bằng AI”.</p>
+        </div>
+        <div id="sceneList" class="scene-list hidden"></div>
       </section>
     </main>
   </div>
