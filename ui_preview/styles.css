@@ -82,3 +82,20 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 .subtitle-toolbar button{border:0;background:transparent;color:var(--brand);font-size:10px;font-weight:700;cursor:pointer}
 .subtitle-output pre{margin:0;padding:14px;max-height:360px;overflow:auto;white-space:pre-wrap;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3e4a60}
 @media(max-width:720px){.subtitle-settings{grid-template-columns:1fr}}
+
+.render-panel{margin-top:20px}
+.render-readiness{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 16px}
+.readiness-item{display:flex;gap:9px;align-items:center;border:1px solid #e5e9ef;border-radius:11px;padding:11px;background:#fbfcfe}
+.readiness-item>span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#edf0f5;color:#8791a3;font-weight:800;font-size:11px}
+.readiness-item strong,.readiness-item small{display:block}.readiness-item strong{font-size:11px}.readiness-item small{font-size:9px;color:var(--muted);margin-top:2px}
+.readiness-item.ready>span{background:#eaf8ef;color:#198754}.readiness-item.ready{border-color:#cfe9d7;background:#fbfffc}
+.render-settings{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.render-settings select{width:100%;height:40px;border:1px solid #dfe3eb;border-radius:9px;background:#fff;padding:0 10px;color:#445067}
+.render-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.render-actions button{height:40px;border-radius:10px;padding:0 15px;font-weight:700;cursor:pointer}
+.render-progress{margin-top:16px;border-top:1px solid #e8ebf0;padding-top:14px}
+.render-progress-head{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:7px}
+.render-progress-track{height:7px;background:#edf0f5;border-radius:99px;overflow:hidden}.render-progress-track>div{height:100%;width:0;background:var(--brand);transition:width .25s}
+.render-result{margin-top:10px;font-size:11px;color:#536078}.render-result a{color:var(--brand);font-weight:700}
+@media(max-width:850px){.render-readiness{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.render-settings,.render-readiness{grid-template-columns:1fr}.render-actions{flex-direction:column}.render-actions button{width:100%}}

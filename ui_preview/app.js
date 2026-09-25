@@ -22,6 +22,8 @@ const subtitleOutput=document.getElementById('subtitleOutput');
 const subtitlePreview=document.getElementById('subtitlePreview');
 const subtitleMeta=document.getElementById('subtitleMeta');
 let currentSrt='';
+let renderWorkerAvailable=false;
+let activeRenderTaskId='';
 
 let currentScriptProvider='gemini';
 let currentScenes=[];
@@ -199,9 +201,17 @@ async function generateSceneImage(scene,card,button){
     const img=document.createElement('img');
     img.alt='Ảnh '+(scene.title||scene.id);
     img.src='data:'+(data.mime_type||'image/png')+';base64,'+data.b64_json;
+    scene.image_asset={
+      b64_json:data.b64_json,
+      mime_type:data.mime_type||'image/png',
+      provider:data.provider||provider,
+      model:data.model||''
+    };
+    scene.material_key='';
     status.textContent='';
     imageBox.prepend(img);
     button.textContent='Tạo lại ảnh';
+    updateRenderReadiness();
     showToast('Đã tạo ảnh cho '+(scene.title||scene.id)+' bằng '+(data.providerLabel||provider)+'.');
   }catch(err){
     imageBox.classList.remove('hidden');
@@ -337,6 +347,10 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
     btn.classList.add('active');
+    if(btn.dataset.section==='library'){
+      document.getElementById('renderSection').scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
     if(btn.dataset.section==='subtitle'){
       document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
@@ -394,6 +408,7 @@ generateBtn.addEventListener('click',async()=>{
     subtitleEmpty.classList.remove('hidden');
     subtitleOutput.classList.add('hidden');
     currentSrt='';
+    updateRenderReadiness();
     selectScriptTab('script');
     activateScriptTools();
     showToast('Đã tạo kịch bản thật bằng '+(data.providerLabel||provider)+'.');
@@ -501,6 +516,7 @@ function buildSrt(){
   subtitleEmpty.classList.add('hidden');
   subtitleOutput.classList.remove('hidden');
   document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
+  updateRenderReadiness();
   showToast('Đã tạo phụ đề SRT từ '+currentScenes.length+' cảnh.');
 }
 
@@ -518,6 +534,180 @@ document.getElementById('downloadSrtBtn').addEventListener('click',()=>{
   URL.revokeObjectURL(url);
 });
 
+function setReadiness(name,ready,detail){
+  const item=document.querySelector('.readiness-item[data-check="'+name+'"]');
+  if(!item) return;
+  item.classList.toggle('ready',Boolean(ready));
+  item.querySelector(':scope > span').textContent=ready?'✓':'○';
+  const small=item.querySelector('small');
+  if(small) small.textContent=detail;
+}
+
+function updateRenderReadiness(){
+  const hasScript=Boolean(scriptResult.value.trim());
+  const hasScenes=currentScenes.length>0;
+  const imageCount=currentScenes.filter(scene=>scene.image_asset?.b64_json || scene.material_key).length;
+  const imagesReady=hasScenes && imageCount===currentScenes.length;
+  setReadiness('script',hasScript,hasScript?'Sẵn sàng':'Chưa sẵn sàng');
+  setReadiness('scenes',hasScenes,hasScenes?currentScenes.length+' cảnh':'Chưa sẵn sàng');
+  setReadiness('images',imagesReady,hasScenes?imageCount+'/'+currentScenes.length+' ảnh':'Chưa sẵn sàng');
+  setReadiness('subtitles',Boolean(currentSrt),currentSrt?'Đã tạo SRT':'Tùy chọn');
+  document.getElementById('renderBtn').disabled=!(hasScript && hasScenes && imagesReady && renderWorkerAvailable);
+}
+
+function buildRenderManifest(){
+  const maxDuration=currentScenes.reduce((max,scene)=>Math.max(max,Math.ceil(Number(scene.audio_duration_seconds||scene.duration_seconds||5))),1);
+  return {
+    version:'ktn-render-manifest-v1',
+    topic:document.getElementById('topic').value.trim(),
+    script:scriptResult.value.trim(),
+    voice:{
+      provider:'gemini',
+      voice:document.getElementById('voiceName').value||'Kore',
+      languageCode:'vi-VN'
+    },
+    video:{
+      aspect:document.getElementById('renderAspect').value,
+      transition:document.getElementById('renderTransition').value||null,
+      maxClipDuration:maxDuration,
+      subtitles:Boolean(currentSrt)
+    },
+    scenes:currentScenes.map(scene=>({
+      id:scene.id,
+      order:scene.order,
+      title:scene.title,
+      narration:scene.narration,
+      duration_seconds:Math.max(1,Math.ceil(Number(scene.audio_duration_seconds||scene.duration_seconds||5))),
+      image_prompt:scene.image_prompt,
+      material_key:scene.material_key||null,
+      image_ready:Boolean(scene.image_asset?.b64_json || scene.material_key)
+    }))
+  };
+}
+
+async function refreshRenderWorker(){
+  const status=document.getElementById('renderWorkerStatus');
+  try{
+    const res=await fetch('/api/render-video',{headers:{accept:'application/json'}});
+    const data=await res.json().catch(()=>({}));
+    renderWorkerAvailable=Boolean(res.ok && data.configured);
+    status.textContent=renderWorkerAvailable?'Render worker sẵn sàng':'Chưa cấu hình render worker';
+    status.style.background=renderWorkerAvailable?'#eaf8ef':'#fff7df';
+    status.style.color=renderWorkerAvailable?'#198754':'#805d16';
+  }catch{
+    renderWorkerAvailable=false;
+    status.textContent='Không kết nối được render worker';
+  }
+  updateRenderReadiness();
+}
+
+async function stageSceneImage(scene){
+  if(scene.material_key) return scene.material_key;
+  if(!scene.image_asset?.b64_json) throw new Error('Scene '+scene.order+' chưa có ảnh.');
+  const res=await fetch('/api/stage-material',{
+    method:'POST',
+    headers:{'content-type':'application/json','accept':'application/json'},
+    body:JSON.stringify({
+      sceneId:scene.id,
+      mime_type:scene.image_asset.mime_type,
+      b64_json:scene.image_asset.b64_json
+    })
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||('Upload ảnh scene '+scene.order+' thất bại.'));
+  scene.material_key=data.material_key;
+  return data.material_key;
+}
+
+async function submitRender(){
+  const progress=document.getElementById('renderProgress');
+  const label=document.getElementById('renderProgressLabel');
+  const value=document.getElementById('renderProgressValue');
+  const bar=document.getElementById('renderProgressBar');
+  const result=document.getElementById('renderResult');
+  const button=document.getElementById('renderBtn');
+
+  progress.classList.remove('hidden');
+  result.textContent='';
+  button.disabled=true;
+
+  try{
+    for(let i=0;i<currentScenes.length;i++){
+      label.textContent='Đang tải ảnh scene '+(i+1)+'/'+currentScenes.length+' lên render worker...';
+      const p=Math.round(((i)/Math.max(currentScenes.length,1))*30);
+      value.textContent=p+'%'; bar.style.width=p+'%';
+      await stageSceneImage(currentScenes[i]);
+    }
+
+    label.textContent='Đang tạo render task...';
+    value.textContent='35%'; bar.style.width='35%';
+    const manifest=buildRenderManifest();
+    const res=await fetch('/api/render-video',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify(manifest)
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('Không thể tạo render task.'));
+    activeRenderTaskId=data.task_id;
+    await pollRenderTask(activeRenderTaskId);
+  }catch(err){
+    label.textContent='Render thất bại';
+    result.textContent=err.message||'Không thể render video.';
+    button.disabled=false;
+  }
+}
+
+async function pollRenderTask(taskId){
+  const label=document.getElementById('renderProgressLabel');
+  const value=document.getElementById('renderProgressValue');
+  const bar=document.getElementById('renderProgressBar');
+  const result=document.getElementById('renderResult');
+  const button=document.getElementById('renderBtn');
+
+  for(let attempt=0;attempt<180;attempt++){
+    await new Promise(resolve=>setTimeout(resolve,2000));
+    const res=await fetch('/api/render-video?task_id='+encodeURIComponent(taskId),{headers:{accept:'application/json'}});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||'Không đọc được trạng thái render.');
+
+    const p=Math.max(35,Math.min(99,Number(data.progress)||35));
+    label.textContent=data.state_label||'Đang render video...';
+    value.textContent=p+'%'; bar.style.width=p+'%';
+
+    if(data.state==='failed') throw new Error(data.error||'MPT render thất bại.');
+    if(data.state==='complete'){
+      value.textContent='100%'; bar.style.width='100%';
+      label.textContent='Hoàn tất MP4';
+      if(data.video_url){
+        const link=document.createElement('a');
+        link.href=data.video_url;
+        link.target='_blank';
+        link.rel='noopener noreferrer';
+        link.textContent='Mở video MP4';
+        result.innerHTML='';
+        result.appendChild(link);
+      }else{
+        result.textContent='Task hoàn tất nhưng chưa có URL video.';
+      }
+      button.disabled=false;
+      return;
+    }
+  }
+  throw new Error('Render quá thời gian chờ của giao diện.');
+}
+
+document.getElementById('downloadManifestBtn').addEventListener('click',()=>{
+  const manifest=buildRenderManifest();
+  const blob=new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='ktn-render-manifest.json';
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+});
+
+document.getElementById('renderBtn').addEventListener('click',submitRender);
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
 document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
@@ -525,4 +715,6 @@ document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn
 activateScriptTools();
 updateImageProviderState();
 updateVoiceProviderState();
+updateRenderReadiness();
 refreshBackendStatus();
+refreshRenderWorker();

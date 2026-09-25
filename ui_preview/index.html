@@ -276,6 +276,58 @@
           <pre id="subtitlePreview"></pre>
         </div>
       </section>
+
+      <section class="panel render-panel" id="renderSection">
+        <div class="panel-head">
+          <div>
+            <h2>Xuất video</h2>
+            <p>Gửi ảnh theo đúng thứ tự scene sang MoneyPrinterTurbo worker và dựng MP4 bằng FFmpeg/MoviePy.</p>
+          </div>
+          <span class="status-pill" id="renderWorkerStatus">Chưa kiểm tra worker</span>
+        </div>
+
+        <div class="render-readiness" id="renderReadiness">
+          <div class="readiness-item" data-check="script"><span>○</span><div><strong>Kịch bản</strong><small>Chưa sẵn sàng</small></div></div>
+          <div class="readiness-item" data-check="scenes"><span>○</span><div><strong>Scene</strong><small>Chưa sẵn sàng</small></div></div>
+          <div class="readiness-item" data-check="images"><span>○</span><div><strong>Ảnh scene</strong><small>Chưa sẵn sàng</small></div></div>
+          <div class="readiness-item" data-check="subtitles"><span>○</span><div><strong>Phụ đề</strong><small>Tùy chọn</small></div></div>
+        </div>
+
+        <div class="render-settings">
+          <div>
+            <label>Tỷ lệ video</label>
+            <select id="renderAspect">
+              <option value="16:9" selected>16:9 · 1920×1080</option>
+              <option value="9:16">9:16 · 1080×1920</option>
+              <option value="1:1">1:1 · 1080×1080</option>
+            </select>
+          </div>
+          <div>
+            <label>Hiệu ứng chuyển cảnh</label>
+            <select id="renderTransition">
+              <option value="" selected>Không</option>
+              <option value="FadeIn">Fade In</option>
+              <option value="FadeOut">Fade Out</option>
+              <option value="ZoomIn">Zoom In</option>
+              <option value="ZoomOut">Zoom Out</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="render-actions">
+          <button class="secondary" id="downloadManifestBtn">Tải Render Manifest</button>
+          <button class="primary" id="renderBtn" disabled>Xuất MP4</button>
+        </div>
+
+        <div id="renderProgress" class="render-progress hidden">
+          <div class="render-progress-head">
+            <span id="renderProgressLabel">Đang chuẩn bị...</span>
+            <strong id="renderProgressValue">0%</strong>
+          </div>
+          <div class="render-progress-track"><div id="renderProgressBar"></div></div>
+          <div id="renderResult" class="render-result"></div>
+        </div>
+      </section>
     </main>
   </div>
 

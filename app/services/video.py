@@ -1624,8 +1624,17 @@ def preprocess_video(materials: List[MaterialInfo], clip_duration=4):
                 # 探测尺寸时已经打开过一次素材，这里先释放探测句柄，再渲染
                 # 用于导出的图片片段。
                 close_clip(clip)
+                # KTN scene-based pipeline may attach a per-material duration.
+                # Preserve that duration for sequential scene rendering; fall
+                # back to the task-wide clip_duration for legacy callers.
+                try:
+                    image_clip_duration = int(getattr(material, "duration", 0) or 0)
+                except (TypeError, ValueError):
+                    image_clip_duration = 0
+                if image_clip_duration <= 0:
+                    image_clip_duration = clip_duration
                 video_file = render_image_zoom_video(
-                    material_source_path, clip_duration
+                    material_source_path, image_clip_duration
                 )
                 material.url = video_file
                 logger.success(f"image processed: {video_file}")
