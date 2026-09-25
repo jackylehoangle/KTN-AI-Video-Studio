@@ -1,3 +1,41 @@
+function setSystemCard(name,configured,fields={}){
+  const card=document.querySelector('.system-card[data-system="'+name+'"]');
+  if(!card) return;
+  card.classList.remove('ready','warn');
+  card.classList.add(configured?'ready':'warn');
+  const badge=card.querySelector('.system-badge');
+  badge.textContent=configured?'READY':'CHƯA CẤU HÌNH';
+  Object.entries(fields).forEach(([key,value])=>{
+    const target=card.querySelector('[data-field="'+key+'"]');
+    if(target) target.textContent=value||'—';
+  });
+}
+
+async function refreshSystemStatus(){
+  const button=document.getElementById('refreshSystemStatusBtn');
+  if(button){button.disabled=true;button.textContent='Đang kiểm tra...';}
+  try{
+    const res=await fetch('/api/system-status',{headers:{accept:'application/json'}});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    setSystemCard('gemini',Boolean(data.providers?.gemini?.configured),{
+      scriptModel:data.providers?.gemini?.scriptModel,
+      imageModel:data.providers?.gemini?.imageModel,
+      ttsModel:data.providers?.gemini?.ttsModel
+    });
+    setSystemCard('openai',Boolean(data.providers?.openai?.configured),{
+      scriptModel:data.providers?.openai?.scriptModel,
+      imageModel:data.providers?.openai?.imageModel
+    });
+    setSystemCard('render',Boolean(data.providers?.render?.configured));
+  }catch(err){
+    ['gemini','openai','render'].forEach(name=>setSystemCard(name,false));
+    showToast('Không đọc được trạng thái hệ thống: '+(err?.message||'lỗi kết nối'));
+  }finally{
+    if(button){button.disabled=false;button.textContent='Kiểm tra lại';}
+  }
+}
+
 const PROJECT_DB_NAME='ktn-ai-video-studio';
 const PROJECT_DB_VERSION=1;
 const PROJECT_STORE='projects';
@@ -653,6 +691,10 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
     btn.classList.add('active');
+    if(btn.dataset.section==='settings'){
+      document.getElementById('settingsSection').scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
     if(btn.dataset.section==='library'){
       document.getElementById('renderSection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
@@ -1021,6 +1063,7 @@ document.getElementById('saveProjectBtn').addEventListener('click',()=>saveProje
 document.getElementById('exportProjectBtn').addEventListener('click',exportProject);
 document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
 document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
+document.getElementById('refreshSystemStatusBtn').addEventListener('click',refreshSystemStatus);
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
 document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
@@ -1032,4 +1075,5 @@ updateRenderReadiness();
 bindAutosave();
 refreshBackendStatus();
 refreshRenderWorker();
+refreshSystemStatus();
 loadAutosavedProject();

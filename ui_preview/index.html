@@ -336,6 +336,54 @@
           <div id="renderResult" class="render-result"></div>
         </div>
       </section>
+
+      <section class="panel settings-panel" id="settingsSection">
+        <div class="panel-head">
+          <div>
+            <h2>Cài đặt hệ thống</h2>
+            <p>Chỉ hiển thị trạng thái cấu hình. API key được lưu bằng Environment Variables trên Vercel/worker và không bao giờ hiển thị ở đây.</p>
+          </div>
+          <button class="secondary compact-btn" id="refreshSystemStatusBtn">Kiểm tra lại</button>
+        </div>
+
+        <div class="system-status-grid">
+          <article class="system-card" data-system="gemini">
+            <div class="system-card-head"><strong>Gemini</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · chia cảnh · hình ảnh · giọng đọc</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>GEMINI_API_KEY</dd></div>
+              <div><dt>Script</dt><dd data-field="scriptModel">—</dd></div>
+              <div><dt>Image</dt><dd data-field="imageModel">—</dd></div>
+              <div><dt>TTS</dt><dd data-field="ttsModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="openai">
+            <div class="system-card-head"><strong>OpenAI</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · hình ảnh dự phòng</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>OPENAI_API_KEY</dd></div>
+              <div><dt>Script</dt><dd data-field="scriptModel">—</dd></div>
+              <div><dt>Image</dt><dd data-field="imageModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="render">
+            <div class="system-card-head"><strong>MoneyPrinterTurbo Worker</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>FFmpeg/MoviePy · tạo voice cuối · subtitle · MP4</p>
+            <dl>
+              <div><dt>Worker URL</dt><dd>MPT_RENDER_BASE_URL</dd></div>
+              <div><dt>Xác thực</dt><dd>MPT_RENDER_API_KEY (tùy chọn)</dd></div>
+              <div><dt>Vai trò</dt><dd>Render nặng ngoài Vercel</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <div class="security-note">
+          <strong>Nguyên tắc bảo mật</strong>
+          <span>Không lưu API key trong project JSON, IndexedDB, LocalStorage hay mã frontend.</span>
+        </div>
+      </section>
     </main>
   </div>
 
