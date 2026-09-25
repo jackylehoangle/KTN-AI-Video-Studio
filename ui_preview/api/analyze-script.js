@@ -10,6 +10,14 @@ function send(res,status,body){
   res.end(JSON.stringify(body));
 }
 
+function resolveGeminiScriptModel(configured){
+  const value=String(configured||'').trim();
+  if(!value || value==='gemini-2.5-flash' || value==='models/gemini-2.5-flash'){
+    return 'gemini-3.8-flash';
+  }
+  return value.replace(/^models\//,'');
+}
+
 function normalizeBody(body){
   if(!body) return {};
   if(typeof body==='object') return body;
@@ -218,7 +226,7 @@ export default async function handler(req,res){
         openai:Boolean(process.env.OPENAI_API_KEY)
       },
       models:{
-        gemini:process.env.GEMINI_SCRIPT_MODEL||PROVIDERS.gemini.defaultModel,
+        gemini:resolveGeminiScriptModel(process.env.GEMINI_SCRIPT_MODEL),
         openai:process.env.OPENAI_SCRIPT_MODEL||PROVIDERS.openai.defaultModel
       },
       actions:['keywords','scenes']
@@ -240,7 +248,7 @@ export default async function handler(req,res){
 
   const cfg=PROVIDERS[provider];
   const key=process.env[cfg.keyEnv];
-  const model=process.env[cfg.modelEnv]||cfg.defaultModel;
+  const model=provider==='gemini' ? resolveGeminiScriptModel(process.env[cfg.modelEnv]) : (process.env[cfg.modelEnv]||cfg.defaultModel);
   if(!key) return send(res,503,{error:'Chưa cấu hình '+cfg.keyEnv+' trên Vercel.',code:'provider_key_missing',provider});
 
   const prompt=action==='keywords'

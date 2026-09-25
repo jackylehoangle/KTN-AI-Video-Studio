@@ -10,6 +10,14 @@ const DEFAULTS={
   }
 };
 
+function resolveGeminiScriptModel(configured){
+  const value=String(configured||'').trim();
+  if(!value || value==='gemini-2.5-flash' || value==='models/gemini-2.5-flash'){
+    return 'gemini-3.8-flash';
+  }
+  return value.replace(/^models\//,'');
+}
+
 function send(res,status,body){
   res.statusCode=status;
   res.setHeader('content-type','application/json; charset=utf-8');
@@ -26,7 +34,7 @@ export default async function handler(req,res){
     providers:{
       gemini:{
         configured:Boolean(process.env.GEMINI_API_KEY),
-        scriptModel:process.env.GEMINI_SCRIPT_MODEL||DEFAULTS.gemini.scriptModel,
+        scriptModel:resolveGeminiScriptModel(process.env.GEMINI_SCRIPT_MODEL),
         imageModel:process.env.GEMINI_IMAGE_MODEL||DEFAULTS.gemini.imageModel,
         ttsModel:process.env.GEMINI_TTS_MODEL||DEFAULTS.gemini.ttsModel
       },
