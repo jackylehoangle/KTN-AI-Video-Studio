@@ -99,3 +99,10 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 .render-result{margin-top:10px;font-size:11px;color:#536078}.render-result a{color:var(--brand);font-weight:700}
 @media(max-width:850px){.render-readiness{grid-template-columns:1fr 1fr}}
 @media(max-width:720px){.render-settings,.render-readiness{grid-template-columns:1fr}.render-actions{flex-direction:column}.render-actions button{width:100%}}
+
+.project-state{display:flex;flex-direction:column;gap:2px;min-width:170px}
+.project-state input{border:0;background:transparent;color:#273146;font-weight:750;font-size:12px;padding:2px 0;outline:none;min-width:170px;max-width:230px}
+.project-state span{font-size:9px;color:var(--muted)}
+.import-project-label{display:inline-flex;align-items:center;cursor:pointer}
+@media(max-width:1050px){.project-state{min-width:130px}.project-state input{min-width:130px;max-width:160px}}
+@media(max-width:720px){.project-state{order:3;width:100%}.project-state input{max-width:none;width:100%}.top-actions{max-width:58%}}

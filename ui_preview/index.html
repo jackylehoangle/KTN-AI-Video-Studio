@@ -20,6 +20,7 @@
 
       <nav class="nav">
         <button class="nav-item active" data-section="create"><span>✦</span>Tạo video</button>
+        <button class="nav-item" id="newProjectBtn"><span>＋</span>Dự án mới</button>
         <button class="nav-item" data-section="script"><span>▤</span>Kịch bản</button>
         <button class="nav-item" data-section="scene"><span>▦</span>Cảnh & hình ảnh</button>
         <button class="nav-item" data-section="voice"><span>◉</span>Giọng đọc</button>
@@ -46,6 +47,13 @@
           <h1>Tạo video AI</h1>
         </div>
         <div class="top-actions">
+          <div class="project-state">
+            <input id="projectName" value="Dự án chưa đặt tên" aria-label="Tên dự án" />
+            <span id="autosaveStatus">Chưa lưu</span>
+          </div>
+          <button class="ghost" id="saveProjectBtn">Lưu</button>
+          <button class="ghost" id="exportProjectBtn">Xuất dự án</button>
+          <label class="ghost import-project-label">Nhập dự án<input id="importProjectInput" type="file" accept=".json,application/json" hidden></label>
           <span class="preview-badge" id="backendStatus">Đang kiểm tra AI...</span>
           <button class="ghost">Tiếng Việt</button>
           <button class="icon-btn" aria-label="Cài đặt">⚙</button>

@@ -1,3 +1,297 @@
+const PROJECT_DB_NAME='ktn-ai-video-studio';
+const PROJECT_DB_VERSION=1;
+const PROJECT_STORE='projects';
+const CURRENT_PROJECT_ID='current-draft';
+let autosaveTimer=null;
+let restoringProject=false;
+
+function openProjectDb(){
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open(PROJECT_DB_NAME,PROJECT_DB_VERSION);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(PROJECT_STORE)){
+        db.createObjectStore(PROJECT_STORE,{keyPath:'id'});
+      }
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('Không mở được bộ nhớ dự án.'));
+  });
+}
+
+async function dbPutProject(project){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_STORE,'readwrite');
+    tx.objectStore(PROJECT_STORE).put(project);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{const err=tx.error;db.close();reject(err);};
+  });
+}
+
+async function dbGetProject(id=CURRENT_PROJECT_ID){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_STORE,'readonly');
+    const req=tx.objectStore(PROJECT_STORE).get(id);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error);
+    tx.oncomplete=()=>db.close();
+  });
+}
+
+async function dbDeleteProject(id=CURRENT_PROJECT_ID){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_STORE,'readwrite');
+    tx.objectStore(PROJECT_STORE).delete(id);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{const err=tx.error;db.close();reject(err);};
+  });
+}
+
+function serializeProjectState({includeMaterialKeys=false}={}){
+  return {
+    schema_version:'ktn-ai-video-project-v1',
+    id:CURRENT_PROJECT_ID,
+    name:document.getElementById('projectName').value.trim()||'Dự án chưa đặt tên',
+    updated_at:new Date().toISOString(),
+    inputs:{
+      topic:document.getElementById('topic').value,
+      scriptLanguage:document.getElementById('scriptLanguage').value,
+      scriptProvider:document.getElementById('scriptProvider').value,
+      paragraphCount:Number(document.getElementById('paragraphCount').value||6),
+      targetDuration:document.getElementById('targetDuration').value,
+      extraInstruction:document.getElementById('extraInstruction').value
+    },
+    script:{
+      title:scriptTitle.textContent||'Kịch bản AI',
+      text:scriptResult.value||'',
+      meta:scriptMeta.textContent||''
+    },
+    scenes:currentScenes.map(scene=>({
+      id:scene.id,
+      order:scene.order,
+      title:scene.title,
+      narration:scene.narration,
+      duration_seconds:scene.duration_seconds,
+      audio_duration_seconds:scene.audio_duration_seconds||null,
+      visual_description:scene.visual_description,
+      image_prompt:scene.image_prompt,
+      image_asset:scene.image_asset||null,
+      material_key:includeMaterialKeys?(scene.material_key||null):null
+    })),
+    subtitles:{
+      srt:currentSrt||'',
+      maxChars:Number(document.getElementById('subtitleMaxChars').value||42),
+      gap:Number(document.getElementById('subtitleGap').value||0.15)
+    },
+    settings:{
+      voiceName:document.getElementById('voiceName').value,
+      imageProvider:document.getElementById('imageProvider').value,
+      renderAspect:document.getElementById('renderAspect').value,
+      renderTransition:document.getElementById('renderTransition').value
+    }
+  };
+}
+
+function setAutosaveStatus(text,state=''){
+  const el=document.getElementById('autosaveStatus');
+  el.textContent=text;
+  el.dataset.state=state;
+}
+
+async function saveProjectNow({silent=false}={}){
+  if(restoringProject) return;
+  try{
+    setAutosaveStatus('Đang lưu...','saving');
+    const project=serializeProjectState();
+    await dbPutProject(project);
+    setAutosaveStatus('Đã lưu trên trình duyệt','saved');
+    if(!silent) showToast('Đã lưu bản nháp dự án trên trình duyệt.');
+  }catch(err){
+    setAutosaveStatus('Lưu thất bại','error');
+    if(!silent) showToast('Không thể lưu dự án: '+(err?.message||'lỗi bộ nhớ trình duyệt'));
+  }
+}
+
+function scheduleAutosave(){
+  if(restoringProject) return;
+  clearTimeout(autosaveTimer);
+  setAutosaveStatus('Có thay đổi chưa lưu','dirty');
+  autosaveTimer=setTimeout(()=>saveProjectNow({silent:true}),800);
+}
+
+function restoreInput(id,value){
+  const el=document.getElementById(id);
+  if(!el || value===undefined || value===null) return;
+  el.value=String(value);
+}
+
+async function restoreProject(project){
+  if(!project || project.schema_version!=='ktn-ai-video-project-v1') return false;
+  restoringProject=true;
+  try{
+    restoreInput('projectName',project.name||'Dự án chưa đặt tên');
+    restoreInput('topic',project.inputs?.topic||'');
+    restoreInput('scriptLanguage',project.inputs?.scriptLanguage||'vi');
+    restoreInput('scriptProvider',project.inputs?.scriptProvider||'gemini');
+    restoreInput('paragraphCount',project.inputs?.paragraphCount||6);
+    restoreInput('targetDuration',project.inputs?.targetDuration||'60-90s');
+    restoreInput('extraInstruction',project.inputs?.extraInstruction||'');
+
+    scriptTitle.textContent=project.script?.title||'Kịch bản AI';
+    scriptResult.value=project.script?.text||'';
+    scriptMeta.textContent=project.script?.meta||'Đã khôi phục · bản nháp';
+
+    currentScenes=Array.isArray(project.scenes)
+      ? project.scenes.map(scene=>({...scene,material_key:''}))
+      : [];
+    currentSrt=String(project.subtitles?.srt||'');
+
+    restoreInput('subtitleMaxChars',project.subtitles?.maxChars||42);
+    restoreInput('subtitleGap',project.subtitles?.gap??0.15);
+    restoreInput('voiceName',project.settings?.voiceName||'Kore');
+    restoreInput('imageProvider',project.settings?.imageProvider||'gemini');
+    restoreInput('renderAspect',project.settings?.renderAspect||'16:9');
+    restoreInput('renderTransition',project.settings?.renderTransition||'');
+
+    if(scriptResult.value.trim()){
+      scriptEmpty.classList.add('hidden');
+      scriptDemo.classList.remove('hidden');
+      selectScriptTab('script');
+    }else{
+      scriptEmpty.classList.remove('hidden');
+      scriptDemo.classList.add('hidden');
+    }
+
+    if(currentScenes.length){
+      renderScenes(currentScenes,{providerLabel:'Đã khôi phục'});
+    }else{
+      sceneList.innerHTML='';
+      sceneList.classList.add('hidden');
+      sceneEmpty.classList.remove('hidden');
+    }
+
+    if(currentSrt){
+      subtitlePreview.textContent=currentSrt;
+      subtitleMeta.textContent='Đã khôi phục SRT';
+      subtitleEmpty.classList.add('hidden');
+      subtitleOutput.classList.remove('hidden');
+    }else{
+      subtitleEmpty.classList.remove('hidden');
+      subtitleOutput.classList.add('hidden');
+    }
+
+    activateScriptTools();
+    updateRenderReadiness();
+    updateImageProviderState();
+    updateVoiceProviderState();
+    setAutosaveStatus('Đã khôi phục bản nháp','saved');
+    return true;
+  }finally{
+    restoringProject=false;
+  }
+}
+
+async function loadAutosavedProject(){
+  try{
+    const project=await dbGetProject();
+    if(project){
+      await restoreProject(project);
+      showToast('Đã khôi phục bản nháp gần nhất.');
+    }else{
+      setAutosaveStatus('Chưa có bản nháp','');
+    }
+  }catch(err){
+    setAutosaveStatus('Không đọc được bản nháp','error');
+  }
+}
+
+async function startNewProject(){
+  const hasWork=Boolean(scriptResult.value.trim() || currentScenes.length || document.getElementById('topic').value.trim());
+  if(hasWork && !confirm('Tạo dự án mới? Bản nháp hiện tại sẽ bị xóa khỏi trình duyệt.')){
+    return;
+  }
+  await dbDeleteProject().catch(()=>{});
+  restoringProject=true;
+  try{
+    document.getElementById('projectName').value='Dự án chưa đặt tên';
+    document.getElementById('topic').value='';
+    document.getElementById('scriptLanguage').value='vi';
+    document.getElementById('scriptProvider').value='gemini';
+    document.getElementById('paragraphCount').value='6';
+    document.getElementById('targetDuration').value='60-90s';
+    document.getElementById('extraInstruction').value='';
+    scriptResult.value='';
+    scriptTitle.textContent='Kịch bản AI';
+    scriptMeta.textContent='Đã tạo · bản nháp';
+    currentScenes=[];
+    currentSrt='';
+    currentSrt='';
+    keywordList.innerHTML='';
+    sceneList.innerHTML='';
+    sceneList.classList.add('hidden');
+    sceneEmpty.classList.remove('hidden');
+    subtitlePreview.textContent='';
+    subtitleOutput.classList.add('hidden');
+    subtitleEmpty.classList.remove('hidden');
+    scriptDemo.classList.add('hidden');
+    scriptEmpty.classList.remove('hidden');
+    selectScriptTab('script');
+    activateScriptTools();
+    updateRenderReadiness();
+    setAutosaveStatus('Dự án mới','');
+  }finally{
+    restoringProject=false;
+  }
+  showToast('Đã tạo dự án mới.');
+}
+
+function exportProject(){
+  const project=serializeProjectState({includeMaterialKeys:false});
+  const blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safe=(project.name||'ktn-ai-video-project').replace(/[^a-zA-Z0-9À-ỹ_-]+/g,'-').replace(/^-+|-+$/g,'')||'ktn-ai-video-project';
+  a.href=url;
+  a.download=safe+'.json';
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  showToast('Đã xuất file dự án JSON.');
+}
+
+async function importProjectFile(file){
+  if(!file) return;
+  try{
+    const text=await file.text();
+    const project=JSON.parse(text);
+    if(project?.schema_version!=='ktn-ai-video-project-v1'){
+      throw new Error('File không đúng định dạng dự án KTN AI Video Studio V1.');
+    }
+    await restoreProject(project);
+    await saveProjectNow({silent:true});
+    showToast('Đã nhập và khôi phục dự án.');
+  }catch(err){
+    showToast('Không thể nhập dự án: '+(err?.message||'file không hợp lệ'));
+  }finally{
+    document.getElementById('importProjectInput').value='';
+  }
+}
+
+function bindAutosave(){
+  [
+    'projectName','topic','scriptLanguage','scriptProvider','paragraphCount',
+    'targetDuration','extraInstruction','voiceName','imageProvider',
+    'subtitleMaxChars','subtitleGap','renderAspect','renderTransition'
+  ].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('input',scheduleAutosave);
+    el.addEventListener('change',scheduleAutosave);
+  });
+  scriptResult.addEventListener('input',scheduleAutosave);
+}
+
 const toast=document.getElementById('toast');
 const backendStatus=document.getElementById('backendStatus');
 const generateBtn=document.getElementById('generateBtn');
@@ -158,6 +452,7 @@ async function generateSceneVoice(scene,card,button){
     status.textContent=(data.voice||voice)+' · '+(data.providerLabel||'Gemini TTS');
     audioBox.appendChild(audio);
     button.textContent='Tạo lại giọng';
+    scheduleAutosave();
     showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
   }catch(err){
     audioBox.classList.remove('hidden');
@@ -212,6 +507,7 @@ async function generateSceneImage(scene,card,button){
     imageBox.prepend(img);
     button.textContent='Tạo lại ảnh';
     updateRenderReadiness();
+    scheduleAutosave();
     showToast('Đã tạo ảnh cho '+(scene.title||scene.id)+' bằng '+(data.providerLabel||provider)+'.');
   }catch(err){
     imageBox.classList.remove('hidden');
@@ -295,6 +591,15 @@ function renderScenes(scenes,meta){
 
     card.append(head,grid,audioBox,imageBox);
     voiceBtn.addEventListener('click',()=>generateSceneVoice(scene,card,voiceBtn));
+    if(scene.image_asset?.b64_json){
+      const restored=document.createElement('img');
+      restored.alt='Ảnh '+(scene.title||scene.id);
+      restored.src='data:'+(scene.image_asset.mime_type||'image/png')+';base64,'+scene.image_asset.b64_json;
+      imageStatus.textContent='';
+      imageBox.prepend(restored);
+      imageBox.classList.remove('hidden');
+      imageBtn.textContent='Tạo lại ảnh';
+    }
     imageBtn.addEventListener('click',()=>generateSceneImage(scene,card,imageBtn));
     sceneList.appendChild(card);
   });
@@ -305,6 +610,7 @@ function renderScenes(scenes,meta){
   subtitleOutput.classList.add('hidden');
   currentSrt='';
   document.getElementById('sceneSection').scrollIntoView({behavior:'smooth',block:'start'});
+  scheduleAutosave();
   showToast('Đã chia '+scenes.length+' cảnh bằng '+(meta?.providerLabel||'AI')+'.');
 }
 
@@ -411,6 +717,7 @@ generateBtn.addEventListener('click',async()=>{
     updateRenderReadiness();
     selectScriptTab('script');
     activateScriptTools();
+    scheduleAutosave();
     showToast('Đã tạo kịch bản thật bằng '+(data.providerLabel||provider)+'.');
   }catch(err){
     backendStatus.textContent='Cần kiểm tra cấu hình AI';
@@ -440,6 +747,7 @@ document.getElementById('editScriptBtn').addEventListener('click',(e)=>{
     scriptResult.classList.remove('editing');
     e.currentTarget.textContent='Chỉnh sửa';
     activateScriptTools();
+    scheduleAutosave();
     showToast('Đã giữ bản chỉnh sửa trong phiên hiện tại.');
   }
 });
@@ -517,6 +825,7 @@ function buildSrt(){
   subtitleOutput.classList.remove('hidden');
   document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
   updateRenderReadiness();
+  scheduleAutosave();
   showToast('Đã tạo phụ đề SRT từ '+currentScenes.length+' cảnh.');
 }
 
@@ -708,6 +1017,10 @@ document.getElementById('downloadManifestBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('renderBtn').addEventListener('click',submitRender);
+document.getElementById('saveProjectBtn').addEventListener('click',()=>saveProjectNow());
+document.getElementById('exportProjectBtn').addEventListener('click',exportProject);
+document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
+document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
 document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
@@ -716,5 +1029,7 @@ activateScriptTools();
 updateImageProviderState();
 updateVoiceProviderState();
 updateRenderReadiness();
+bindAutosave();
 refreshBackendStatus();
 refreshRenderWorker();
+loadAutosavedProject();
