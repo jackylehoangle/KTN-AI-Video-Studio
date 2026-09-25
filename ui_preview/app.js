@@ -18,6 +18,8 @@ const sceneEmpty=document.getElementById('sceneEmpty');
 const sceneList=document.getElementById('sceneList');
 
 let currentScriptProvider='gemini';
+let currentScenes=[];
+let providerAvailability={gemini:false,openai:false};
 
 const showToast=(msg)=>{toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3200)};
 
@@ -26,8 +28,13 @@ async function refreshBackendStatus(){
     const res=await fetch('/api/generate-script',{headers:{'accept':'application/json'}});
     const data=await res.json();
     const configured=[];
-    if(data.providers?.gemini) configured.push('Gemini');
-    if(data.providers?.openai) configured.push('OpenAI');
+    providerAvailability={
+      gemini:Boolean(data.providers?.gemini),
+      openai:Boolean(data.providers?.openai)
+    };
+    if(providerAvailability.gemini) configured.push('Gemini');
+    if(providerAvailability.openai) configured.push('OpenAI');
+    updateImageProviderState();
     if(configured.length){
       backendStatus.textContent='AI sẵn sàng · '+configured.join(' / ');
       backendStatus.className='preview-badge ready';
@@ -79,7 +86,62 @@ function escapeText(value){
   return String(value??'');
 }
 
+function updateImageProviderState(){
+  const provider=document.getElementById('imageProvider')?.value||'gemini';
+  const state=document.getElementById('imageProviderState');
+  if(!state) return;
+  state.textContent=providerAvailability[provider]?'Sẵn sàng':'Thiếu API key';
+  state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
+}
+
+async function generateSceneImage(scene,card,button){
+  const provider=document.getElementById('imageProvider').value;
+  const imageBox=card.querySelector('.scene-image');
+  const status=imageBox.querySelector('.scene-image-status');
+  const prompt=String(scene.image_prompt||'').trim();
+  if(!prompt){showToast('Scene này chưa có image prompt.');return;}
+
+  button.disabled=true;
+  button.textContent='Đang tạo...';
+  imageBox.classList.remove('hidden');
+  status.textContent='AI đang tạo ảnh cho scene '+String(scene.order).padStart(2,'0')+'...';
+  const oldImage=imageBox.querySelector('img');
+  if(oldImage) oldImage.remove();
+
+  try{
+    const res=await fetch('/api/generate-image',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({
+        provider,
+        prompt,
+        sceneId:scene.id,
+        aspectRatio:'16:9'
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    if(!data.b64_json) throw new Error('API không trả về dữ liệu ảnh.');
+
+    const img=document.createElement('img');
+    img.alt='Ảnh '+(scene.title||scene.id);
+    img.src='data:'+(data.mime_type||'image/png')+';base64,'+data.b64_json;
+    status.textContent='';
+    imageBox.prepend(img);
+    button.textContent='Tạo lại ảnh';
+    showToast('Đã tạo ảnh cho '+(scene.title||scene.id)+' bằng '+(data.providerLabel||provider)+'.');
+  }catch(err){
+    imageBox.classList.remove('hidden');
+    status.textContent=err.message||'Không thể tạo ảnh.';
+    button.textContent='Thử lại';
+    showToast(err.message||'Không thể tạo ảnh.');
+  }finally{
+    button.disabled=false;
+  }
+}
+
 function renderScenes(scenes,meta){
+  currentScenes=scenes;
   sceneList.innerHTML='';
   scenes.forEach((scene,index)=>{
     const card=document.createElement('article');
@@ -101,10 +163,16 @@ function renderScenes(scenes,meta){
     titleWrap.append(title,sub);
     idx.append(num,titleWrap);
 
+    const actions=document.createElement('div');
+    actions.className='scene-actions';
     const duration=document.createElement('span');
     duration.className='scene-duration';
     duration.textContent=(scene.duration_seconds||scene.duration_estimate_seconds||0)+' giây';
-    head.append(idx,duration);
+    const imageBtn=document.createElement('button');
+    imageBtn.className='scene-image-btn';
+    imageBtn.textContent='Tạo ảnh';
+    actions.append(duration,imageBtn);
+    head.append(idx,actions);
 
     const grid=document.createElement('div');
     grid.className='scene-grid';
@@ -125,7 +193,15 @@ function renderScenes(scenes,meta){
       grid.appendChild(field);
     });
 
-    card.append(head,grid);
+    const imageBox=document.createElement('div');
+    imageBox.className='scene-image hidden';
+    const imageStatus=document.createElement('div');
+    imageStatus.className='scene-image-status';
+    imageStatus.textContent='Chưa tạo ảnh';
+    imageBox.appendChild(imageStatus);
+
+    card.append(head,grid,imageBox);
+    imageBtn.addEventListener('click',()=>generateSceneImage(scene,card,imageBtn));
     sceneList.appendChild(card);
   });
   sceneEmpty.classList.add('hidden');
@@ -218,6 +294,7 @@ generateBtn.addEventListener('click',async()=>{
     backendStatus.textContent='AI sẵn sàng · '+(data.providerLabel||provider);
     backendStatus.className='preview-badge ready';
     keywordList.innerHTML='';
+    currentScenes=[];
     sceneList.innerHTML='';
     sceneList.classList.add('hidden');
     sceneEmpty.classList.remove('hidden');
@@ -261,7 +338,9 @@ sceneBtn.addEventListener('click',()=>analyzeScript('scenes'));
 document.getElementById('scriptTabBtn').addEventListener('click',()=>selectScriptTab('script'));
 document.getElementById('keywordTabBtn').addEventListener('click',()=>selectScriptTab('keywords'));
 document.getElementById('historyTabBtn').addEventListener('click',()=>selectScriptTab('history'));
+document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
 
 activateScriptTools();
+updateImageProviderState();
 refreshBackendStatus();

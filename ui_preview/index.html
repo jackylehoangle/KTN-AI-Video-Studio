@@ -141,10 +141,17 @@
             <div><strong>Tỷ lệ video</strong><span>16:9 · 1920×1080</span></div>
             <button>Đổi</button>
           </div>
-          <div class="quick-row">
+          <div class="quick-row image-provider-row">
             <div class="quick-icon">◈</div>
-            <div><strong>Nguồn hình ảnh</strong><span>Gemini / OpenAI</span></div>
-            <button>Đổi</button>
+            <div>
+              <strong>Nguồn hình ảnh</strong>
+              <select id="imageProvider" class="inline-select">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+              </select>
+              <span>Ảnh API có thể phát sinh phí</span>
+            </div>
+            <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
           </div>
 
           <div class="info-box">
