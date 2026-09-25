@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KTN AI Video Studio</title>
+  <meta name="description" content="KTN AI Video Studio - bản xem trước giao diện tiếng Việt" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">KTN</div>
+        <div>
+          <strong>AI Video Studio</strong>
+          <span>Bản xem trước</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-section="create"><span>✦</span>Tạo video</button>
+        <button class="nav-item" data-section="script"><span>▤</span>Kịch bản</button>
+        <button class="nav-item" data-section="scene"><span>▦</span>Cảnh & hình ảnh</button>
+        <button class="nav-item" data-section="voice"><span>◉</span>Giọng đọc</button>
+        <button class="nav-item" data-section="subtitle"><span>CC</span>Phụ đề</button>
+        <button class="nav-item" data-section="library"><span>▣</span>Thư viện</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-section="settings"><span>⚙</span>Cài đặt</button>
+        <div class="engine-card">
+          <div class="dot"></div>
+          <div>
+            <strong>Engine</strong>
+            <span>MoneyPrinterTurbo</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">KTN AI VIDEO STUDIO</p>
+          <h1>Tạo video AI</h1>
+        </div>
+        <div class="top-actions">
+          <span class="preview-badge">UI Preview · Chưa nối backend</span>
+          <button class="ghost">Tiếng Việt</button>
+          <button class="icon-btn" aria-label="Cài đặt">⚙</button>
+        </div>
+      </header>
+
+      <section class="workflow">
+        <div class="step done"><span>1</span><div><strong>Chủ đề</strong><small>Nhập ý tưởng</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>2</span><div><strong>Kịch bản</strong><small>AI biên soạn</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>3</span><div><strong>Hình ảnh</strong><small>Gemini / OpenAI</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>4</span><div><strong>Giọng & phụ đề</strong><small>Tự động</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>5</span><div><strong>Xuất video</strong><small>MP4</small></div></div>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel main-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Nội dung video</h2>
+              <p>Nhập chủ đề, chọn ngôn ngữ và AI để bắt đầu tạo kịch bản.</p>
+            </div>
+            <span class="status-pill">Bước 1/5</span>
+          </div>
+
+          <label>Chủ đề video</label>
+          <textarea id="topic" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
+
+          <div class="two-col">
+            <div>
+              <label>Ngôn ngữ kịch bản</label>
+              <select>
+                <option>Tiếng Việt</option>
+                <option>English</option>
+              </select>
+            </div>
+            <div>
+              <label>Nhà cung cấp AI</label>
+              <select>
+                <option>Gemini</option>
+                <option>OpenAI</option>
+                <option>OpenRouter</option>
+                <option>Ollama</option>
+              </select>
+            </div>
+          </div>
+
+          <details>
+            <summary>Cài đặt kịch bản nâng cao</summary>
+            <div class="advanced">
+              <div>
+                <label>Số đoạn</label>
+                <input value="6" />
+              </div>
+              <div>
+                <label>Độ dài mục tiêu</label>
+                <select><option>60–90 giây</option><option>3–5 phút</option><option>8–12 phút</option></select>
+              </div>
+              <div class="full">
+                <label>Yêu cầu bổ sung</label>
+                <input placeholder="Phong cách kể chuyện, đối tượng người xem..." />
+              </div>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button class="secondary">Tạo từ khóa trước</button>
+            <button class="primary" id="generateBtn">✦ Tạo kịch bản bằng AI</button>
+          </div>
+        </div>
+
+        <aside class="panel side-panel">
+          <div class="panel-head compact">
+            <div>
+              <h2>Cấu hình nhanh</h2>
+              <p>Dùng cho bản video hiện tại.</p>
+            </div>
+          </div>
+
+          <div class="quick-row">
+            <div class="quick-icon">🎙</div>
+            <div><strong>Giọng đọc</strong><span>vi-VN · Nữ</span></div>
+            <button>Đổi</button>
+          </div>
+          <div class="quick-row">
+            <div class="quick-icon">CC</div>
+            <div><strong>Phụ đề</strong><span>Bật · Dưới màn hình</span></div>
+            <button>Đổi</button>
+          </div>
+          <div class="quick-row">
+            <div class="quick-icon">▭</div>
+            <div><strong>Tỷ lệ video</strong><span>16:9 · 1920×1080</span></div>
+            <button>Đổi</button>
+          </div>
+          <div class="quick-row">
+            <div class="quick-icon">◈</div>
+            <div><strong>Nguồn hình ảnh</strong><span>Gemini / OpenAI</span></div>
+            <button>Đổi</button>
+          </div>
+
+          <div class="info-box">
+            <strong>Hướng phát triển hiện tại</strong>
+            <p>Trước mắt dùng API ảnh Gemini hoặc OpenAI. ComfyUI + Flux sẽ được thay vào sau qua KTN Image Gateway.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel script-preview">
+        <div class="panel-head">
+          <div>
+            <h2>Kịch bản</h2>
+            <p>Kết quả AI sẽ hiển thị tại đây để chỉnh sửa trước khi chia cảnh.</p>
+          </div>
+          <div class="segmented">
+            <button class="active">Kịch bản</button>
+            <button>Từ khóa</button>
+            <button>Lịch sử</button>
+          </div>
+        </div>
+        <div id="scriptEmpty" class="empty-state">
+          <div class="empty-icon">✦</div>
+          <strong>Chưa có kịch bản</strong>
+          <p>Nhập chủ đề ở trên và chọn “Tạo kịch bản bằng AI”.</p>
+        </div>
+        <div id="scriptDemo" class="script-demo hidden">
+          <div class="script-toolbar">
+            <span>Đã tạo · bản nháp</span>
+            <button>Chỉnh sửa</button>
+          </div>
+          <h3>Vì sao chúng ta luôn trì hoãn điều quan trọng?</h3>
+          <p>Trì hoãn không đơn giản là lười biếng. Nhiều khi, não bộ đang cố bảo vệ chúng ta khỏi cảm giác khó chịu của một nhiệm vụ quan trọng...</p>
+          <p>Khi một công việc mang theo áp lực, rủi ro thất bại hoặc cảm giác không chắc chắn, chúng ta thường chuyển sang những việc nhỏ dễ hoàn thành hơn...</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast">Đây là bản xem trước giao diện. Chức năng AI sẽ được nối ở bước tiếp theo.</div>
+  <script src="./app.js"></script>
+</body>
+</html>
