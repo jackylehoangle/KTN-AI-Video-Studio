@@ -105,3 +105,5 @@ document.getElementById('keywordBtn').addEventListener('click',()=>showToast('Ch
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
 
 refreshBackendStatus();
+
+// UI-FUNC-01A: redeploy after Gemini env configuration
