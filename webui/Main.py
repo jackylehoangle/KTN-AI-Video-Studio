@@ -67,16 +67,16 @@ from app.utils.logging_utils import configure_terminal_logger
 from app.utils import utils
 
 st.set_page_config(
-    page_title="MoneyPrinterTurbo",
+    page_title="KTN AI Video Studio",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="auto",
     menu_items={
-        "Report a bug": "https://github.com/harry0703/MoneyPrinterTurbo/issues",
-        "About": "# MoneyPrinterTurbo\nSimply provide a topic or keyword for a video, and it will "
-        "automatically generate the video copy, video materials, video subtitles, "
-        "and video background music before synthesizing a high-definition short "
-        "video.\n\nhttps://github.com/harry0703/MoneyPrinterTurbo",
+        "Report a bug": "https://github.com/jackylehoangle/KTN-AI-Video-Studio",
+        "About": "# KTN AI Video Studio\nỨng dụng hỗ trợ tạo video AI từ chủ đề hoặc kịch bản, "
+        "bao gồm tạo nội dung, tư liệu, giọng đọc, phụ đề và dựng video. "
+        "Phát triển trên nền MoneyPrinterTurbo (MIT).\n\n"
+        "https://github.com/jackylehoangle/KTN-AI-Video-Studio",
     },
 )
 
@@ -622,7 +622,7 @@ def _initialize_session_state():
         if recovered is not None:
             st.session_state["cross_post_recovery_checked"] = True
 
-    saved_ui_language = config.ui.get("language", "")
+    saved_ui_language = config.ui.get("language", "") or "vi"
     browser_locale = st.context.locale
     initial_ui_language = utils.resolve_ui_language(
         saved_language=saved_ui_language,
@@ -1669,13 +1669,13 @@ def _render_brand(available_update: str | None = None):
     st.markdown(
         f"""
         <h1 class="mpt-brand">
-            <span class="mpt-brand__name">MoneyPrinterTurbo</span>
+            <span class="mpt-brand__name">KTN AI Video Studio</span>
             <a class="mpt-brand__version"
-               href="https://github.com/harry0703/MoneyPrinterTurbo"
+               href="https://github.com/jackylehoangle/KTN-AI-Video-Studio"
                target="_blank"
                rel="noopener noreferrer"
-               aria-label="Open MoneyPrinterTurbo on GitHub"
-               title="Open project on GitHub">v{html.escape(str(config.project_version))}</a>
+               aria-label="Mở KTN AI Video Studio trên GitHub"
+               title="Mở dự án trên GitHub">v{html.escape(str(config.project_version))}</a>
             {update_link}
         </h1>
         """,
@@ -2098,7 +2098,7 @@ def get_llm_provider_tips(provider_id, **kwargs):
     # 统一使用英文，避免在 locale 中复制英文后长期不同步。后续某个语种完成
     # 全量翻译后，再将它加入这里的独立维护范围。
     ui_language = st.session_state.get("ui_language", "en")
-    tips_language = ui_language if ui_language in {"zh", "en"} else "en"
+    tips_language = ui_language if ui_language in {"zh", "en", "vi"} else "en"
     tips = (
         locales.get(tips_language, {}).get("Translation", {}).get(provider.tips_key, "")
     )
@@ -2106,7 +2106,7 @@ def get_llm_provider_tips(provider_id, **kwargs):
         return tips
 
     service_endpoint = provider.preferred_service_endpoint(
-        prefer_international=tips_language == "en"
+        prefer_international=tips_language != "zh"
     )
     api_key_url = (
         service_endpoint.api_key_url
@@ -2125,7 +2125,7 @@ def get_llm_provider_tips(provider_id, **kwargs):
             service_endpoint.model_docs_url
             if service_endpoint and service_endpoint.model_docs_url
             else provider.effective_model_docs_url(
-                prefer_international=tips_language == "en"
+                prefer_international=tips_language != "zh"
             )
         ),
         **{
@@ -2175,7 +2175,7 @@ def get_tts_provider_tips(provider_id):
     # TTS 配置说明与 LLM Provider 采用相同维护策略：只维护中英文，
     # 其它界面语言统一回退英文，避免复制后长期不同步。
     ui_language = st.session_state.get("ui_language", "en")
-    tips_language = ui_language if ui_language in {"zh", "en"} else "en"
+    tips_language = ui_language if ui_language in {"zh", "en", "vi"} else "en"
     return (
         locales.get(tips_language, {})
         .get("Translation", {})
