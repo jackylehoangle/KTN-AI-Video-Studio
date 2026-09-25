@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from ktn_image_gateway import __version__
 from ktn_image_gateway.config import GatewaySettings
+from ktn_image_gateway.routes.images import router as images_router
 
 
 settings = GatewaySettings.from_env()
@@ -18,6 +19,7 @@ app = FastAPI(
         "ComfyUI/Flux execution is added in MPT-04B.3."
     ),
 )
+app.include_router(images_router)
 
 
 @app.get("/health")
