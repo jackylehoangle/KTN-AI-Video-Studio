@@ -18,6 +18,7 @@ class GatewaySettings:
     default_model: str = "flux"
     default_size: str = "1024x1024"
     request_timeout_seconds: int = 300
+    poll_interval_seconds: float = 0.5
 
     @classmethod
     def from_env(cls) -> "GatewaySettings":
@@ -38,5 +39,8 @@ class GatewaySettings:
             default_size=os.getenv("KTN_IMAGE_SIZE", "1024x1024"),
             request_timeout_seconds=int(
                 os.getenv("KTN_IMAGE_REQUEST_TIMEOUT_SECONDS", "300")
+            ),
+            poll_interval_seconds=float(
+                os.getenv("KTN_IMAGE_POLL_INTERVAL_SECONDS", "0.5")
             ),
         )
