@@ -1,4 +1,4 @@
-const GEMINI_TTS_MODEL_DEFAULT='gemini-2.5-flash-preview-tts';
+const GEMINI_TTS_MODEL_DEFAULT='gemini-3.8-flash-lite-tts';
 const ALLOWED_VOICES=new Set(['Kore','Achernar','Aoede','Charon','Sulafat','Puck']);
 
 function send(res,status,body){
@@ -14,62 +14,11 @@ function normalizeBody(body){
   try{return JSON.parse(body)}catch{return {}}
 }
 
-function writeAscii(buffer,offset,text){
-  for(let i=0;i<text.length;i++) buffer[offset+i]=text.charCodeAt(i);
-}
-
-function pcm16MonoToWavBase64(pcmBase64,sampleRate=24000){
-  const pcm=Buffer.from(pcmBase64,'base64');
-  const wav=Buffer.alloc(44+pcm.length);
-  writeAscii(wav,0,'RIFF');
-  wav.writeUInt32LE(36+pcm.length,4);
-  writeAscii(wav,8,'WAVE');
-  writeAscii(wav,12,'fmt ');
-  wav.writeUInt32LE(16,16);
-  wav.writeUInt16LE(1,20);
-  wav.writeUInt16LE(1,22);
-  wav.writeUInt32LE(sampleRate,24);
-  wav.writeUInt32LE(sampleRate*2,28);
-  wav.writeUInt16LE(2,32);
-  wav.writeUInt16LE(16,34);
-  writeAscii(wav,36,'data');
-  wav.writeUInt32LE(pcm.length,40);
-  pcm.copy(wav,44);
-  return wav.toString('base64');
-}
-
-function findAudioPart(value){
-  if(!value) return null;
-  if(Array.isArray(value)){
-    for(const item of value){
-      const found=findAudioPart(item);
-      if(found) return found;
-    }
-    return null;
-  }
-  if(typeof value!=='object') return null;
-
-  const inline=value.inlineData||value.inline_data;
-  if(inline && typeof inline.data==='string'){
-    const mime=String(inline.mimeType||inline.mime_type||'').toLowerCase();
-    if(mime.startsWith('audio/') || mime.includes('pcm') || mime.includes('l16')){
-      return {data:inline.data,mime_type:inline.mimeType||inline.mime_type||'audio/L16;rate=24000'};
-    }
-  }
-
-  for(const item of Object.values(value)){
-    const found=findAudioPart(item);
-    if(found) return found;
-  }
-  return null;
-}
-
 function wavDurationSeconds(buffer){
   try{
     if(buffer.length<44 || buffer.toString('ascii',0,4)!=='RIFF') return null;
-    const sampleRate=buffer.readUInt32LE(24);
     const byteRate=buffer.readUInt32LE(28);
-    if(!sampleRate || !byteRate) return null;
+    if(!byteRate) return null;
     let offset=12;
     while(offset+8<=buffer.length){
       const chunkId=buffer.toString('ascii',offset,offset+4);
@@ -81,58 +30,80 @@ function wavDurationSeconds(buffer){
   }catch{return null}
 }
 
-function normalizeAudio(audio){
-  const mime=String(audio.mime_type||'').toLowerCase();
-  const source=Buffer.from(audio.data,'base64');
-  if(mime.includes('wav')){
-    return {
-      b64_audio:audio.data,
-      mime_type:'audio/wav',
-      duration_seconds:wavDurationSeconds(source)
-    };
+function findInteractionAudio(payload){
+  const steps=Array.isArray(payload?.steps)?payload.steps:[];
+  for(let i=steps.length-1;i>=0;i--){
+    const step=steps[i];
+    if(step?.type!=='model_output') continue;
+    const content=Array.isArray(step?.content)?step.content:[];
+    for(let j=content.length-1;j>=0;j--){
+      const item=content[j];
+      if(item?.type==='audio' && typeof item?.data==='string' && item.data.length>100){
+        return {
+          data:item.data,
+          mime_type:String(item.mime_type||item.mimeType||'audio/wav')
+        };
+      }
+    }
   }
-  if(mime.includes('mpeg') || mime.includes('mp3')){
-    return {b64_audio:audio.data,mime_type:'audio/mpeg',duration_seconds:null};
-  }
-  if(mime.includes('ogg')){
-    return {b64_audio:audio.data,mime_type:'audio/ogg',duration_seconds:null};
-  }
-  return {
-    b64_audio:pcm16MonoToWavBase64(audio.data,24000),
-    mime_type:'audio/wav',
-    duration_seconds:source.length/(24000*2)
-  };
+  return null;
 }
 
 async function generateGeminiVoice(key,model,text,voice,languageCode){
-  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);
-  const response=await fetch(url,{
+  const style=languageCode==='vi-VN'
+    ? 'Đọc tiếng Việt tự nhiên, rõ ràng, nhịp kể chuyện chuyên nghiệp, phát âm chính xác và không thêm bất kỳ lời nào ngoài bản chép lời.'
+    : 'Natural, clear professional video narration with accurate pronunciation. Do not add words beyond the transcript.';
+
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
     method:'POST',
-    headers:{'content-type':'application/json'},
+    headers:{
+      'content-type':'application/json',
+      'x-goog-api-key':key
+    },
     body:JSON.stringify({
-      contents:[{
-        role:'user',
-        parts:[{
-          text:'Đọc tự nhiên, rõ ràng, phù hợp giọng thuyết minh video. Không đọc thêm lời dẫn ngoài nội dung sau:\n\n'+text
+      model,
+      input:[{
+        type:'user_input',
+        content:[{
+          type:'text',
+          text,
+          annotations:[{
+            type:'speech_metadata',
+            style
+          }]
         }]
       }],
-      generationConfig:{
-        responseModalities:['AUDIO'],
-        speechConfig:{
-          languageCode,
-          voiceConfig:{
-            prebuiltVoiceConfig:{voiceName:voice}
-          }
-        }
+      response_format:{
+        type:'audio',
+        mime_type:'audio/wav',
+        sample_rate:24000
+      },
+      generation_config:{
+        speech_config:[
+          {voice}
+        ]
       }
     })
   });
 
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||('Gemini TTS HTTP '+response.status));
-  const audio=findAudioPart(data);
+  if(!response.ok){
+    throw new Error(data?.error?.message||('Gemini TTS HTTP '+response.status));
+  }
+
+  const audio=findInteractionAudio(data);
   if(!audio) throw new Error('Gemini TTS không trả về dữ liệu âm thanh.');
-  return normalizeAudio(audio);
+
+  const bytes=Buffer.from(audio.data,'base64');
+  if(bytes.length<44 || bytes.toString('ascii',0,4)!=='RIFF'){
+    throw new Error('Gemini TTS trả về audio không phải WAV hợp lệ.');
+  }
+
+  return {
+    b64_audio:audio.data,
+    mime_type:'audio/wav',
+    duration_seconds:wavDurationSeconds(bytes)
+  };
 }
 
 export default async function handler(req,res){
@@ -146,7 +117,9 @@ export default async function handler(req,res){
     });
   }
 
-  if(req.method!=='POST') return send(res,405,{error:'Phương thức không được hỗ trợ.'});
+  if(req.method!=='POST'){
+    return send(res,405,{error:'Phương thức không được hỗ trợ.'});
+  }
 
   const body=normalizeBody(req.body);
   const provider=String(body.provider||'gemini').toLowerCase();
@@ -155,10 +128,14 @@ export default async function handler(req,res){
   const languageCode=String(body.languageCode||'vi-VN').trim();
   const sceneId=String(body.sceneId||'').trim().slice(0,100);
 
-  if(provider!=='gemini') return send(res,400,{error:'Hiện UI V1 chỉ bật Gemini TTS.'});
+  if(provider!=='gemini'){
+    return send(res,400,{error:'Hiện UI V1 chỉ bật Gemini TTS.'});
+  }
   if(!text) return send(res,400,{error:'Lời đọc không được để trống.'});
   if(text.length>8000) return send(res,400,{error:'Lời đọc của một scene quá dài.'});
-  if(!ALLOWED_VOICES.has(voice)) return send(res,400,{error:'Giọng đọc không được hỗ trợ.'});
+  if(!ALLOWED_VOICES.has(voice)){
+    return send(res,400,{error:'Giọng đọc không được hỗ trợ.'});
+  }
 
   const key=process.env.GEMINI_API_KEY;
   const model=process.env.GEMINI_TTS_MODEL||GEMINI_TTS_MODEL_DEFAULT;
@@ -186,7 +163,12 @@ export default async function handler(req,res){
       createdAt:new Date().toISOString()
     });
   }catch(error){
-    console.error('voice_generation_failed',{sceneId,model,voice,message:error?.message});
+    console.error('voice_generation_failed',{
+      sceneId,
+      model,
+      voice,
+      message:error?.message
+    });
     return send(res,502,{
       error:'Tạo giọng thất bại: '+(error?.message||'Lỗi không xác định'),
       code:'voice_provider_request_failed',
