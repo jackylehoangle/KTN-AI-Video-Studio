@@ -126,10 +126,21 @@
             </div>
           </div>
 
-          <div class="quick-row">
+          <div class="quick-row voice-provider-row">
             <div class="quick-icon">🎙</div>
-            <div><strong>Giọng đọc</strong><span>vi-VN · Nữ</span></div>
-            <button>Đổi</button>
+            <div>
+              <strong>Giọng đọc</strong>
+              <select id="voiceName" class="inline-select">
+                <option value="Kore">Kore · Rõ, chắc</option>
+                <option value="Achernar">Achernar · Nhẹ nhàng</option>
+                <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+                <option value="Charon">Charon · Thuyết minh</option>
+                <option value="Sulafat">Sulafat · Ấm</option>
+                <option value="Puck">Puck · Năng lượng</option>
+              </select>
+              <span>Gemini TTS · vi-VN</span>
+            </div>
+            <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
           </div>
           <div class="quick-row">
             <div class="quick-icon">CC</div>

@@ -20,6 +20,7 @@ const sceneList=document.getElementById('sceneList');
 let currentScriptProvider='gemini';
 let currentScenes=[];
 let providerAvailability={gemini:false,openai:false};
+let voiceAvailability={gemini:false};
 
 const showToast=(msg)=>{toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3200)};
 
@@ -38,9 +39,13 @@ async function refreshBackendStatus(){
     if(configured.length){
       backendStatus.textContent='AI sẵn sàng · '+configured.join(' / ');
       backendStatus.className='preview-badge ready';
+      voiceAvailability.gemini=providerAvailability.gemini;
+      updateVoiceProviderState();
     }else{
       backendStatus.textContent='Chưa cấu hình API key';
       backendStatus.className='preview-badge warn';
+      voiceAvailability.gemini=false;
+      updateVoiceProviderState();
     }
   }catch(e){
     backendStatus.textContent='Không kết nối được AI';
@@ -86,12 +91,67 @@ function escapeText(value){
   return String(value??'');
 }
 
+function updateVoiceProviderState(){
+  const state=document.getElementById('voiceProviderState');
+  if(!state) return;
+  state.textContent=voiceAvailability.gemini?'Sẵn sàng':'Thiếu API key';
+  state.style.color=voiceAvailability.gemini?'#198754':'#9b6b16';
+}
+
 function updateImageProviderState(){
   const provider=document.getElementById('imageProvider')?.value||'gemini';
   const state=document.getElementById('imageProviderState');
   if(!state) return;
   state.textContent=providerAvailability[provider]?'Sẵn sàng':'Thiếu API key';
   state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
+}
+
+async function generateSceneVoice(scene,card,button){
+  const text=String(scene.narration||'').trim();
+  const voice=document.getElementById('voiceName').value||'Kore';
+  const audioBox=card.querySelector('.scene-audio');
+  const status=audioBox.querySelector('.scene-audio-status');
+  if(!text){showToast('Scene này chưa có lời đọc.');return;}
+
+  button.disabled=true;
+  button.textContent='Đang tạo giọng...';
+  audioBox.classList.remove('hidden');
+  status.textContent='Gemini đang tạo giọng cho scene '+String(scene.order).padStart(2,'0')+'...';
+  const oldAudio=audioBox.querySelector('audio');
+  if(oldAudio) oldAudio.remove();
+
+  try{
+    const res=await fetch('/api/generate-voice',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({
+        provider:'gemini',
+        text,
+        voice,
+        languageCode:'vi-VN',
+        sceneId:scene.id
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    if(!data.b64_audio) throw new Error('API không trả về dữ liệu âm thanh.');
+
+    const audio=document.createElement('audio');
+    audio.controls=true;
+    audio.preload='metadata';
+    audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
+    status.textContent=(data.voice||voice)+' · '+(data.providerLabel||'Gemini TTS');
+    audioBox.appendChild(audio);
+    button.textContent='Tạo lại giọng';
+    showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
+  }catch(err){
+    audioBox.classList.remove('hidden');
+    status.textContent=err.message||'Không thể tạo giọng.';
+    button.textContent='Thử lại giọng';
+    showToast(err.message||'Không thể tạo giọng.');
+  }finally{
+    button.disabled=false;
+  }
 }
 
 async function generateSceneImage(scene,card,button){
@@ -168,10 +228,13 @@ function renderScenes(scenes,meta){
     const duration=document.createElement('span');
     duration.className='scene-duration';
     duration.textContent=(scene.duration_seconds||scene.duration_estimate_seconds||0)+' giây';
+    const voiceBtn=document.createElement('button');
+    voiceBtn.className='scene-voice-btn';
+    voiceBtn.textContent='Tạo giọng';
     const imageBtn=document.createElement('button');
     imageBtn.className='scene-image-btn';
     imageBtn.textContent='Tạo ảnh';
-    actions.append(duration,imageBtn);
+    actions.append(duration,voiceBtn,imageBtn);
     head.append(idx,actions);
 
     const grid=document.createElement('div');
@@ -193,6 +256,13 @@ function renderScenes(scenes,meta){
       grid.appendChild(field);
     });
 
+    const audioBox=document.createElement('div');
+    audioBox.className='scene-audio hidden';
+    const audioStatus=document.createElement('div');
+    audioStatus.className='scene-audio-status';
+    audioStatus.textContent='Chưa tạo giọng';
+    audioBox.appendChild(audioStatus);
+
     const imageBox=document.createElement('div');
     imageBox.className='scene-image hidden';
     const imageStatus=document.createElement('div');
@@ -200,7 +270,8 @@ function renderScenes(scenes,meta){
     imageStatus.textContent='Chưa tạo ảnh';
     imageBox.appendChild(imageStatus);
 
-    card.append(head,grid,imageBox);
+    card.append(head,grid,audioBox,imageBox);
+    voiceBtn.addEventListener('click',()=>generateSceneVoice(scene,card,voiceBtn));
     imageBtn.addEventListener('click',()=>generateSceneImage(scene,card,imageBtn));
     sceneList.appendChild(card);
   });
@@ -339,8 +410,10 @@ document.getElementById('scriptTabBtn').addEventListener('click',()=>selectScrip
 document.getElementById('keywordTabBtn').addEventListener('click',()=>selectScriptTab('keywords'));
 document.getElementById('historyTabBtn').addEventListener('click',()=>selectScriptTab('history'));
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
+document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
 
 activateScriptTools();
 updateImageProviderState();
+updateVoiceProviderState();
 refreshBackendStatus();

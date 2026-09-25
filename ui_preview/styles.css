@@ -66,3 +66,10 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 .scene-image.hidden{display:none}
 .scene-image img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
 .scene-image-status{font-size:10px;color:var(--muted);padding:18px;text-align:center}
+
+.scene-voice-btn{border:1px solid #d9e1f0;background:#fff;color:#6a4cc4;border-radius:8px;padding:6px 9px;font-size:10px;font-weight:700;cursor:pointer}
+.scene-voice-btn[disabled]{opacity:.55;cursor:not-allowed}
+.scene-audio{margin-top:10px;border:1px solid #e7e9f0;border-radius:10px;background:#fff;padding:10px}
+.scene-audio.hidden{display:none}
+.scene-audio audio{width:100%;height:34px}
+.scene-audio-status{font-size:10px;color:var(--muted);margin-bottom:6px}
