@@ -64,20 +64,43 @@ function findAudioPart(value){
   return null;
 }
 
+function wavDurationSeconds(buffer){
+  try{
+    if(buffer.length<44 || buffer.toString('ascii',0,4)!=='RIFF') return null;
+    const sampleRate=buffer.readUInt32LE(24);
+    const byteRate=buffer.readUInt32LE(28);
+    if(!sampleRate || !byteRate) return null;
+    let offset=12;
+    while(offset+8<=buffer.length){
+      const chunkId=buffer.toString('ascii',offset,offset+4);
+      const chunkSize=buffer.readUInt32LE(offset+4);
+      if(chunkId==='data') return chunkSize/byteRate;
+      offset+=8+chunkSize+(chunkSize%2);
+    }
+    return null;
+  }catch{return null}
+}
+
 function normalizeAudio(audio){
   const mime=String(audio.mime_type||'').toLowerCase();
+  const source=Buffer.from(audio.data,'base64');
   if(mime.includes('wav')){
-    return {b64_audio:audio.data,mime_type:'audio/wav'};
+    return {
+      b64_audio:audio.data,
+      mime_type:'audio/wav',
+      duration_seconds:wavDurationSeconds(source)
+    };
   }
   if(mime.includes('mpeg') || mime.includes('mp3')){
-    return {b64_audio:audio.data,mime_type:'audio/mpeg'};
+    return {b64_audio:audio.data,mime_type:'audio/mpeg',duration_seconds:null};
   }
   if(mime.includes('ogg')){
-    return {b64_audio:audio.data,mime_type:'audio/ogg'};
+    return {b64_audio:audio.data,mime_type:'audio/ogg',duration_seconds:null};
   }
   return {
     b64_audio:pcm16MonoToWavBase64(audio.data,24000),
-    mime_type:'audio/wav'
+    mime_type:'audio/wav',
+    duration_seconds:source.length/(24000*2)
   };
 }
 
@@ -159,6 +182,7 @@ export default async function handler(req,res){
       languageCode,
       mime_type:audio.mime_type,
       b64_audio:audio.b64_audio,
+      duration_seconds:audio.duration_seconds,
       createdAt:new Date().toISOString()
     });
   }catch(error){

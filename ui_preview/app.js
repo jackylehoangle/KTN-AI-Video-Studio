@@ -16,6 +16,12 @@ const keywordMeta=document.getElementById('keywordMeta');
 const historyPanel=document.getElementById('historyPanel');
 const sceneEmpty=document.getElementById('sceneEmpty');
 const sceneList=document.getElementById('sceneList');
+const subtitleBtn=document.getElementById('subtitleBtn');
+const subtitleEmpty=document.getElementById('subtitleEmpty');
+const subtitleOutput=document.getElementById('subtitleOutput');
+const subtitlePreview=document.getElementById('subtitlePreview');
+const subtitleMeta=document.getElementById('subtitleMeta');
+let currentSrt='';
 
 let currentScriptProvider='gemini';
 let currentScenes=[];
@@ -57,6 +63,7 @@ function activateScriptTools(){
   const hasScript=Boolean(scriptResult.value.trim());
   keywordBtn.disabled=!hasScript;
   sceneBtn.disabled=!hasScript;
+  subtitleBtn.disabled=currentScenes.length===0;
 }
 
 function selectScriptTab(tab){
@@ -140,6 +147,12 @@ async function generateSceneVoice(scene,card,button){
     audio.controls=true;
     audio.preload='metadata';
     audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
+    const actualDuration=Number(data.duration_seconds);
+    if(Number.isFinite(actualDuration) && actualDuration>0){
+      scene.audio_duration_seconds=actualDuration;
+      const durationBadge=card.querySelector('.scene-duration');
+      if(durationBadge) durationBadge.textContent=actualDuration.toFixed(1)+' giây · audio';
+    }
     status.textContent=(data.voice||voice)+' · '+(data.providerLabel||'Gemini TTS');
     audioBox.appendChild(audio);
     button.textContent='Tạo lại giọng';
@@ -277,6 +290,10 @@ function renderScenes(scenes,meta){
   });
   sceneEmpty.classList.add('hidden');
   sceneList.classList.remove('hidden');
+  subtitleBtn.disabled=scenes.length===0;
+  subtitleEmpty.classList.remove('hidden');
+  subtitleOutput.classList.add('hidden');
+  currentSrt='';
   document.getElementById('sceneSection').scrollIntoView({behavior:'smooth',block:'start'});
   showToast('Đã chia '+scenes.length+' cảnh bằng '+(meta?.providerLabel||'AI')+'.');
 }
@@ -320,6 +337,10 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
     btn.classList.add('active');
+    if(btn.dataset.section==='subtitle'){
+      document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
     if(btn.dataset.section==='scene'){
       document.getElementById('sceneSection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
@@ -369,6 +390,10 @@ generateBtn.addEventListener('click',async()=>{
     sceneList.innerHTML='';
     sceneList.classList.add('hidden');
     sceneEmpty.classList.remove('hidden');
+    subtitleBtn.disabled=true;
+    subtitleEmpty.classList.remove('hidden');
+    subtitleOutput.classList.add('hidden');
+    currentSrt='';
     selectScriptTab('script');
     activateScriptTools();
     showToast('Đã tạo kịch bản thật bằng '+(data.providerLabel||provider)+'.');
@@ -409,6 +434,90 @@ sceneBtn.addEventListener('click',()=>analyzeScript('scenes'));
 document.getElementById('scriptTabBtn').addEventListener('click',()=>selectScriptTab('script'));
 document.getElementById('keywordTabBtn').addEventListener('click',()=>selectScriptTab('keywords'));
 document.getElementById('historyTabBtn').addEventListener('click',()=>selectScriptTab('history'));
+function formatSrtTime(seconds){
+  const totalMs=Math.max(0,Math.round(Number(seconds||0)*1000));
+  const h=Math.floor(totalMs/3600000);
+  const m=Math.floor((totalMs%3600000)/60000);
+  const s=Math.floor((totalMs%60000)/1000);
+  const ms=totalMs%1000;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+','+String(ms).padStart(3,'0');
+}
+
+function splitSubtitleText(text,maxChars){
+  const cleaned=String(text||'').replace(/\s+/g,' ').trim();
+  if(!cleaned) return [];
+  const sentences=cleaned.match(/[^.!?…]+[.!?…]?/g)||[cleaned];
+  const chunks=[];
+  for(const sentenceRaw of sentences){
+    const sentence=sentenceRaw.trim();
+    if(!sentence) continue;
+    if(sentence.length<=maxChars){chunks.push(sentence);continue;}
+    const words=sentence.split(' ');
+    let line='';
+    for(const word of words){
+      const next=line?line+' '+word:word;
+      if(next.length>maxChars && line){chunks.push(line);line=word;}
+      else line=next;
+    }
+    if(line) chunks.push(line);
+  }
+  return chunks;
+}
+
+function buildSrt(){
+  if(!currentScenes.length){showToast('Cần chia cảnh trước khi tạo phụ đề.');return;}
+  const maxChars=Number(document.getElementById('subtitleMaxChars').value||42);
+  const gap=Number(document.getElementById('subtitleGap').value||0);
+  let cursor=0;
+  let cue=1;
+  const blocks=[];
+
+  for(const scene of currentScenes){
+    const chunks=splitSubtitleText(scene.narration,maxChars);
+    if(!chunks.length) continue;
+    const duration=Math.max(1,Number(scene.audio_duration_seconds||scene.duration_seconds||3));
+    const weights=chunks.map(x=>Math.max(x.replace(/\s+/g,'').length,1));
+    const totalWeight=weights.reduce((a,b)=>a+b,0);
+    let sceneCursor=cursor;
+
+    chunks.forEach((chunk,index)=>{
+      const share=duration*(weights[index]/totalWeight);
+      const end=index===chunks.length-1?cursor+duration:sceneCursor+share;
+      blocks.push(
+        cue+'\n'+
+        formatSrtTime(sceneCursor)+' --> '+formatSrtTime(end)+'\n'+
+        chunk
+      );
+      cue+=1;
+      sceneCursor=end;
+    });
+
+    cursor+=duration+gap;
+  }
+
+  currentSrt=blocks.join('\n\n')+'\n';
+  subtitlePreview.textContent=currentSrt;
+  subtitleMeta.textContent=(cue-1)+' câu · '+formatSrtTime(cursor)+' · '+currentScenes.length+' cảnh';
+  subtitleEmpty.classList.add('hidden');
+  subtitleOutput.classList.remove('hidden');
+  document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
+  showToast('Đã tạo phụ đề SRT từ '+currentScenes.length+' cảnh.');
+}
+
+subtitleBtn.addEventListener('click',buildSrt);
+document.getElementById('downloadSrtBtn').addEventListener('click',()=>{
+  if(!currentSrt){showToast('Chưa có nội dung SRT để tải.');return;}
+  const blob=new Blob([currentSrt],{type:'application/x-subrip;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='ktn-ai-video-studio.srt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
 document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));

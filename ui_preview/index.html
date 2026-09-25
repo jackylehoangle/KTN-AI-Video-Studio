@@ -236,6 +236,46 @@
         </div>
         <div id="sceneList" class="scene-list hidden"></div>
       </section>
+
+      <section class="panel subtitle-panel" id="subtitleSection">
+        <div class="panel-head">
+          <div>
+            <h2>Phụ đề</h2>
+            <p>Tạo timeline SRT từ lời đọc từng scene. Nếu đã tạo audio, hệ thống ưu tiên thời lượng audio thật.</p>
+          </div>
+          <button class="primary compact-btn" id="subtitleBtn" disabled>Tạo phụ đề SRT</button>
+        </div>
+        <div class="subtitle-settings">
+          <div>
+            <label>Độ dài tối đa mỗi dòng</label>
+            <select id="subtitleMaxChars">
+              <option value="36">36 ký tự</option>
+              <option value="42" selected>42 ký tự</option>
+              <option value="50">50 ký tự</option>
+            </select>
+          </div>
+          <div>
+            <label>Khoảng nghỉ giữa cảnh</label>
+            <select id="subtitleGap">
+              <option value="0">0 giây</option>
+              <option value="0.15" selected>0,15 giây</option>
+              <option value="0.3">0,30 giây</option>
+            </select>
+          </div>
+        </div>
+        <div id="subtitleEmpty" class="empty-state">
+          <div class="empty-icon">CC</div>
+          <strong>Chưa có phụ đề</strong>
+          <p>Hãy chia cảnh trước. Sau đó có thể tạo SRT ngay cả khi chưa tạo audio.</p>
+        </div>
+        <div id="subtitleOutput" class="subtitle-output hidden">
+          <div class="subtitle-toolbar">
+            <span id="subtitleMeta">SRT</span>
+            <button id="downloadSrtBtn">Tải file .srt</button>
+          </div>
+          <pre id="subtitlePreview"></pre>
+        </div>
+      </section>
     </main>
   </div>
 
