@@ -46,7 +46,7 @@
           <h1>Tạo video AI</h1>
         </div>
         <div class="top-actions">
-          <span class="preview-badge">UI Preview · Chưa nối backend</span>
+          <span class="preview-badge" id="backendStatus">Đang kiểm tra AI...</span>
           <button class="ghost">Tiếng Việt</button>
           <button class="icon-btn" aria-label="Cài đặt">⚙</button>
         </div>
@@ -80,18 +80,16 @@
           <div class="two-col">
             <div>
               <label>Ngôn ngữ kịch bản</label>
-              <select>
-                <option>Tiếng Việt</option>
-                <option>English</option>
+              <select id="scriptLanguage">
+                <option value="vi">Tiếng Việt</option>
+                <option value="en">English</option>
               </select>
             </div>
             <div>
               <label>Nhà cung cấp AI</label>
-              <select>
-                <option>Gemini</option>
-                <option>OpenAI</option>
-                <option>OpenRouter</option>
-                <option>Ollama</option>
+              <select id="scriptProvider">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
               </select>
             </div>
           </div>
@@ -101,22 +99,22 @@
             <div class="advanced">
               <div>
                 <label>Số đoạn</label>
-                <input value="6" />
+                <input id="paragraphCount" type="number" min="1" max="20" value="6" />
               </div>
               <div>
                 <label>Độ dài mục tiêu</label>
-                <select><option>60–90 giây</option><option>3–5 phút</option><option>8–12 phút</option></select>
+                <select id="targetDuration"><option value="60-90s">60–90 giây</option><option value="3-5m">3–5 phút</option><option value="8-12m">8–12 phút</option></select>
               </div>
               <div class="full">
                 <label>Yêu cầu bổ sung</label>
-                <input placeholder="Phong cách kể chuyện, đối tượng người xem..." />
+                <input id="extraInstruction" placeholder="Phong cách kể chuyện, đối tượng người xem..." />
               </div>
             </div>
           </details>
 
           <div class="actions">
-            <button class="secondary">Tạo từ khóa trước</button>
-            <button class="primary" id="generateBtn">✦ Tạo kịch bản bằng AI</button>
+            <button class="secondary" id="keywordBtn">Tạo từ khóa trước</button>
+            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
           </div>
         </div>
 
@@ -175,12 +173,14 @@
         </div>
         <div id="scriptDemo" class="script-demo hidden">
           <div class="script-toolbar">
-            <span>Đã tạo · bản nháp</span>
-            <button>Chỉnh sửa</button>
+            <span id="scriptMeta">Đã tạo · bản nháp</span>
+            <div>
+              <button id="copyScriptBtn">Sao chép</button>
+              <button id="editScriptBtn">Chỉnh sửa</button>
+            </div>
           </div>
-          <h3>Vì sao chúng ta luôn trì hoãn điều quan trọng?</h3>
-          <p>Trì hoãn không đơn giản là lười biếng. Nhiều khi, não bộ đang cố bảo vệ chúng ta khỏi cảm giác khó chịu của một nhiệm vụ quan trọng...</p>
-          <p>Khi một công việc mang theo áp lực, rủi ro thất bại hoặc cảm giác không chắc chắn, chúng ta thường chuyển sang những việc nhỏ dễ hoàn thành hơn...</p>
+          <h3 id="scriptTitle">Kịch bản AI</h3>
+          <textarea id="scriptResult" readonly></textarea>
         </div>
       </section>
     </main>
