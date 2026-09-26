@@ -918,13 +918,13 @@ async function saveProjectNow({silent=false}={}){
       actual.audio!==expected.audio
     ){
       throw new Error(
-        'Xác minh lưu thất bại: cần '+expected.scenes+' scene / '+expected.audio+
-        ' audio nhưng đọc lại được '+actual.scenes+' scene / '+actual.audio+' audio.'
+        'Xác minh lưu thất bại: cần '+expected.scenes+' scene / '+expected.images+' ảnh / '+expected.audio+
+        ' audio nhưng đọc lại được '+actual.scenes+' scene / '+actual.images+' ảnh / '+actual.audio+' audio.'
       );
     }
 
     setAutosaveStatus(
-      'Đã lưu · '+actual.scenes+' scene · '+actual.audio+' audio',
+      'Đã lưu · '+actual.scenes+' scene · '+actual.images+' ảnh · '+actual.audio+' audio',
       'saved'
     );
     if(!silent) showToast('Đã lưu và xác minh bản nháp trên trình duyệt.');
@@ -1052,6 +1052,7 @@ async function startNewProject(){
     document.getElementById('paragraphCount').value='6';
     document.getElementById('targetDuration').value='60-90s';
     document.getElementById('extraInstruction').value='';
+    document.getElementById('imageProvider').value='ktn';
     scriptResult.value='';
     scriptTitle.textContent='Kịch bản AI';
     scriptMeta.textContent='Đã tạo · bản nháp';
@@ -1205,6 +1206,11 @@ async function refreshBackendStatus(){
     if(providerAvailability.gemini) configured.push('Gemini');
     if(providerAvailability.openai) configured.push('OpenAI');
     if(providerAvailability.ktn) configured.push('KTN FLUX');
+
+    const imageProvider=document.getElementById('imageProvider');
+    if(imageProvider && !providerAvailability[imageProvider.value] && providerAvailability.ktn){
+      imageProvider.value='ktn';
+    }
     updateImageProviderState();
     if(configured.length){
       backendStatus.textContent='AI sẵn sàng · '+configured.join(' / ');
@@ -1457,8 +1463,17 @@ async function generateSceneImage(scene,card,button){
     button.textContent='Tạo lại ảnh';
     updateRenderReadiness();
     renderAssetLibrary();
-    scheduleAutosave();
-    showToast('Đã tạo ảnh cho '+(scene.title||scene.id)+' bằng '+(data.providerLabel||provider)+'.');
+
+    const saved=await saveProjectNow({silent:true});
+    if(!saved?.ok){
+      throw new Error('Ảnh đã tạo nhưng lưu dự án chưa được xác minh. Không đánh dấu PASS.');
+    }
+
+    status.textContent='Đã lưu · '+(data.providerLabel||provider);
+    showToast(
+      'PASS · '+(scene.title||scene.id)+' · '+(data.providerLabel||provider)+
+      ' · đã xác minh lưu '+saved.stats.images+' ảnh.'
+    );
   }catch(err){
     imageBox.classList.remove('hidden');
     status.textContent=err.message||'Không thể tạo ảnh.';
@@ -2015,7 +2030,10 @@ document.querySelectorAll('[data-asset-filter]').forEach(button=>{
     renderAssetLibrary();
   });
 });
-document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
+document.getElementById('imageProvider').addEventListener('change',async()=>{
+  updateImageProviderState();
+  await saveProjectNow({silent:true});
+});
 document.getElementById('voiceName').addEventListener('change',e=>syncVoiceSelectors(e.target));
 document.getElementById('voiceWorkspaceVoice').addEventListener('change',e=>syncVoiceSelectors(e.target));
 document.getElementById('voicePreviewBtn').addEventListener('click',previewVoice);
