@@ -179,3 +179,6 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 
 .persistence-diagnostic{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #dfe5ee;border-radius:11px;background:#fbfcfe;padding:12px;margin-top:12px}
 .persistence-diagnostic strong,.persistence-diagnostic span{display:block}.persistence-diagnostic strong{font-size:10px}.persistence-diagnostic span{font-size:9px;color:var(--muted);margin-top:3px}
+
+.voice-daily-quota-notice{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;border:1px solid #efcaca;background:#fff5f5;border-radius:11px;padding:11px 12px;color:#9b3333}
+.voice-daily-quota-notice strong{font-size:10px}.voice-daily-quota-notice span{font-size:9px;line-height:1.45}

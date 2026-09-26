@@ -18,9 +18,33 @@ async function waitWithCountdown(seconds,onTick){
   }
 }
 
+function makeVoiceError(message,data={},status=0){
+  const err=new Error(message);
+  err.code=String(data.code||'voice_request_failed');
+  err.status=Number(status||0);
+  err.quotaScope=String(data.quota_scope||'');
+  err.retryable=data.retryable!==false;
+  err.retryAfterSeconds=Number(data.retry_after_seconds)||null;
+  return err;
+}
+
+function markVoiceDailyQuotaBlocked(message){
+  voiceDailyQuotaBlocked=true;
+  voiceDailyQuotaMessage=String(message||'Gemini TTS đã hết quota Free Tier theo ngày.');
+  renderVoiceWorkspace();
+}
+
 async function requestVoiceWithRetry(payload,onRetry){
   const transientStatuses=new Set([429,500,502,503,504]);
   let lastError=null;
+
+  if(voiceDailyQuotaBlocked){
+    throw makeVoiceError(
+      voiceDailyQuotaMessage||'Gemini TTS đã hết quota Free Tier theo ngày.',
+      {code:'provider_daily_quota_exhausted',quota_scope:'day',retryable:false},
+      429
+    );
+  }
 
   for(let attempt=1;attempt<=3;attempt++){
     try{
@@ -36,10 +60,21 @@ async function requestVoiceWithRetry(payload,onRetry){
       }
 
       const message=data.error||('HTTP '+res.status);
-      lastError=new Error(message);
-      if(!transientStatuses.has(res.status) || attempt===3) throw lastError;
+      const requestError=makeVoiceError(message,data,res.status);
+      lastError=requestError;
 
-      const providerRetry=Number(data.retry_after_seconds)||parseRetrySeconds(message);
+      if(
+        requestError.code==='provider_daily_quota_exhausted' ||
+        requestError.quotaScope==='day' ||
+        requestError.retryable===false
+      ){
+        markVoiceDailyQuotaBlocked(message);
+        throw requestError;
+      }
+
+      if(!transientStatuses.has(res.status) || attempt===3) throw requestError;
+
+      const providerRetry=requestError.retryAfterSeconds||parseRetrySeconds(message);
       const fallback=res.status===429 ? 60 : Math.min(15,5*attempt);
       const retrySeconds=Math.max(1,Math.min(120,providerRetry||fallback));
 
@@ -48,7 +83,8 @@ async function requestVoiceWithRetry(payload,onRetry){
           attempt,
           status:res.status,
           message,
-          retrySeconds
+          retrySeconds,
+          quotaScope:requestError.quotaScope
         });
       }
       await waitWithCountdown(retrySeconds,remaining=>{
@@ -58,15 +94,25 @@ async function requestVoiceWithRetry(payload,onRetry){
             status:res.status,
             message,
             retrySeconds,
-            remaining
+            remaining,
+            quotaScope:requestError.quotaScope
           });
         }
       });
     }catch(err){
       lastError=err;
+      if(
+        err?.code==='provider_daily_quota_exhausted' ||
+        err?.quotaScope==='day' ||
+        err?.retryable===false
+      ){
+        throw err;
+      }
+
       const message=String(err?.message||'');
       const isNetwork=message.toLowerCase().includes('fetch');
       if(!isNetwork || attempt===3) throw err;
+
       const retrySeconds=Math.min(15,5*attempt);
       if(typeof onRetry==='function'){
         onRetry({attempt,status:0,message,retrySeconds});
@@ -105,10 +151,25 @@ function renderVoiceWorkspace(){
   const ready=currentScenes.filter(scene=>scene.audio_asset?.b64_audio).length;
   const missing=Math.max(0,total-ready);
   const status=document.getElementById('voiceWorkspaceStatus');
+  const quotaNotice=document.getElementById('voiceDailyQuotaNotice');
   if(status){
-    status.textContent=voiceAvailability.gemini?'Gemini TTS sẵn sàng':'Chưa cấu hình Gemini TTS';
-    status.style.background=voiceAvailability.gemini?'#eaf8ef':'#fff7df';
-    status.style.color=voiceAvailability.gemini?'#198754':'#805d16';
+    if(voiceDailyQuotaBlocked){
+      status.textContent='Hết quota TTS hôm nay';
+      status.style.background='#fff0f0';
+      status.style.color='#a23b3b';
+    }else{
+      status.textContent=voiceAvailability.gemini?'Gemini TTS sẵn sàng':'Chưa cấu hình Gemini TTS';
+      status.style.background=voiceAvailability.gemini?'#eaf8ef':'#fff7df';
+      status.style.color=voiceAvailability.gemini?'#198754':'#805d16';
+    }
+  }
+  if(quotaNotice){
+    quotaNotice.classList.toggle('hidden',!voiceDailyQuotaBlocked);
+    const detail=quotaNotice.querySelector('span');
+    if(detail && voiceDailyQuotaBlocked){
+      detail.textContent=voiceDailyQuotaMessage+
+        ' Hệ thống đã dừng retry và khóa tạo audio mới trong phiên này.';
+    }
   }
   document.getElementById('voiceSceneTotal').textContent=String(total);
   document.getElementById('voiceSceneReady').textContent=String(ready);
@@ -149,7 +210,8 @@ function renderVoiceWorkspace(){
       badge.textContent=hasAudio?'READY':'THIẾU AUDIO';
 
       const action=document.createElement('button');
-      action.textContent=hasAudio?'Tạo lại':'Tạo audio';
+      action.textContent=voiceDailyQuotaBlocked?'Hết quota':(hasAudio?'Tạo lại':'Tạo audio');
+      action.disabled=voiceDailyQuotaBlocked;
       action.addEventListener('click',()=>{
         const card=findSceneCard(scene.id);
         const button=card?.querySelector('.scene-voice-btn');
@@ -168,6 +230,12 @@ function renderVoiceWorkspace(){
     });
   }
 
+  const previewButton=document.getElementById('voicePreviewBtn');
+  if(previewButton) previewButton.disabled=voiceDailyQuotaBlocked || !voiceAvailability.gemini;
+  document.querySelectorAll('.scene-voice-btn').forEach(btn=>{
+    btn.disabled=voiceDailyQuotaBlocked;
+    if(voiceDailyQuotaBlocked) btn.textContent='Hết quota TTS';
+  });
   updateVoiceBatchButton();
 }
 
@@ -176,10 +244,12 @@ function updateVoiceBatchButton(){
   const confirmed=document.getElementById('voiceBatchConfirm').checked;
   const scope=document.getElementById('voiceBatchScope').value;
   const candidates=getVoiceBatchCandidates(scope);
-  button.disabled=!(voiceAvailability.gemini && confirmed && candidates.length>0);
-  button.textContent=candidates.length
-    ? ((scope==='test2'?'Test batch':'Tạo audio hàng loạt')+' · '+candidates.length+' scene')
-    : 'Không có scene cần tạo';
+  button.disabled=!(voiceAvailability.gemini && !voiceDailyQuotaBlocked && confirmed && candidates.length>0);
+  button.textContent=voiceDailyQuotaBlocked
+    ? 'Hết quota TTS hôm nay'
+    : (candidates.length
+      ? ((scope==='test2'?'Test batch':'Tạo audio hàng loạt')+' · '+candidates.length+' scene')
+      : 'Không có scene cần tạo');
 }
 
 async function previewVoice(){
@@ -191,6 +261,7 @@ async function previewVoice(){
   const meta=document.getElementById('voicePreviewMeta');
 
   if(!text){showToast('Hãy nhập câu nghe thử.');return;}
+  if(voiceDailyQuotaBlocked){showToast('Gemini TTS đã hết quota Free Tier theo ngày. Không gửi thêm request.');return;}
   if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
 
   button.disabled=true;
@@ -223,8 +294,8 @@ async function previewVoice(){
     meta.textContent=err.message||'Không thể tạo audio mẫu.';
     showToast(err.message||'Không thể tạo audio mẫu.');
   }finally{
-    button.disabled=false;
-    button.textContent='Nghe thử';
+    button.disabled=voiceDailyQuotaBlocked;
+    button.textContent=voiceDailyQuotaBlocked?'Hết quota TTS':'Nghe thử';
   }
 }
 
@@ -233,6 +304,7 @@ async function runVoiceBatch(){
   const scope=document.getElementById('voiceBatchScope').value;
   const confirmed=document.getElementById('voiceBatchConfirm').checked;
   if(!confirmed){showToast('Cần xác nhận trước khi tạo audio hàng loạt.');return;}
+  if(voiceDailyQuotaBlocked){showToast('Gemini TTS đã hết quota Free Tier theo ngày. Batch không được chạy.');return;}
   if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
 
   const targets=getVoiceBatchCandidates(scope);
@@ -251,7 +323,13 @@ async function runVoiceBatch(){
   let failed=0;
   const minBatchGapSeconds=21;
 
+  let stoppedByDailyQuota=false;
+
   for(let i=0;i<targets.length;i++){
+    if(voiceDailyQuotaBlocked){
+      stoppedByDailyQuota=true;
+      break;
+    }
     if(i>0){
       await waitWithCountdown(minBatchGapSeconds,remaining=>{
         label.textContent='Đợi quota Gemini · scene tiếp theo sau '+remaining+' giây';
@@ -296,7 +374,12 @@ async function runVoiceBatch(){
     }else{
       failed+=1;
       resultRow.className='voice-batch-result fail';
-      resultState.textContent='TTS FAIL';
+      if(voiceDailyQuotaBlocked){
+        resultState.textContent='DỪNG · HẾT QUOTA NGÀY';
+        stoppedByDailyQuota=true;
+      }else{
+        resultState.textContent='TTS FAIL';
+      }
     }
 
     renderVoiceWorkspace();
@@ -304,17 +387,22 @@ async function runVoiceBatch(){
     const donePct=Math.round(((i+1)/targets.length)*100);
     value.textContent=donePct+'%';
     bar.style.width=donePct+'%';
+    if(stoppedByDailyQuota) break;
   }
 
-  label.textContent='Hoàn tất: '+success+' thành công'+(failed?' · '+failed+' lỗi':'');
+  label.textContent=stoppedByDailyQuota
+    ? 'Đã dừng batch: Gemini TTS hết quota Free Tier theo ngày'
+    : ('Hoàn tất: '+success+' thành công'+(failed?' · '+failed+' lỗi':''));
   document.getElementById('voiceBatchConfirm').checked=false;
   renderVoiceWorkspace();
   renderAssetLibrary();
   const finalSave=await saveProjectNow({silent:true});
   showToast(
-    (scope==='test2'?'Kiểm thử batch':'Tạo audio hàng loạt')+
-    ' hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+
-    (finalSave?.ok?' · dữ liệu đã xác minh lưu.':' · CẢNH BÁO: lưu dự án thất bại.')
+    stoppedByDailyQuota
+      ? ('Đã dừng batch vì hết quota TTS theo ngày. '+success+' scene đã hoàn tất trước khi dừng.')
+      : ((scope==='test2'?'Kiểm thử batch':'Tạo audio hàng loạt')+
+        ' hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+
+        (finalSave?.ok?' · dữ liệu đã xác minh lưu.':' · CẢNH BÁO: lưu dự án thất bại.'))
   );
 }
 
@@ -1093,6 +1181,8 @@ let currentScriptProvider='gemini';
 let currentScenes=[];
 let providerAvailability={gemini:false,openai:false};
 let voiceAvailability={gemini:false};
+let voiceDailyQuotaBlocked=false;
+let voiceDailyQuotaMessage='';
 
 const showToast=(msg)=>{toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3200)};
 
@@ -1190,6 +1280,11 @@ async function generateSceneVoice(scene,card,button,{silent=false}={}){
     if(!silent) showToast('Scene này chưa có lời đọc.');
     return false;
   }
+  if(voiceDailyQuotaBlocked){
+    status.textContent='Đã hết quota Gemini TTS Free Tier theo ngày.';
+    if(!silent) showToast('Gemini TTS đã hết quota theo ngày. Không gửi thêm request.');
+    return false;
+  }
 
   button.disabled=true;
   button.textContent='Đang tạo giọng...';
@@ -1248,7 +1343,8 @@ async function generateSceneVoice(scene,card,button,{silent=false}={}){
     if(!silent) showToast(err.message||'Không thể tạo giọng.');
     return false;
   }finally{
-    button.disabled=false;
+    button.disabled=voiceDailyQuotaBlocked;
+    if(voiceDailyQuotaBlocked) button.textContent='Hết quota TTS';
   }
 }
 

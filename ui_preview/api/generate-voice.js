@@ -167,23 +167,38 @@ export default async function handler(req,res){
     const retryMatch=providerMessage.match(/retry in\s+(\d+(?:\.\d+)?)s/i);
     const retryAfterSeconds=retryMatch ? Math.ceil(Number(retryMatch[1])) : null;
     const rateLimited=/rate limit exceeded/i.test(providerMessage);
+    const dailyQuota=rateLimited && /requests per day/i.test(providerMessage);
+    const minuteQuota=rateLimited && /requests per minute/i.test(providerMessage);
     const highDemand=/high demand/i.test(providerMessage);
     const status=rateLimited ? 429 : (highDemand ? 503 : 502);
+    const quotaScope=dailyQuota?'day':(minuteQuota?'minute':null);
+    const retryable=!dailyQuota && (rateLimited || highDemand);
 
     console.error('voice_generation_failed',{
       sceneId,
       model,
       voice,
       status,
-      retryAfterSeconds,
+      quotaScope,
+      retryable,
+      retryAfterSeconds:dailyQuota?null:retryAfterSeconds,
       message:providerMessage
     });
+
+    const userError=dailyQuota
+      ? 'Gemini TTS Free Tier đã đạt giới hạn request theo ngày. Hệ thống sẽ không retry tự động.'
+      : ('Tạo giọng thất bại: '+providerMessage);
+
     return send(res,status,{
-      error:'Tạo giọng thất bại: '+providerMessage,
-      code:rateLimited?'provider_rate_limited':(highDemand?'provider_high_demand':'voice_provider_request_failed'),
+      error:userError,
+      code:dailyQuota
+        ? 'provider_daily_quota_exhausted'
+        : (rateLimited?'provider_rate_limited':(highDemand?'provider_high_demand':'voice_provider_request_failed')),
       provider:'gemini',
       sceneId,
-      retry_after_seconds:retryAfterSeconds
+      quota_scope:quotaScope,
+      retryable,
+      retry_after_seconds:dailyQuota?null:retryAfterSeconds
     });
   }
 }
