@@ -87,7 +87,7 @@ export default async function handler(req,res){
     1,
     ...materials.map(item=>item.duration)
   );
-  const voiceName=String(body?.voice?.voice||'Kore').trim();
+  const voiceName='vi-VN-HoaiMyNeural';
   const aspect=['16:9','9:16','1:1'].includes(body?.video?.aspect)?body.video.aspect:'16:9';
   const transition=body?.video?.transition||null;
 
@@ -106,7 +106,7 @@ export default async function handler(req,res){
     video_source:'local',
     video_materials:materials,
     video_language:'vi-VN',
-    voice_name:'gemini:'+voiceName,
+    voice_name:voiceName,
     voice_volume:1.0,
     voice_rate:1.0,
     bgm_type:'',
