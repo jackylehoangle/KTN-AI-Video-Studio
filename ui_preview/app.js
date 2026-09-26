@@ -1,4 +1,56 @@
 
+function wait(ms){
+  return new Promise(resolve=>setTimeout(resolve,ms));
+}
+
+async function requestVoiceWithRetry(payload,onRetry){
+  const transientStatuses=new Set([429,500,502,503,504]);
+  let lastError=null;
+
+  for(let attempt=1;attempt<=3;attempt++){
+    try{
+      const res=await fetch('/api/generate-voice',{
+        method:'POST',
+        headers:{'content-type':'application/json','accept':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      const data=await res.json().catch(()=>({}));
+      if(res.ok){
+        if(!data.b64_audio) throw new Error('API không trả về dữ liệu âm thanh.');
+        return data;
+      }
+
+      const message=data.error||('HTTP '+res.status);
+      lastError=new Error(message);
+      if(!transientStatuses.has(res.status) || attempt===3) throw lastError;
+
+      if(typeof onRetry==='function'){
+        onRetry(attempt,res.status,message);
+      }
+      await wait(1500*attempt);
+    }catch(err){
+      lastError=err;
+      const message=String(err?.message||'');
+      const isNetwork=message.toLowerCase().includes('fetch');
+      if(!isNetwork || attempt===3) throw err;
+      if(typeof onRetry==='function'){
+        onRetry(attempt,0,message);
+      }
+      await wait(1500*attempt);
+    }
+  }
+
+  throw lastError||new Error('Không thể tạo giọng.');
+}
+
+function getVoiceBatchCandidates(scope){
+  const missing=currentScenes.filter(scene=>!scene.audio_asset?.b64_audio);
+  if(scope==='all') return currentScenes.slice();
+  if(scope==='test2') return missing.slice(0,2);
+  return missing;
+}
+
+
 function syncVoiceSelectors(source){
   const quick=document.getElementById('voiceName');
   const workspace=document.getElementById('voiceWorkspaceVoice');
@@ -84,12 +136,10 @@ function updateVoiceBatchButton(){
   const button=document.getElementById('voiceBatchBtn');
   const confirmed=document.getElementById('voiceBatchConfirm').checked;
   const scope=document.getElementById('voiceBatchScope').value;
-  const candidates=scope==='all'
-    ? currentScenes
-    : currentScenes.filter(scene=>!scene.audio_asset?.b64_audio);
+  const candidates=getVoiceBatchCandidates(scope);
   button.disabled=!(voiceAvailability.gemini && confirmed && candidates.length>0);
   button.textContent=candidates.length
-    ? 'Tạo audio hàng loạt · '+candidates.length+' scene'
+    ? ((scope==='test2'?'Test batch':'Tạo audio hàng loạt')+' · '+candidates.length+' scene')
     : 'Không có scene cần tạo';
 }
 
@@ -112,20 +162,15 @@ async function previewVoice(){
   audio.load();
 
   try{
-    const res=await fetch('/api/generate-voice',{
-      method:'POST',
-      headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({
-        provider:'gemini',
-        text,
-        voice,
-        languageCode:'vi-VN',
-        sceneId:'voice_preview'
-      })
+    const data=await requestVoiceWithRetry({
+      provider:'gemini',
+      text,
+      voice,
+      languageCode:'vi-VN',
+      sceneId:'voice_preview'
+    },attempt=>{
+      meta.textContent='Gemini đang bận · thử lại '+attempt+'/2...';
     });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
-    if(!data.b64_audio) throw new Error('API không trả về audio mẫu.');
     audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
     meta.textContent=(data.voice||voice)+' · '+(data.model||'Gemini TTS')+
       (Number(data.duration_seconds)>0?' · '+Number(data.duration_seconds).toFixed(1)+' giây':'');
@@ -147,18 +192,16 @@ async function runVoiceBatch(){
   if(!confirmed){showToast('Cần xác nhận trước khi tạo audio hàng loạt.');return;}
   if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
 
-  const targets=(scope==='all'
-    ? currentScenes
-    : currentScenes.filter(scene=>!scene.audio_asset?.b64_audio)
-  ).slice();
-
+  const targets=getVoiceBatchCandidates(scope);
   if(!targets.length){showToast('Không có scene cần tạo audio.');return;}
 
   const progress=document.getElementById('voiceBatchProgress');
   const label=document.getElementById('voiceBatchProgressLabel');
   const value=document.getElementById('voiceBatchProgressValue');
   const bar=document.getElementById('voiceBatchBar');
+  const results=document.getElementById('voiceBatchResults');
   progress.classList.remove('hidden');
+  results.innerHTML='';
   button.disabled=true;
 
   let success=0;
@@ -166,35 +209,54 @@ async function runVoiceBatch(){
 
   for(let i=0;i<targets.length;i++){
     const scene=targets[i];
-    const before=Boolean(scene.audio_asset?.b64_audio);
     label.textContent='Scene '+(i+1)+'/'+targets.length+' · '+(scene.title||scene.id);
     const pct=Math.round((i/targets.length)*100);
     value.textContent=pct+'%';
     bar.style.width=pct+'%';
 
+    const resultRow=document.createElement('div');
+    resultRow.className='voice-batch-result running';
+    const resultName=document.createElement('strong');
+    resultName.textContent=String(scene.order||i+1).padStart(2,'0')+' · '+(scene.title||scene.id);
+    const resultState=document.createElement('span');
+    resultState.textContent='Đang tạo...';
+    resultRow.append(resultName,resultState);
+    results.appendChild(resultRow);
+
     const card=findSceneCard(scene.id);
     const sceneButton=card?.querySelector('.scene-voice-btn');
     if(!card || !sceneButton){
       failed+=1;
+      resultRow.className='voice-batch-result fail';
+      resultState.textContent='FAIL · thiếu scene UI';
       continue;
     }
 
-    if(scope==='all') scene.audio_asset=null;
-    await generateSceneVoice(scene,card,sceneButton);
-    if(scene.audio_asset?.b64_audio && (!before || scope==='all')) success+=1;
-    else if(!scene.audio_asset?.b64_audio) failed+=1;
+    const ok=await generateSceneVoice(scene,card,sceneButton,{silent:true});
+    if(ok){
+      success+=1;
+      resultRow.className='voice-batch-result pass';
+      resultState.textContent='PASS';
+      await saveProjectNow({silent:true});
+    }else{
+      failed+=1;
+      resultRow.className='voice-batch-result fail';
+      resultState.textContent='FAIL';
+    }
 
     renderVoiceWorkspace();
+    renderAssetLibrary();
+    const donePct=Math.round(((i+1)/targets.length)*100);
+    value.textContent=donePct+'%';
+    bar.style.width=donePct+'%';
   }
 
-  value.textContent='100%';
-  bar.style.width='100%';
   label.textContent='Hoàn tất: '+success+' thành công'+(failed?' · '+failed+' lỗi':'');
   document.getElementById('voiceBatchConfirm').checked=false;
   renderVoiceWorkspace();
   renderAssetLibrary();
-  scheduleAutosave();
-  showToast('Tạo audio hàng loạt hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+'.');
+  await saveProjectNow({silent:true});
+  showToast((scope==='test2'?'Kiểm thử batch':'Tạo audio hàng loạt')+' hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+'.');
 }
 
 
@@ -868,35 +930,34 @@ function updateImageProviderState(){
   state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
 }
 
-async function generateSceneVoice(scene,card,button){
+async function generateSceneVoice(scene,card,button,{silent=false}={}){
   const text=String(scene.narration||'').trim();
   const voice=document.getElementById('voiceName').value||'Kore';
   const audioBox=card.querySelector('.scene-audio');
   const status=audioBox.querySelector('.scene-audio-status');
-  if(!text){showToast('Scene này chưa có lời đọc.');return;}
+  if(!text){
+    if(!silent) showToast('Scene này chưa có lời đọc.');
+    return false;
+  }
 
   button.disabled=true;
   button.textContent='Đang tạo giọng...';
   audioBox.classList.remove('hidden');
   status.textContent='Gemini đang tạo giọng cho scene '+String(scene.order).padStart(2,'0')+'...';
-  const oldAudio=audioBox.querySelector('audio');
-  if(oldAudio) oldAudio.remove();
 
   try{
-    const res=await fetch('/api/generate-voice',{
-      method:'POST',
-      headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({
-        provider:'gemini',
-        text,
-        voice,
-        languageCode:'vi-VN',
-        sceneId:scene.id
-      })
+    const data=await requestVoiceWithRetry({
+      provider:'gemini',
+      text,
+      voice,
+      languageCode:'vi-VN',
+      sceneId:scene.id
+    },attempt=>{
+      status.textContent='Gemini đang bận · thử lại '+attempt+'/2...';
     });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
-    if(!data.b64_audio) throw new Error('API không trả về dữ liệu âm thanh.');
+
+    const oldAudio=audioBox.querySelector('audio');
+    if(oldAudio) oldAudio.remove();
 
     const audio=document.createElement('audio');
     audio.controls=true;
@@ -923,12 +984,14 @@ async function generateSceneVoice(scene,card,button){
     renderAssetLibrary();
     renderVoiceWorkspace();
     scheduleAutosave();
-    showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
+    if(!silent) showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
+    return true;
   }catch(err){
     audioBox.classList.remove('hidden');
     status.textContent=err.message||'Không thể tạo giọng.';
     button.textContent='Thử lại giọng';
-    showToast(err.message||'Không thể tạo giọng.');
+    if(!silent) showToast(err.message||'Không thể tạo giọng.');
+    return false;
   }finally{
     button.disabled=false;
   }
