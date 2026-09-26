@@ -13,6 +13,7 @@ class ImageGenerationRequest(BaseModel):
     size: str = "1024x1024"
     n: int = Field(default=1, ge=1, le=1)
     response_format: Literal["b64_json"] = "b64_json"
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
 
 class ImageData(BaseModel):
