@@ -1,3 +1,217 @@
+
+let assetLibraryFilter='all';
+
+function downloadBase64Asset(base64,mime,filename){
+  if(!base64){showToast('Asset chưa có dữ liệu để tải.');return;}
+  try{
+    const bytes=atob(base64);
+    const buffer=new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) buffer[i]=bytes.charCodeAt(i);
+    const blob=new Blob([buffer],{type:mime||'application/octet-stream'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=filename;
+    document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch{
+    showToast('Không thể tải asset này.');
+  }
+}
+
+function findSceneCard(sceneId){
+  return Array.from(sceneList.querySelectorAll('.scene-card'))
+    .find(card=>card.dataset.sceneId===sceneId)||null;
+}
+
+function goToScene(sceneId){
+  const card=findSceneCard(sceneId);
+  if(!card){showToast('Không tìm thấy scene trên giao diện.');return;}
+  card.scrollIntoView({behavior:'smooth',block:'center'});
+  card.animate(
+    [{boxShadow:'0 0 0 0 rgba(49,87,213,0)'},{boxShadow:'0 0 0 4px rgba(49,87,213,.18)'},{boxShadow:'0 0 0 0 rgba(49,87,213,0)'}],
+    {duration:1200}
+  );
+}
+
+function triggerSceneAsset(sceneId,type){
+  const card=findSceneCard(sceneId);
+  if(!card){showToast('Không tìm thấy scene để tạo asset.');return;}
+  const button=card.querySelector(type==='image'?'.scene-image-btn':'.scene-voice-btn');
+  if(button) button.click();
+}
+
+function clearSceneAsset(scene,type){
+  if(type==='image'){
+    scene.image_asset=null;
+    scene.material_key='';
+  }else{
+    scene.audio_asset=null;
+    scene.audio_duration_seconds=null;
+  }
+  renderScenes(currentScenes,{providerLabel:'Đã cập nhật'});
+  renderAssetLibrary();
+  updateRenderReadiness();
+  scheduleAutosave();
+  showToast(type==='image'?'Đã xóa ảnh của scene.':'Đã xóa audio của scene.');
+}
+
+function assetMatchesFilter(scene){
+  const hasImage=Boolean(scene.image_asset?.b64_json);
+  const hasAudio=Boolean(scene.audio_asset?.b64_audio);
+  if(assetLibraryFilter==='image') return hasImage;
+  if(assetLibraryFilter==='audio') return hasAudio;
+  if(assetLibraryFilter==='missing') return !hasImage || !hasAudio;
+  return true;
+}
+
+function renderAssetLibrary(){
+  const grid=document.getElementById('assetLibraryGrid');
+  const empty=document.getElementById('assetLibraryEmpty');
+  if(!grid || !empty) return;
+
+  const imageCount=currentScenes.filter(scene=>scene.image_asset?.b64_json).length;
+  const audioCount=currentScenes.filter(scene=>scene.audio_asset?.b64_audio).length;
+  document.getElementById('assetSceneCount').textContent=String(currentScenes.length);
+  document.getElementById('assetImageCount').textContent=String(imageCount);
+  document.getElementById('assetAudioCount').textContent=String(audioCount);
+  document.getElementById('assetSubtitleState').textContent=currentSrt?'SRT':'—';
+
+  grid.innerHTML='';
+  const scenes=currentScenes.filter(assetMatchesFilter);
+  if(!currentScenes.length || !scenes.length){
+    empty.classList.remove('hidden');
+    grid.classList.add('hidden');
+    const strong=empty.querySelector('strong');
+    const p=empty.querySelector('p');
+    if(currentScenes.length && !scenes.length){
+      strong.textContent='Không có asset phù hợp bộ lọc';
+      p.textContent='Hãy chọn bộ lọc khác hoặc tạo thêm asset cho scene.';
+    }else{
+      strong.textContent='Thư viện đang trống';
+      p.textContent='Sau khi chia cảnh, các scene và asset sẽ xuất hiện tại đây.';
+    }
+    return;
+  }
+
+  empty.classList.add('hidden');
+  grid.classList.remove('hidden');
+
+  scenes.forEach(scene=>{
+    const hasImage=Boolean(scene.image_asset?.b64_json);
+    const hasAudio=Boolean(scene.audio_asset?.b64_audio);
+    const card=document.createElement('article');
+    card.className='asset-card';
+
+    const head=document.createElement('div');
+    head.className='asset-card-head';
+    const title=document.createElement('div');
+    title.className='asset-card-title';
+    title.innerHTML='<span>'+String(scene.order||0).padStart(2,'0')+'</span><div><strong></strong><small></small></div>';
+    title.querySelector('strong').textContent=scene.title||scene.id;
+    title.querySelector('small').textContent=(scene.duration_seconds||0)+' giây · '+scene.id;
+
+    const state=document.createElement('div');
+    state.className='asset-state';
+    const imageBadge=document.createElement('span');
+    imageBadge.textContent=hasImage?'Ảnh ✓':'Thiếu ảnh';
+    imageBadge.className=hasImage?'ready':'';
+    const audioBadge=document.createElement('span');
+    audioBadge.textContent=hasAudio?'Audio ✓':'Thiếu audio';
+    audioBadge.className=hasAudio?'ready':'';
+    state.append(imageBadge,audioBadge);
+    head.append(title,state);
+
+    const body=document.createElement('div');
+    body.className='asset-card-body';
+    const preview=document.createElement('div');
+    preview.className='asset-preview';
+    if(hasImage){
+      const img=document.createElement('img');
+      img.alt='Ảnh '+(scene.title||scene.id);
+      img.src='data:'+(scene.image_asset.mime_type||'image/png')+';base64,'+scene.image_asset.b64_json;
+      preview.appendChild(img);
+    }else{
+      const placeholder=document.createElement('div');
+      placeholder.className='asset-preview-placeholder';
+      placeholder.textContent='Chưa có ảnh cho scene này';
+      preview.appendChild(placeholder);
+    }
+
+    const details=document.createElement('div');
+    details.className='asset-details';
+    const narration=document.createElement('p');
+    narration.textContent=scene.narration||'';
+    details.appendChild(narration);
+
+    if(hasAudio){
+      const audio=document.createElement('audio');
+      audio.controls=true;
+      audio.preload='metadata';
+      audio.src='data:'+(scene.audio_asset.mime_type||'audio/wav')+';base64,'+scene.audio_asset.b64_audio;
+      details.appendChild(audio);
+    }
+
+    const actions=document.createElement('div');
+    actions.className='asset-actions';
+
+    const goBtn=document.createElement('button');
+    goBtn.textContent='Mở scene';
+    goBtn.addEventListener('click',()=>goToScene(scene.id));
+    actions.appendChild(goBtn);
+
+    const imageBtn=document.createElement('button');
+    imageBtn.className='primary-action';
+    imageBtn.textContent=hasImage?'Tạo lại ảnh':'Tạo ảnh';
+    imageBtn.addEventListener('click',()=>triggerSceneAsset(scene.id,'image'));
+    actions.appendChild(imageBtn);
+
+    const voiceBtn=document.createElement('button');
+    voiceBtn.className='primary-action';
+    voiceBtn.textContent=hasAudio?'Tạo lại audio':'Tạo audio';
+    voiceBtn.addEventListener('click',()=>triggerSceneAsset(scene.id,'audio'));
+    actions.appendChild(voiceBtn);
+
+    if(hasImage){
+      const downloadImage=document.createElement('button');
+      downloadImage.textContent='Tải ảnh';
+      downloadImage.addEventListener('click',()=>downloadBase64Asset(
+        scene.image_asset.b64_json,
+        scene.image_asset.mime_type||'image/png',
+        (scene.id||'scene')+'.png'
+      ));
+      actions.appendChild(downloadImage);
+
+      const clearImage=document.createElement('button');
+      clearImage.className='danger';
+      clearImage.textContent='Xóa ảnh';
+      clearImage.addEventListener('click',()=>clearSceneAsset(scene,'image'));
+      actions.appendChild(clearImage);
+    }
+
+    if(hasAudio){
+      const downloadAudio=document.createElement('button');
+      downloadAudio.textContent='Tải audio';
+      downloadAudio.addEventListener('click',()=>downloadBase64Asset(
+        scene.audio_asset.b64_audio,
+        scene.audio_asset.mime_type||'audio/wav',
+        (scene.id||'scene')+'.wav'
+      ));
+      actions.appendChild(downloadAudio);
+
+      const clearAudio=document.createElement('button');
+      clearAudio.className='danger';
+      clearAudio.textContent='Xóa audio';
+      clearAudio.addEventListener('click',()=>clearSceneAsset(scene,'audio'));
+      actions.appendChild(clearAudio);
+    }
+
+    details.appendChild(actions);
+    body.append(preview,details);
+    card.append(head,body);
+    grid.appendChild(card);
+  });
+}
+
 function setSystemCard(name,configured,fields={}){
   const card=document.querySelector('.system-card[data-system="'+name+'"]');
   if(!card) return;
@@ -117,6 +331,7 @@ function serializeProjectState({includeMaterialKeys=false}={}){
       visual_description:scene.visual_description,
       image_prompt:scene.image_prompt,
       image_asset:scene.image_asset||null,
+      audio_asset:scene.audio_asset||null,
       material_key:includeMaterialKeys?(scene.material_key||null):null
     })),
     subtitles:{
@@ -225,6 +440,7 @@ async function restoreProject(project){
     updateRenderReadiness();
     updateImageProviderState();
     updateVoiceProviderState();
+    renderAssetLibrary();
     setAutosaveStatus('Đã khôi phục bản nháp','saved');
     return true;
   }finally{
@@ -279,6 +495,7 @@ async function startNewProject(){
     selectScriptTab('script');
     activateScriptTools();
     updateRenderReadiness();
+    renderAssetLibrary();
     setAutosaveStatus('Dự án mới','');
   }finally{
     restoringProject=false;
@@ -481,6 +698,15 @@ async function generateSceneVoice(scene,card,button){
     audio.controls=true;
     audio.preload='metadata';
     audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
+    scene.audio_asset={
+      b64_audio:data.b64_audio,
+      mime_type:data.mime_type||'audio/wav',
+      provider:data.provider||'gemini',
+      providerLabel:data.providerLabel||'Gemini TTS',
+      model:data.model||'',
+      voice:data.voice||voice,
+      duration_seconds:Number(data.duration_seconds)||null
+    };
     const actualDuration=Number(data.duration_seconds);
     if(Number.isFinite(actualDuration) && actualDuration>0){
       scene.audio_duration_seconds=actualDuration;
@@ -490,6 +716,7 @@ async function generateSceneVoice(scene,card,button){
     status.textContent=(data.voice||voice)+' · '+(data.providerLabel||'Gemini TTS');
     audioBox.appendChild(audio);
     button.textContent='Tạo lại giọng';
+    renderAssetLibrary();
     scheduleAutosave();
     showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
   }catch(err){
@@ -545,6 +772,7 @@ async function generateSceneImage(scene,card,button){
     imageBox.prepend(img);
     button.textContent='Tạo lại ảnh';
     updateRenderReadiness();
+    renderAssetLibrary();
     scheduleAutosave();
     showToast('Đã tạo ảnh cho '+(scene.title||scene.id)+' bằng '+(data.providerLabel||provider)+'.');
   }catch(err){
@@ -563,6 +791,7 @@ function renderScenes(scenes,meta){
   scenes.forEach((scene,index)=>{
     const card=document.createElement('article');
     card.className='scene-card';
+    card.dataset.sceneId=scene.id;
 
     const head=document.createElement('div');
     head.className='scene-card-head';
@@ -620,6 +849,17 @@ function renderScenes(scenes,meta){
     audioStatus.textContent='Chưa tạo giọng';
     audioBox.appendChild(audioStatus);
 
+    if(scene.audio_asset?.b64_audio){
+      const restoredAudio=document.createElement('audio');
+      restoredAudio.controls=true;
+      restoredAudio.preload='metadata';
+      restoredAudio.src='data:'+(scene.audio_asset.mime_type||'audio/wav')+';base64,'+scene.audio_asset.b64_audio;
+      audioStatus.textContent=(scene.audio_asset.voice||'Giọng đã lưu')+' · '+(scene.audio_asset.providerLabel||'Audio');
+      audioBox.appendChild(restoredAudio);
+      audioBox.classList.remove('hidden');
+      voiceBtn.textContent='Tạo lại giọng';
+    }
+
     const imageBox=document.createElement('div');
     imageBox.className='scene-image hidden';
     const imageStatus=document.createElement('div');
@@ -648,6 +888,7 @@ function renderScenes(scenes,meta){
   subtitleOutput.classList.add('hidden');
   currentSrt='';
   document.getElementById('sceneSection').scrollIntoView({behavior:'smooth',block:'start'});
+  renderAssetLibrary();
   scheduleAutosave();
   showToast('Đã chia '+scenes.length+' cảnh bằng '+(meta?.providerLabel||'AI')+'.');
 }
@@ -696,7 +937,8 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
       return;
     }
     if(btn.dataset.section==='library'){
-      document.getElementById('renderSection').scrollIntoView({behavior:'smooth',block:'start'});
+      renderAssetLibrary();
+      document.getElementById('librarySection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
     }
     if(btn.dataset.section==='subtitle'){
@@ -867,6 +1109,7 @@ function buildSrt(){
   subtitleOutput.classList.remove('hidden');
   document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
   updateRenderReadiness();
+  renderAssetLibrary();
   scheduleAutosave();
   showToast('Đã tạo phụ đề SRT từ '+currentScenes.length+' cảnh.');
 }
@@ -1064,6 +1307,14 @@ document.getElementById('exportProjectBtn').addEventListener('click',exportProje
 document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
 document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
 document.getElementById('refreshSystemStatusBtn').addEventListener('click',refreshSystemStatus);
+document.getElementById('refreshLibraryBtn').addEventListener('click',renderAssetLibrary);
+document.querySelectorAll('[data-asset-filter]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    assetLibraryFilter=button.dataset.assetFilter||'all';
+    document.querySelectorAll('[data-asset-filter]').forEach(item=>item.classList.toggle('active',item===button));
+    renderAssetLibrary();
+  });
+});
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
 document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
@@ -1072,6 +1323,7 @@ activateScriptTools();
 updateImageProviderState();
 updateVoiceProviderState();
 updateRenderReadiness();
+renderAssetLibrary();
 bindAutosave();
 refreshBackendStatus();
 refreshRenderWorker();

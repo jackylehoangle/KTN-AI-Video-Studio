@@ -285,6 +285,37 @@
         </div>
       </section>
 
+      <section class="panel asset-library-panel" id="librarySection">
+        <div class="panel-head">
+          <div>
+            <h2>Thư viện tài nguyên</h2>
+            <p>Quản lý toàn bộ scene, ảnh và audio của dự án hiện tại.</p>
+          </div>
+          <button class="secondary compact-btn" id="refreshLibraryBtn">Làm mới</button>
+        </div>
+
+        <div class="asset-summary">
+          <div><strong id="assetSceneCount">0</strong><span>Scene</span></div>
+          <div><strong id="assetImageCount">0</strong><span>Ảnh</span></div>
+          <div><strong id="assetAudioCount">0</strong><span>Audio</span></div>
+          <div><strong id="assetSubtitleState">—</strong><span>Phụ đề</span></div>
+        </div>
+
+        <div class="asset-filters">
+          <button class="active" data-asset-filter="all">Tất cả</button>
+          <button data-asset-filter="image">Có ảnh</button>
+          <button data-asset-filter="audio">Có audio</button>
+          <button data-asset-filter="missing">Thiếu asset</button>
+        </div>
+
+        <div id="assetLibraryEmpty" class="empty-state">
+          <div class="empty-icon">▣</div>
+          <strong>Thư viện đang trống</strong>
+          <p>Sau khi chia cảnh, các scene và asset sẽ xuất hiện tại đây.</p>
+        </div>
+        <div id="assetLibraryGrid" class="asset-library-grid hidden"></div>
+      </section>
+
       <section class="panel render-panel" id="renderSection">
         <div class="panel-head">
           <div>
