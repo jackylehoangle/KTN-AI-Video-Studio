@@ -52,7 +52,11 @@ def generate_image(request: ImageGenerationRequest) -> ImageGenerationResponse:
             prompt=request.prompt,
             width=width,
             height=height,
-            seed=random.SystemRandom().randint(0, 2**63 - 1),
+            seed=(
+                request.seed
+                if request.seed is not None
+                else random.SystemRandom().randint(0, 2**63 - 1)
+            ),
         )
         image_bytes = ComfyUIClient(
             settings.comfyui_base_url,
