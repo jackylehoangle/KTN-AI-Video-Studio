@@ -283,14 +283,20 @@ async function runVoiceBatch(){
 
     const ok=await generateSceneVoice(scene,card,sceneButton,{silent:true});
     if(ok){
-      success+=1;
-      resultRow.className='voice-batch-result pass';
-      resultState.textContent='PASS';
-      await saveProjectNow({silent:true});
+      const saved=await saveProjectNow({silent:true});
+      if(saved?.ok){
+        success+=1;
+        resultRow.className='voice-batch-result pass';
+        resultState.textContent='PASS · ĐÃ LƯU';
+      }else{
+        failed+=1;
+        resultRow.className='voice-batch-result fail';
+        resultState.textContent='AUDIO OK · LƯU FAIL';
+      }
     }else{
       failed+=1;
       resultRow.className='voice-batch-result fail';
-      resultState.textContent='FAIL';
+      resultState.textContent='TTS FAIL';
     }
 
     renderVoiceWorkspace();
@@ -304,8 +310,12 @@ async function runVoiceBatch(){
   document.getElementById('voiceBatchConfirm').checked=false;
   renderVoiceWorkspace();
   renderAssetLibrary();
-  await saveProjectNow({silent:true});
-  showToast((scope==='test2'?'Kiểm thử batch':'Tạo audio hàng loạt')+' hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+'.');
+  const finalSave=await saveProjectNow({silent:true});
+  showToast(
+    (scope==='test2'?'Kiểm thử batch':'Tạo audio hàng loạt')+
+    ' hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+
+    (finalSave?.ok?' · dữ liệu đã xác minh lưu.':' · CẢNH BÁO: lưu dự án thất bại.')
+  );
 }
 
 
@@ -561,8 +571,9 @@ async function refreshSystemStatus(){
 }
 
 const PROJECT_DB_NAME='ktn-ai-video-studio';
-const PROJECT_DB_VERSION=1;
+const PROJECT_DB_VERSION=2;
 const PROJECT_STORE='projects';
+const PROJECT_ASSET_STORE='assets';
 const CURRENT_PROJECT_ID='current-draft';
 let autosaveTimer=null;
 let restoringProject=false;
@@ -575,10 +586,137 @@ function openProjectDb(){
       if(!db.objectStoreNames.contains(PROJECT_STORE)){
         db.createObjectStore(PROJECT_STORE,{keyPath:'id'});
       }
+      if(!db.objectStoreNames.contains(PROJECT_ASSET_STORE)){
+        db.createObjectStore(PROJECT_ASSET_STORE,{keyPath:'id'});
+      }
     };
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error||new Error('Không mở được bộ nhớ dự án.'));
   });
+}
+
+function assetRecordId(sceneId,type){
+  return CURRENT_PROJECT_ID+':'+String(sceneId)+':'+type;
+}
+
+async function dbPutAsset(record){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_ASSET_STORE,'readwrite');
+    tx.objectStore(PROJECT_ASSET_STORE).put(record);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{const err=tx.error;db.close();reject(err);};
+    tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('Ghi asset bị hủy.'));};
+  });
+}
+
+async function dbGetAsset(id){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_ASSET_STORE,'readonly');
+    const req=tx.objectStore(PROJECT_ASSET_STORE).get(id);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error);
+    tx.oncomplete=()=>db.close();
+    tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('Đọc asset bị hủy.'));};
+  });
+}
+
+async function dbDeleteAsset(id){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_ASSET_STORE,'readwrite');
+    tx.objectStore(PROJECT_ASSET_STORE).delete(id);
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onerror=()=>{const err=tx.error;db.close();reject(err);};
+    tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('Xóa asset bị hủy.'));};
+  });
+}
+
+function stripAssetPayload(asset,type,sceneId){
+  if(!asset) return null;
+  const payloadKey=type==='image'?'b64_json':'b64_audio';
+  const assetRef=assetRecordId(sceneId,type);
+  const meta={...asset,asset_ref:assetRef};
+  delete meta[payloadKey];
+  return meta;
+}
+
+async function persistProjectBundle(project){
+  const manifest={
+    ...project,
+    scenes:project.scenes.map(scene=>({
+      ...scene,
+      image_asset:stripAssetPayload(scene.image_asset,'image',scene.id),
+      audio_asset:stripAssetPayload(scene.audio_asset,'audio',scene.id)
+    }))
+  };
+
+  for(const scene of project.scenes){
+    const imageId=assetRecordId(scene.id,'image');
+    const audioId=assetRecordId(scene.id,'audio');
+
+    if(scene.image_asset?.b64_json){
+      await dbPutAsset({
+        id:imageId,
+        project_id:CURRENT_PROJECT_ID,
+        scene_id:scene.id,
+        type:'image',
+        payload:scene.image_asset,
+        updated_at:new Date().toISOString()
+      });
+    }else{
+      await dbDeleteAsset(imageId).catch(()=>{});
+    }
+
+    if(scene.audio_asset?.b64_audio){
+      await dbPutAsset({
+        id:audioId,
+        project_id:CURRENT_PROJECT_ID,
+        scene_id:scene.id,
+        type:'audio',
+        payload:scene.audio_asset,
+        updated_at:new Date().toISOString()
+      });
+    }else{
+      await dbDeleteAsset(audioId).catch(()=>{});
+    }
+  }
+
+  await dbPutProject(manifest);
+  return manifest;
+}
+
+async function hydrateProjectAssets(project){
+  if(!project || !Array.isArray(project.scenes)) return project;
+  const hydratedScenes=[];
+
+  for(const scene of project.scenes){
+    const hydrated={...scene};
+
+    if(scene.image_asset?.asset_ref && !scene.image_asset?.b64_json){
+      const record=await dbGetAsset(scene.image_asset.asset_ref).catch(()=>null);
+      if(record?.payload) hydrated.image_asset={...scene.image_asset,...record.payload};
+    }
+
+    if(scene.audio_asset?.asset_ref && !scene.audio_asset?.b64_audio){
+      const record=await dbGetAsset(scene.audio_asset.asset_ref).catch(()=>null);
+      if(record?.payload) hydrated.audio_asset={...scene.audio_asset,...record.payload};
+    }
+
+    hydratedScenes.push(hydrated);
+  }
+
+  return {...project,scenes:hydratedScenes};
+}
+
+function projectPersistenceStats(project){
+  const scenes=Array.isArray(project?.scenes)?project.scenes:[];
+  return {
+    scenes:scenes.length,
+    images:scenes.filter(scene=>scene.image_asset?.b64_json).length,
+    audio:scenes.filter(scene=>scene.audio_asset?.b64_audio).length
+  };
 }
 
 async function dbPutProject(project){
@@ -588,6 +726,7 @@ async function dbPutProject(project){
     tx.objectStore(PROJECT_STORE).put(project);
     tx.oncomplete=()=>{db.close();resolve();};
     tx.onerror=()=>{const err=tx.error;db.close();reject(err);};
+    tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('Ghi dự án bị hủy.'));};
   });
 }
 
@@ -605,10 +744,19 @@ async function dbGetProject(id=CURRENT_PROJECT_ID){
 async function dbDeleteProject(id=CURRENT_PROJECT_ID){
   const db=await openProjectDb();
   return new Promise((resolve,reject)=>{
-    const tx=db.transaction(PROJECT_STORE,'readwrite');
+    const tx=db.transaction([PROJECT_STORE,PROJECT_ASSET_STORE],'readwrite');
     tx.objectStore(PROJECT_STORE).delete(id);
+    const assetStore=tx.objectStore(PROJECT_ASSET_STORE);
+    const cursorReq=assetStore.openCursor();
+    cursorReq.onsuccess=()=>{
+      const cursor=cursorReq.result;
+      if(!cursor) return;
+      if(String(cursor.key).startsWith(id+':')) cursor.delete();
+      cursor.continue();
+    };
     tx.oncomplete=()=>{db.close();resolve();};
     tx.onerror=()=>{const err=tx.error;db.close();reject(err);};
+    tx.onabort=()=>{const err=tx.error;db.close();reject(err||new Error('Xóa dự án bị hủy.'));};
   });
 }
 
@@ -665,16 +813,42 @@ function setAutosaveStatus(text,state=''){
 }
 
 async function saveProjectNow({silent=false}={}){
-  if(restoringProject) return;
+  if(restoringProject) return {ok:false,reason:'restoring'};
   try{
     setAutosaveStatus('Đang lưu...','saving');
     const project=serializeProjectState();
-    await dbPutProject(project);
-    setAutosaveStatus('Đã lưu trên trình duyệt','saved');
-    if(!silent) showToast('Đã lưu bản nháp dự án trên trình duyệt.');
+    const expected=projectPersistenceStats(project);
+    await persistProjectBundle(project);
+
+    const storedManifest=await dbGetProject();
+    const stored=await hydrateProjectAssets(storedManifest);
+    const actual=projectPersistenceStats(stored);
+
+    if(
+      actual.scenes!==expected.scenes ||
+      actual.images!==expected.images ||
+      actual.audio!==expected.audio
+    ){
+      throw new Error(
+        'Xác minh lưu thất bại: cần '+expected.scenes+' scene / '+expected.audio+
+        ' audio nhưng đọc lại được '+actual.scenes+' scene / '+actual.audio+' audio.'
+      );
+    }
+
+    setAutosaveStatus(
+      'Đã lưu · '+actual.scenes+' scene · '+actual.audio+' audio',
+      'saved'
+    );
+    if(!silent) showToast('Đã lưu và xác minh bản nháp trên trình duyệt.');
+    return {ok:true,stats:actual};
   }catch(err){
-    setAutosaveStatus('Lưu thất bại','error');
-    if(!silent) showToast('Không thể lưu dự án: '+(err?.message||'lỗi bộ nhớ trình duyệt'));
+    console.error('project_persistence_failed',{
+      name:err?.name,
+      message:err?.message
+    });
+    setAutosaveStatus('Lưu thất bại · '+(err?.name||'storage error'),'error');
+    showToast('Không thể lưu dự án: '+(err?.message||'lỗi bộ nhớ trình duyệt'));
+    return {ok:false,error:err};
   }
 }
 
@@ -762,8 +936,9 @@ async function restoreProject(project){
 
 async function loadAutosavedProject(){
   try{
-    const project=await dbGetProject();
-    if(project){
+    const manifest=await dbGetProject();
+    if(manifest){
+      const project=await hydrateProjectAssets(manifest);
       await restoreProject(project);
       showToast('Đã khôi phục bản nháp gần nhất.');
     }else{
@@ -843,6 +1018,33 @@ async function importProjectFile(file){
     showToast('Không thể nhập dự án: '+(err?.message||'file không hợp lệ'));
   }finally{
     document.getElementById('importProjectInput').value='';
+  }
+}
+
+async function checkPersistenceHealth(){
+  const text=document.getElementById('persistenceDiagnosticText');
+  const button=document.getElementById('checkPersistenceBtn');
+  if(button){button.disabled=true;button.textContent='Đang kiểm tra...';}
+  try{
+    const saved=await saveProjectNow({silent:true});
+    const estimate=await navigator.storage?.estimate?.();
+    const used=Number(estimate?.usage||0);
+    const quota=Number(estimate?.quota||0);
+    const usageText=quota
+      ? ' · '+(used/1048576).toFixed(1)+'/'+(quota/1048576).toFixed(0)+' MB'
+      : '';
+    if(saved?.ok){
+      text.textContent='PASS · '+saved.stats.scenes+' scene · '+saved.stats.audio+' audio'+usageText;
+      text.style.color='#198754';
+    }else{
+      text.textContent='FAIL · không xác minh được IndexedDB'+usageText;
+      text.style.color='#a23b3b';
+    }
+  }catch(err){
+    text.textContent='FAIL · '+(err?.message||'lỗi bộ nhớ');
+    text.style.color='#a23b3b';
+  }finally{
+    if(button){button.disabled=false;button.textContent='Kiểm tra lưu';}
   }
 }
 
@@ -1634,6 +1836,7 @@ document.getElementById('exportProjectBtn').addEventListener('click',exportProje
 document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
 document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
 document.getElementById('refreshSystemStatusBtn').addEventListener('click',refreshSystemStatus);
+document.getElementById('checkPersistenceBtn').addEventListener('click',checkPersistenceHealth);
 document.getElementById('refreshLibraryBtn').addEventListener('click',renderAssetLibrary);
 document.querySelectorAll('[data-asset-filter]').forEach(button=>{
   button.addEventListener('click',()=>{

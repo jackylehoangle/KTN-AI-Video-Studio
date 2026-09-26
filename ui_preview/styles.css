@@ -176,3 +176,6 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 .voice-batch-result{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #e6eaf0;border-radius:8px;background:#fff;padding:7px 8px;font-size:9px;color:#5d687d}
 .voice-batch-result strong{font-size:9px;color:#48546a}.voice-batch-result span{white-space:nowrap}
 .voice-batch-result.running span{color:#735cc6}.voice-batch-result.pass{border-color:#d0ead8}.voice-batch-result.pass span{color:#198754}.voice-batch-result.fail{border-color:#efcccc}.voice-batch-result.fail span{color:#a23b3b}
+
+.persistence-diagnostic{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #dfe5ee;border-radius:11px;background:#fbfcfe;padding:12px;margin-top:12px}
+.persistence-diagnostic strong,.persistence-diagnostic span{display:block}.persistence-diagnostic strong{font-size:10px}.persistence-diagnostic span{font-size:9px;color:var(--muted);margin-top:3px}
