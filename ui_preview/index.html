@@ -227,6 +227,102 @@
         </div>
       </section>
 
+
+      <section class="panel voice-workspace-panel" id="voiceSection">
+        <div class="panel-head">
+          <div>
+            <h2>Giọng đọc</h2>
+            <p>Nghe thử giọng Gemini TTS và tạo audio cho từng scene hoặc nhiều scene có kiểm soát.</p>
+          </div>
+          <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Gemini TTS</span>
+        </div>
+
+        <div class="voice-workspace-grid">
+          <div class="voice-preview-card">
+            <div class="voice-card-head">
+              <div>
+                <strong>Nghe thử giọng</strong>
+                <p>Tạo một đoạn ngắn trước khi áp dụng cho toàn bộ video.</p>
+              </div>
+              <span id="voicePreviewModel">Gemini TTS</span>
+            </div>
+
+            <label>Giọng</label>
+            <select id="voiceWorkspaceVoice">
+              <option value="Kore">Kore · Rõ, chắc</option>
+              <option value="Achernar">Achernar · Nhẹ nhàng</option>
+              <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+              <option value="Charon">Charon · Thuyết minh</option>
+              <option value="Sulafat">Sulafat · Ấm</option>
+              <option value="Puck">Puck · Năng lượng</option>
+            </select>
+
+            <label>Câu nghe thử</label>
+            <textarea id="voicePreviewText">Xin chào, đây là bản thử giọng của KTN AI Video Studio. Hãy lắng nghe tốc độ, độ rõ và cảm xúc của giọng đọc này.</textarea>
+
+            <div class="voice-preview-actions">
+              <span class="cost-note">Mỗi lần nghe thử là một request TTS.</span>
+              <button class="primary compact-btn" id="voicePreviewBtn">Nghe thử</button>
+            </div>
+
+            <div id="voicePreviewOutput" class="voice-preview-output hidden">
+              <div id="voicePreviewMeta">Audio mẫu</div>
+              <audio id="voicePreviewAudio" controls preload="metadata"></audio>
+            </div>
+          </div>
+
+          <div class="voice-batch-card">
+            <div class="voice-card-head">
+              <div>
+                <strong>Tạo audio hàng loạt</strong>
+                <p>Chạy tuần tự từng scene để kiểm soát chi phí và lỗi.</p>
+              </div>
+              <span id="voiceBatchSummary">0/0 audio</span>
+            </div>
+
+            <div class="voice-stats">
+              <div><strong id="voiceSceneTotal">0</strong><span>Tổng scene</span></div>
+              <div><strong id="voiceSceneReady">0</strong><span>Đã có audio</span></div>
+              <div><strong id="voiceSceneMissing">0</strong><span>Chưa có audio</span></div>
+            </div>
+
+            <label>Phạm vi tạo</label>
+            <select id="voiceBatchScope">
+              <option value="missing" selected>Chỉ scene chưa có audio</option>
+              <option value="all">Tạo lại toàn bộ scene</option>
+            </select>
+
+            <label class="voice-confirm-row">
+              <input type="checkbox" id="voiceBatchConfirm" />
+              <span>Tôi hiểu việc tạo audio hàng loạt có thể phát sinh phí API và chỉ muốn chạy phạm vi đã chọn.</span>
+            </label>
+
+            <button class="primary voice-batch-btn" id="voiceBatchBtn" disabled>Tạo audio hàng loạt</button>
+
+            <div id="voiceBatchProgress" class="voice-batch-progress hidden">
+              <div class="voice-batch-progress-head">
+                <span id="voiceBatchProgressLabel">Đang chuẩn bị...</span>
+                <strong id="voiceBatchProgressValue">0%</strong>
+              </div>
+              <div class="voice-batch-track"><div id="voiceBatchBar"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="voice-scene-status">
+          <div class="voice-scene-status-head">
+            <strong>Trạng thái audio theo scene</strong>
+            <button class="secondary compact-btn" id="refreshVoiceWorkspaceBtn">Làm mới</button>
+          </div>
+          <div id="voiceSceneStatusEmpty" class="empty-state">
+            <div class="empty-icon">🎙</div>
+            <strong>Chưa có scene</strong>
+            <p>Hãy tạo kịch bản và chia cảnh trước khi tạo audio.</p>
+          </div>
+          <div id="voiceSceneStatusList" class="voice-scene-status-list hidden"></div>
+        </div>
+      </section>
+
       <section class="panel scene-panel" id="sceneSection">
         <div class="panel-head">
           <div>

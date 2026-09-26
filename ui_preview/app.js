@@ -1,4 +1,203 @@
 
+function syncVoiceSelectors(source){
+  const quick=document.getElementById('voiceName');
+  const workspace=document.getElementById('voiceWorkspaceVoice');
+  const value=source?.value||quick?.value||workspace?.value||'Kore';
+  if(quick && quick.value!==value) quick.value=value;
+  if(workspace && workspace.value!==value) workspace.value=value;
+  scheduleAutosave();
+  renderVoiceWorkspace();
+}
+
+function renderVoiceWorkspace(){
+  const total=currentScenes.length;
+  const ready=currentScenes.filter(scene=>scene.audio_asset?.b64_audio).length;
+  const missing=Math.max(0,total-ready);
+  const status=document.getElementById('voiceWorkspaceStatus');
+  if(status){
+    status.textContent=voiceAvailability.gemini?'Gemini TTS sẵn sàng':'Chưa cấu hình Gemini TTS';
+    status.style.background=voiceAvailability.gemini?'#eaf8ef':'#fff7df';
+    status.style.color=voiceAvailability.gemini?'#198754':'#805d16';
+  }
+  document.getElementById('voiceSceneTotal').textContent=String(total);
+  document.getElementById('voiceSceneReady').textContent=String(ready);
+  document.getElementById('voiceSceneMissing').textContent=String(missing);
+  document.getElementById('voiceBatchSummary').textContent=ready+'/'+total+' audio';
+
+  const list=document.getElementById('voiceSceneStatusList');
+  const empty=document.getElementById('voiceSceneStatusEmpty');
+  list.innerHTML='';
+
+  if(!total){
+    empty.classList.remove('hidden');
+    list.classList.add('hidden');
+  }else{
+    empty.classList.add('hidden');
+    list.classList.remove('hidden');
+    currentScenes.forEach(scene=>{
+      const hasAudio=Boolean(scene.audio_asset?.b64_audio);
+      const row=document.createElement('div');
+      row.className='voice-status-row';
+
+      const number=document.createElement('div');
+      number.className='voice-status-number';
+      number.textContent=String(scene.order||0).padStart(2,'0');
+
+      const main=document.createElement('div');
+      main.className='voice-status-main';
+      const strong=document.createElement('strong');
+      strong.textContent=scene.title||scene.id;
+      const small=document.createElement('small');
+      small.textContent=hasAudio
+        ? ((scene.audio_asset.voice||'Giọng')+' · '+(Number(scene.audio_duration_seconds||scene.audio_asset.duration_seconds)||0).toFixed(1)+' giây')
+        : 'Chưa có audio';
+      main.append(strong,small);
+
+      const badge=document.createElement('span');
+      badge.className='voice-status-badge'+(hasAudio?' ready':'');
+      badge.textContent=hasAudio?'READY':'THIẾU AUDIO';
+
+      const action=document.createElement('button');
+      action.textContent=hasAudio?'Tạo lại':'Tạo audio';
+      action.addEventListener('click',()=>{
+        const card=findSceneCard(scene.id);
+        const button=card?.querySelector('.scene-voice-btn');
+        if(card && button){
+          generateSceneVoice(scene,card,button).then(()=>{
+            renderVoiceWorkspace();
+            renderAssetLibrary();
+          });
+        }else{
+          showToast('Không tìm thấy scene trên giao diện.');
+        }
+      });
+
+      row.append(number,main,badge,action);
+      list.appendChild(row);
+    });
+  }
+
+  updateVoiceBatchButton();
+}
+
+function updateVoiceBatchButton(){
+  const button=document.getElementById('voiceBatchBtn');
+  const confirmed=document.getElementById('voiceBatchConfirm').checked;
+  const scope=document.getElementById('voiceBatchScope').value;
+  const candidates=scope==='all'
+    ? currentScenes
+    : currentScenes.filter(scene=>!scene.audio_asset?.b64_audio);
+  button.disabled=!(voiceAvailability.gemini && confirmed && candidates.length>0);
+  button.textContent=candidates.length
+    ? 'Tạo audio hàng loạt · '+candidates.length+' scene'
+    : 'Không có scene cần tạo';
+}
+
+async function previewVoice(){
+  const button=document.getElementById('voicePreviewBtn');
+  const text=document.getElementById('voicePreviewText').value.trim();
+  const voice=document.getElementById('voiceWorkspaceVoice').value||'Kore';
+  const output=document.getElementById('voicePreviewOutput');
+  const audio=document.getElementById('voicePreviewAudio');
+  const meta=document.getElementById('voicePreviewMeta');
+
+  if(!text){showToast('Hãy nhập câu nghe thử.');return;}
+  if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
+
+  button.disabled=true;
+  button.textContent='Đang tạo mẫu...';
+  output.classList.remove('hidden');
+  meta.textContent='Gemini đang tạo audio mẫu...';
+  audio.removeAttribute('src');
+  audio.load();
+
+  try{
+    const res=await fetch('/api/generate-voice',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({
+        provider:'gemini',
+        text,
+        voice,
+        languageCode:'vi-VN',
+        sceneId:'voice_preview'
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    if(!data.b64_audio) throw new Error('API không trả về audio mẫu.');
+    audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
+    meta.textContent=(data.voice||voice)+' · '+(data.model||'Gemini TTS')+
+      (Number(data.duration_seconds)>0?' · '+Number(data.duration_seconds).toFixed(1)+' giây':'');
+    audio.load();
+    showToast('Đã tạo audio nghe thử.');
+  }catch(err){
+    meta.textContent=err.message||'Không thể tạo audio mẫu.';
+    showToast(err.message||'Không thể tạo audio mẫu.');
+  }finally{
+    button.disabled=false;
+    button.textContent='Nghe thử';
+  }
+}
+
+async function runVoiceBatch(){
+  const button=document.getElementById('voiceBatchBtn');
+  const scope=document.getElementById('voiceBatchScope').value;
+  const confirmed=document.getElementById('voiceBatchConfirm').checked;
+  if(!confirmed){showToast('Cần xác nhận trước khi tạo audio hàng loạt.');return;}
+  if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
+
+  const targets=(scope==='all'
+    ? currentScenes
+    : currentScenes.filter(scene=>!scene.audio_asset?.b64_audio)
+  ).slice();
+
+  if(!targets.length){showToast('Không có scene cần tạo audio.');return;}
+
+  const progress=document.getElementById('voiceBatchProgress');
+  const label=document.getElementById('voiceBatchProgressLabel');
+  const value=document.getElementById('voiceBatchProgressValue');
+  const bar=document.getElementById('voiceBatchBar');
+  progress.classList.remove('hidden');
+  button.disabled=true;
+
+  let success=0;
+  let failed=0;
+
+  for(let i=0;i<targets.length;i++){
+    const scene=targets[i];
+    const before=Boolean(scene.audio_asset?.b64_audio);
+    label.textContent='Scene '+(i+1)+'/'+targets.length+' · '+(scene.title||scene.id);
+    const pct=Math.round((i/targets.length)*100);
+    value.textContent=pct+'%';
+    bar.style.width=pct+'%';
+
+    const card=findSceneCard(scene.id);
+    const sceneButton=card?.querySelector('.scene-voice-btn');
+    if(!card || !sceneButton){
+      failed+=1;
+      continue;
+    }
+
+    if(scope==='all') scene.audio_asset=null;
+    await generateSceneVoice(scene,card,sceneButton);
+    if(scene.audio_asset?.b64_audio && (!before || scope==='all')) success+=1;
+    else if(!scene.audio_asset?.b64_audio) failed+=1;
+
+    renderVoiceWorkspace();
+  }
+
+  value.textContent='100%';
+  bar.style.width='100%';
+  label.textContent='Hoàn tất: '+success+' thành công'+(failed?' · '+failed+' lỗi':'');
+  document.getElementById('voiceBatchConfirm').checked=false;
+  renderVoiceWorkspace();
+  renderAssetLibrary();
+  scheduleAutosave();
+  showToast('Tạo audio hàng loạt hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+'.');
+}
+
+
 let assetLibraryFilter='all';
 
 function downloadBase64Asset(base64,mime,filename){
@@ -405,6 +604,7 @@ async function restoreProject(project){
     restoreInput('subtitleMaxChars',project.subtitles?.maxChars||42);
     restoreInput('subtitleGap',project.subtitles?.gap??0.15);
     restoreInput('voiceName',project.settings?.voiceName||'Kore');
+    restoreInput('voiceWorkspaceVoice',project.settings?.voiceName||'Kore');
     restoreInput('imageProvider',project.settings?.imageProvider||'gemini');
     restoreInput('renderAspect',project.settings?.renderAspect||'16:9');
     restoreInput('renderTransition',project.settings?.renderTransition||'');
@@ -441,6 +641,7 @@ async function restoreProject(project){
     updateImageProviderState();
     updateVoiceProviderState();
     renderAssetLibrary();
+    renderVoiceWorkspace();
     setAutosaveStatus('Đã khôi phục bản nháp','saved');
     return true;
   }finally{
@@ -496,6 +697,7 @@ async function startNewProject(){
     activateScriptTools();
     updateRenderReadiness();
     renderAssetLibrary();
+    renderVoiceWorkspace();
     setAutosaveStatus('Dự án mới','');
   }finally{
     restoringProject=false;
@@ -651,9 +853,11 @@ function escapeText(value){
 
 function updateVoiceProviderState(){
   const state=document.getElementById('voiceProviderState');
-  if(!state) return;
-  state.textContent=voiceAvailability.gemini?'Sẵn sàng':'Thiếu API key';
-  state.style.color=voiceAvailability.gemini?'#198754':'#9b6b16';
+  if(state){
+    state.textContent=voiceAvailability.gemini?'Sẵn sàng':'Thiếu API key';
+    state.style.color=voiceAvailability.gemini?'#198754':'#9b6b16';
+  }
+  renderVoiceWorkspace();
 }
 
 function updateImageProviderState(){
@@ -717,6 +921,7 @@ async function generateSceneVoice(scene,card,button){
     audioBox.appendChild(audio);
     button.textContent='Tạo lại giọng';
     renderAssetLibrary();
+    renderVoiceWorkspace();
     scheduleAutosave();
     showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
   }catch(err){
@@ -889,6 +1094,7 @@ function renderScenes(scenes,meta){
   currentSrt='';
   document.getElementById('sceneSection').scrollIntoView({behavior:'smooth',block:'start'});
   renderAssetLibrary();
+  renderVoiceWorkspace();
   scheduleAutosave();
   showToast('Đã chia '+scenes.length+' cảnh bằng '+(meta?.providerLabel||'AI')+'.');
 }
@@ -932,6 +1138,11 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
     btn.classList.add('active');
+    if(btn.dataset.section==='voice'){
+      renderVoiceWorkspace();
+      document.getElementById('voiceSection').scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
     if(btn.dataset.section==='settings'){
       document.getElementById('settingsSection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
@@ -1316,12 +1527,19 @@ document.querySelectorAll('[data-asset-filter]').forEach(button=>{
   });
 });
 document.getElementById('imageProvider').addEventListener('change',updateImageProviderState);
-document.getElementById('voiceName').addEventListener('change',updateVoiceProviderState);
+document.getElementById('voiceName').addEventListener('change',e=>syncVoiceSelectors(e.target));
+document.getElementById('voiceWorkspaceVoice').addEventListener('change',e=>syncVoiceSelectors(e.target));
+document.getElementById('voicePreviewBtn').addEventListener('click',previewVoice);
+document.getElementById('voiceBatchConfirm').addEventListener('change',updateVoiceBatchButton);
+document.getElementById('voiceBatchScope').addEventListener('change',updateVoiceBatchButton);
+document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch);
+document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
 
 activateScriptTools();
 updateImageProviderState();
 updateVoiceProviderState();
+renderVoiceWorkspace();
 updateRenderReadiness();
 renderAssetLibrary();
 bindAutosave();
