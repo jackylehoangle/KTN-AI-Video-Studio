@@ -163,17 +163,27 @@ export default async function handler(req,res){
       createdAt:new Date().toISOString()
     });
   }catch(error){
+    const providerMessage=String(error?.message||'Lỗi không xác định');
+    const retryMatch=providerMessage.match(/retry in\s+(\d+(?:\.\d+)?)s/i);
+    const retryAfterSeconds=retryMatch ? Math.ceil(Number(retryMatch[1])) : null;
+    const rateLimited=/rate limit exceeded/i.test(providerMessage);
+    const highDemand=/high demand/i.test(providerMessage);
+    const status=rateLimited ? 429 : (highDemand ? 503 : 502);
+
     console.error('voice_generation_failed',{
       sceneId,
       model,
       voice,
-      message:error?.message
+      status,
+      retryAfterSeconds,
+      message:providerMessage
     });
-    return send(res,502,{
-      error:'Tạo giọng thất bại: '+(error?.message||'Lỗi không xác định'),
-      code:'voice_provider_request_failed',
+    return send(res,status,{
+      error:'Tạo giọng thất bại: '+providerMessage,
+      code:rateLimited?'provider_rate_limited':(highDemand?'provider_high_demand':'voice_provider_request_failed'),
       provider:'gemini',
-      sceneId
+      sceneId,
+      retry_after_seconds:retryAfterSeconds
     });
   }
 }

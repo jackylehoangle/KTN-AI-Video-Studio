@@ -3,6 +3,21 @@ function wait(ms){
   return new Promise(resolve=>setTimeout(resolve,ms));
 }
 
+function parseRetrySeconds(message){
+  const match=String(message||'').match(/retry in\s+(\d+(?:\.\d+)?)s/i);
+  if(!match) return null;
+  const seconds=Math.ceil(Number(match[1]));
+  return Number.isFinite(seconds) && seconds>0 ? seconds : null;
+}
+
+async function waitWithCountdown(seconds,onTick){
+  const total=Math.max(1,Math.ceil(Number(seconds)||1));
+  for(let remaining=total;remaining>0;remaining--){
+    if(typeof onTick==='function') onTick(remaining);
+    await wait(1000);
+  }
+}
+
 async function requestVoiceWithRetry(payload,onRetry){
   const transientStatuses=new Set([429,500,502,503,504]);
   let lastError=null;
@@ -24,19 +39,43 @@ async function requestVoiceWithRetry(payload,onRetry){
       lastError=new Error(message);
       if(!transientStatuses.has(res.status) || attempt===3) throw lastError;
 
+      const providerRetry=Number(data.retry_after_seconds)||parseRetrySeconds(message);
+      const fallback=res.status===429 ? 60 : Math.min(15,5*attempt);
+      const retrySeconds=Math.max(1,Math.min(120,providerRetry||fallback));
+
       if(typeof onRetry==='function'){
-        onRetry(attempt,res.status,message);
+        onRetry({
+          attempt,
+          status:res.status,
+          message,
+          retrySeconds
+        });
       }
-      await wait(1500*attempt);
+      await waitWithCountdown(retrySeconds,remaining=>{
+        if(typeof onRetry==='function'){
+          onRetry({
+            attempt,
+            status:res.status,
+            message,
+            retrySeconds,
+            remaining
+          });
+        }
+      });
     }catch(err){
       lastError=err;
       const message=String(err?.message||'');
       const isNetwork=message.toLowerCase().includes('fetch');
       if(!isNetwork || attempt===3) throw err;
+      const retrySeconds=Math.min(15,5*attempt);
       if(typeof onRetry==='function'){
-        onRetry(attempt,0,message);
+        onRetry({attempt,status:0,message,retrySeconds});
       }
-      await wait(1500*attempt);
+      await waitWithCountdown(retrySeconds,remaining=>{
+        if(typeof onRetry==='function'){
+          onRetry({attempt,status:0,message,retrySeconds,remaining});
+        }
+      });
     }
   }
 
@@ -168,8 +207,12 @@ async function previewVoice(){
       voice,
       languageCode:'vi-VN',
       sceneId:'voice_preview'
-    },attempt=>{
-      meta.textContent='Gemini đang bận · thử lại '+attempt+'/2...';
+    },info=>{
+      if(info.remaining){
+        meta.textContent='Gemini đang giới hạn request · đợi '+info.remaining+' giây...';
+      }else{
+        meta.textContent='Gemini đang bận · chuẩn bị thử lại...';
+      }
     });
     audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
     meta.textContent=(data.voice||voice)+' · '+(data.model||'Gemini TTS')+
@@ -206,8 +249,14 @@ async function runVoiceBatch(){
 
   let success=0;
   let failed=0;
+  const minBatchGapSeconds=21;
 
   for(let i=0;i<targets.length;i++){
+    if(i>0){
+      await waitWithCountdown(minBatchGapSeconds,remaining=>{
+        label.textContent='Đợi quota Gemini · scene tiếp theo sau '+remaining+' giây';
+      });
+    }
     const scene=targets[i];
     label.textContent='Scene '+(i+1)+'/'+targets.length+' · '+(scene.title||scene.id);
     const pct=Math.round((i/targets.length)*100);
@@ -952,8 +1001,12 @@ async function generateSceneVoice(scene,card,button,{silent=false}={}){
       voice,
       languageCode:'vi-VN',
       sceneId:scene.id
-    },attempt=>{
-      status.textContent='Gemini đang bận · thử lại '+attempt+'/2...';
+    },info=>{
+      if(info.remaining){
+        status.textContent='Gemini giới hạn request · đợi '+info.remaining+' giây...';
+      }else{
+        status.textContent='Gemini đang bận · chuẩn bị thử lại...';
+      }
     });
 
     const oldAudio=audioBox.querySelector('audio');
