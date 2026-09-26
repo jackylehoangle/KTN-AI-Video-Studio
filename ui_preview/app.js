@@ -536,7 +536,7 @@ function renderAssetLibrary(){
     if(hasImage){
       const img=document.createElement('img');
       img.alt='Ảnh '+(scene.title||scene.id);
-      img.src='data:'+(scene.image_asset.mime_type||'image/png')+';base64,'+scene.image_asset.b64_json;
+      img.src='data:'+(scene.image_asset.mime_type||'image/jpeg')+';base64,'+scene.image_asset.b64_json;
       preview.appendChild(img);
     }else{
       const placeholder=document.createElement('div');
@@ -584,8 +584,8 @@ function renderAssetLibrary(){
       downloadImage.textContent='Tải ảnh';
       downloadImage.addEventListener('click',()=>downloadBase64Asset(
         scene.image_asset.b64_json,
-        scene.image_asset.mime_type||'image/png',
-        (scene.id||'scene')+'.png'
+        scene.image_asset.mime_type||'image/jpeg',
+        (scene.id||'scene')+(String(scene.image_asset.mime_type||'').includes('jpeg')?'.jpg':'.png')
       ));
       actions.appendChild(downloadImage);
 
@@ -1379,10 +1379,11 @@ async function generateSceneImage(scene,card,button){
 
     const img=document.createElement('img');
     img.alt='Ảnh '+(scene.title||scene.id);
-    img.src='data:'+(data.mime_type||'image/png')+';base64,'+data.b64_json;
+    const imageMime=data.mime_type||(provider==='gemini'?'image/jpeg':'image/png');
+    img.src='data:'+imageMime+';base64,'+data.b64_json;
     scene.image_asset={
       b64_json:data.b64_json,
-      mime_type:data.mime_type||'image/png',
+      mime_type:imageMime,
       provider:data.provider||provider,
       model:data.model||''
     };
@@ -1491,7 +1492,7 @@ function renderScenes(scenes,meta){
     if(scene.image_asset?.b64_json){
       const restored=document.createElement('img');
       restored.alt='Ảnh '+(scene.title||scene.id);
-      restored.src='data:'+(scene.image_asset.mime_type||'image/png')+';base64,'+scene.image_asset.b64_json;
+      restored.src='data:'+(scene.image_asset.mime_type||'image/jpeg')+';base64,'+scene.image_asset.b64_json;
       imageStatus.textContent='';
       imageBox.prepend(restored);
       imageBox.classList.remove('hidden');

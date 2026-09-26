@@ -40,14 +40,14 @@ function findGeminiImage(value){
   if(value.type==='image' && typeof value.data==='string' && value.data.length>100){
     return {
       data:value.data,
-      mime_type:value.mime_type||value.mimeType||'image/png'
+      mime_type:value.mime_type||value.mimeType||'image/jpeg'
     };
   }
 
   if(value.output_image && typeof value.output_image.data==='string'){
     return {
       data:value.output_image.data,
-      mime_type:value.output_image.mime_type||value.output_image.mimeType||'image/png'
+      mime_type:value.output_image.mime_type||value.output_image.mimeType||'image/jpeg'
     };
   }
 
@@ -70,7 +70,7 @@ async function generateGeminiImage(key,model,prompt,aspectRatio){
       input:[{type:'text',text:prompt}],
       response_format:{
         type:'image',
-        mime_type:'image/png',
+        mime_type:'image/jpeg',
         aspect_ratio:aspectRatio,
         image_size:'1K'
       }
@@ -80,7 +80,13 @@ async function generateGeminiImage(key,model,prompt,aspectRatio){
   if(!response.ok) throw new Error(data?.error?.message||('Gemini Image HTTP '+response.status));
   const image=findGeminiImage(data);
   if(!image) throw new Error('Gemini không trả về ảnh hợp lệ.');
-  return {b64_json:image.data,mime_type:image.mime_type};
+  const mime=String(image.mime_type||'image/jpeg').toLowerCase()==='image/jpg'
+    ? 'image/jpeg'
+    : String(image.mime_type||'image/jpeg').toLowerCase();
+  if(mime!=='image/jpeg'){
+    throw new Error('Gemini trả về MIME không đúng JPEG contract: '+mime);
+  }
+  return {b64_json:image.data,mime_type:mime};
 }
 
 async function generateOpenAIImage(key,model,prompt){
@@ -117,6 +123,9 @@ export default async function handler(req,res){
       models:{
         gemini:process.env.GEMINI_IMAGE_MODEL||PROVIDERS.gemini.defaultModel,
         openai:process.env.OPENAI_IMAGE_MODEL||PROVIDERS.openai.defaultModel
+      },
+      contracts:{
+        gemini:{responseMimeType:'image/jpeg'}
       }
     });
   }
