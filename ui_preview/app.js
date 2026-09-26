@@ -639,7 +639,12 @@ async function refreshSystemStatus(){
   try{
     const res=await fetch('/api/system-status',{headers:{accept:'application/json'}});
     const data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    if(!res.ok){
+      if(data.code==='provider_free_tier_unavailable' || data.retryable===false){
+        markImageProviderBlocked(provider,data.error||'Gemini Image không có quota Free Tier.');
+      }
+      throw new Error(data.error||('HTTP '+res.status));
+    }
     setSystemCard('gemini',Boolean(data.providers?.gemini?.configured),{
       scriptModel:data.providers?.gemini?.scriptModel,
       imageModel:data.providers?.gemini?.imageModel,
@@ -1180,6 +1185,8 @@ let activeRenderTaskId='';
 let currentScriptProvider='gemini';
 let currentScenes=[];
 let providerAvailability={gemini:false,openai:false};
+let imageProviderBlocked={gemini:false,openai:false};
+let imageProviderBlockMessage={gemini:'',openai:''};
 let voiceAvailability={gemini:false};
 let voiceDailyQuotaBlocked=false;
 let voiceDailyQuotaMessage='';
@@ -1263,12 +1270,54 @@ function updateVoiceProviderState(){
   renderVoiceWorkspace();
 }
 
+function markImageProviderBlocked(provider,message){
+  imageProviderBlocked[provider]=true;
+  imageProviderBlockMessage[provider]=String(message||'Nhà cung cấp ảnh hiện không khả dụng.');
+  updateImageProviderState();
+  document.querySelectorAll('.scene-image-btn').forEach(btn=>{
+    if((document.getElementById('imageProvider')?.value||'gemini')===provider){
+      btn.disabled=true;
+      btn.textContent='Hết quota ảnh';
+    }
+  });
+}
+
+function resetImageProviderButtons(){
+  const provider=document.getElementById('imageProvider')?.value||'gemini';
+  document.querySelectorAll('.scene-image-btn').forEach(btn=>{
+    if(imageProviderBlocked[provider]){
+      btn.disabled=true;
+      btn.textContent='Hết quota ảnh';
+    }else{
+      btn.disabled=false;
+      if(btn.textContent==='Hết quota ảnh') btn.textContent='Tạo ảnh';
+    }
+  });
+}
+
 function updateImageProviderState(){
   const provider=document.getElementById('imageProvider')?.value||'gemini';
   const state=document.getElementById('imageProviderState');
-  if(!state) return;
-  state.textContent=providerAvailability[provider]?'Sẵn sàng':'Thiếu API key';
-  state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
+  const notice=document.getElementById('imageQuotaNotice');
+  if(state){
+    if(imageProviderBlocked[provider]){
+      state.textContent='Hết quota / không khả dụng';
+      state.style.color='#a23b3b';
+    }else{
+      state.textContent=providerAvailability[provider]?'Sẵn sàng':'Thiếu API key';
+      state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
+    }
+  }
+  if(notice){
+    const show=provider==='gemini' && imageProviderBlocked.gemini;
+    notice.classList.toggle('hidden',!show);
+    if(show){
+      const detail=notice.querySelector('span');
+      if(detail) detail.textContent=imageProviderBlockMessage.gemini+
+        ' Hệ thống đã khóa tạo ảnh bằng Gemini trong phiên này.';
+    }
+  }
+  resetImageProviderButtons();
 }
 
 async function generateSceneVoice(scene,card,button,{silent=false}={}){
@@ -1354,6 +1403,10 @@ async function generateSceneImage(scene,card,button){
   const status=imageBox.querySelector('.scene-image-status');
   const prompt=String(scene.image_prompt||'').trim();
   if(!prompt){showToast('Scene này chưa có image prompt.');return;}
+  if(imageProviderBlocked[provider]){
+    showToast(imageProviderBlockMessage[provider]||'Nhà cung cấp ảnh hiện không khả dụng.');
+    return;
+  }
 
   button.disabled=true;
   button.textContent='Đang tạo...';
@@ -1401,7 +1454,8 @@ async function generateSceneImage(scene,card,button){
     button.textContent='Thử lại';
     showToast(err.message||'Không thể tạo ảnh.');
   }finally{
-    button.disabled=false;
+    button.disabled=Boolean(imageProviderBlocked[provider]);
+    if(imageProviderBlocked[provider]) button.textContent='Hết quota ảnh';
   }
 }
 
@@ -1499,6 +1553,11 @@ function renderScenes(scenes,meta){
       imageBtn.textContent='Tạo lại ảnh';
     }
     imageBtn.addEventListener('click',()=>generateSceneImage(scene,card,imageBtn));
+    const activeImageProvider=document.getElementById('imageProvider')?.value||'gemini';
+    if(imageProviderBlocked[activeImageProvider]){
+      imageBtn.disabled=true;
+      imageBtn.textContent='Hết quota ảnh';
+    }
     sceneList.appendChild(card);
   });
   sceneEmpty.classList.add('hidden');

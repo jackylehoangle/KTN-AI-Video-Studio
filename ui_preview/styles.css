@@ -182,3 +182,7 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 
 .voice-daily-quota-notice{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;border:1px solid #efcaca;background:#fff5f5;border-radius:11px;padding:11px 12px;color:#9b3333}
 .voice-daily-quota-notice strong{font-size:10px}.voice-daily-quota-notice span{font-size:9px;line-height:1.45}
+
+.image-quota-notice{margin-top:20px;border-color:#efcaca!important;background:#fff5f5!important;color:#9b3333}
+.image-quota-notice strong,.image-quota-notice span{display:block}
+.image-quota-notice strong{font-size:11px}.image-quota-notice span{font-size:9px;line-height:1.45;margin-top:4px}

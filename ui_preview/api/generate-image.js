@@ -175,12 +175,34 @@ export default async function handler(req,res){
       createdAt:new Date().toISOString()
     });
   }catch(error){
-    console.error('image_generation_failed',{sceneId,provider,model,message:error?.message});
-    return send(res,502,{
-      error:'Tạo ảnh thất bại: '+(error?.message||'Lỗi không xác định'),
-      code:'image_provider_request_failed',
+    const providerMessage=String(error?.message||'Lỗi không xác định');
+    const rateLimited=/rate limit exceeded/i.test(providerMessage);
+    const zeroFreeTier=rateLimited && (
+      /limit:\s*0\s+requests per day/i.test(providerMessage) ||
+      /limit:\s*0\s+input tokens per minute/i.test(providerMessage)
+    );
+    const status=rateLimited?429:502;
+    const code=zeroFreeTier?'provider_free_tier_unavailable':(rateLimited?'provider_rate_limited':'image_provider_request_failed');
+    const retryable=!zeroFreeTier && rateLimited;
+
+    console.error('image_generation_failed',{
+      sceneId,
       provider,
-      sceneId
+      model,
+      status,
+      retryable,
+      freeTierUnavailable:zeroFreeTier,
+      message:providerMessage
+    });
+
+    return send(res,status,{
+      error:zeroFreeTier
+        ? 'Gemini Image không có quota Free Tier cho model '+model+' trên API key hiện tại.'
+        : ('Tạo ảnh thất bại: '+providerMessage),
+      code,
+      provider,
+      sceneId,
+      retryable
     });
   }
 }
