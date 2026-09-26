@@ -639,16 +639,7 @@ async function refreshSystemStatus(){
   try{
     const res=await fetch('/api/system-status',{headers:{accept:'application/json'}});
     const data=await res.json().catch(()=>({}));
-    if(!res.ok){
-      if(
-        data.code==='provider_free_tier_unavailable' ||
-        data.code==='provider_billing_unavailable' ||
-        data.retryable===false
-      ){
-        markImageProviderBlocked(provider,data.error||'Nhà cung cấp ảnh hiện không khả dụng.');
-      }
-      throw new Error(data.error||('HTTP '+res.status));
-    }
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
     setSystemCard('gemini',Boolean(data.providers?.gemini?.configured),{
       scriptModel:data.providers?.gemini?.scriptModel,
       imageModel:data.providers?.gemini?.imageModel,
@@ -1188,9 +1179,9 @@ let activeRenderTaskId='';
 
 let currentScriptProvider='gemini';
 let currentScenes=[];
-let providerAvailability={gemini:false,openai:false};
-let imageProviderBlocked={gemini:false,openai:false};
-let imageProviderBlockMessage={gemini:'',openai:''};
+let providerAvailability={gemini:false,openai:false,ktn:false};
+let imageProviderBlocked={gemini:false,openai:false,ktn:false};
+let imageProviderBlockMessage={gemini:'',openai:'',ktn:''};
 let voiceAvailability={gemini:false};
 let voiceDailyQuotaBlocked=false;
 let voiceDailyQuotaMessage='';
@@ -1199,27 +1190,31 @@ const showToast=(msg)=>{toast.textContent=msg;toast.classList.add('show');setTim
 
 async function refreshBackendStatus(){
   try{
-    const res=await fetch('/api/generate-script',{headers:{'accept':'application/json'}});
-    const data=await res.json();
-    const configured=[];
+    const [scriptRes,imageRes]=await Promise.all([
+      fetch('/api/generate-script',{headers:{accept:'application/json'}}),
+      fetch('/api/generate-image',{headers:{accept:'application/json'}})
+    ]);
+    const scriptData=await scriptRes.json().catch(()=>({}));
+    const imageData=await imageRes.json().catch(()=>({}));
     providerAvailability={
-      gemini:Boolean(data.providers?.gemini),
-      openai:Boolean(data.providers?.openai)
+      gemini:Boolean(scriptData.providers?.gemini || imageData.providers?.gemini),
+      openai:Boolean(scriptData.providers?.openai || imageData.providers?.openai),
+      ktn:Boolean(imageData.providers?.ktn)
     };
+    const configured=[];
     if(providerAvailability.gemini) configured.push('Gemini');
     if(providerAvailability.openai) configured.push('OpenAI');
+    if(providerAvailability.ktn) configured.push('KTN FLUX');
     updateImageProviderState();
     if(configured.length){
       backendStatus.textContent='AI sẵn sàng · '+configured.join(' / ');
       backendStatus.className='preview-badge ready';
-      voiceAvailability.gemini=providerAvailability.gemini;
-      updateVoiceProviderState();
     }else{
-      backendStatus.textContent='Chưa cấu hình API key';
+      backendStatus.textContent='Chưa cấu hình provider';
       backendStatus.className='preview-badge warn';
-      voiceAvailability.gemini=false;
-      updateVoiceProviderState();
     }
+    voiceAvailability.gemini=Boolean(scriptData.providers?.gemini);
+    updateVoiceProviderState();
   }catch(e){
     backendStatus.textContent='Không kết nối được AI';
     backendStatus.className='preview-badge error';
@@ -1287,14 +1282,20 @@ function markImageProviderBlocked(provider,message){
 }
 
 function resetImageProviderButtons(){
-  const provider=document.getElementById('imageProvider')?.value||'gemini';
+  const provider=document.getElementById('imageProvider')?.value||'ktn';
+  const unavailable=!providerAvailability[provider];
   document.querySelectorAll('.scene-image-btn').forEach(btn=>{
     if(imageProviderBlocked[provider]){
       btn.disabled=true;
       btn.textContent='Hết quota ảnh';
+    }else if(unavailable){
+      btn.disabled=true;
+      btn.textContent=provider==='ktn'?'Chưa nối worker':'Thiếu API key';
     }else{
       btn.disabled=false;
-      if(btn.textContent==='Hết quota ảnh') btn.textContent='Tạo ảnh';
+      if(['Hết quota ảnh','Chưa nối worker','Thiếu API key'].includes(btn.textContent)){
+        btn.textContent='Tạo ảnh';
+      }
     }
   });
 }
@@ -1308,7 +1309,9 @@ function updateImageProviderState(){
       state.textContent='Hết quota / không khả dụng';
       state.style.color='#a23b3b';
     }else{
-      state.textContent=providerAvailability[provider]?'Sẵn sàng':'Thiếu API key';
+      state.textContent=providerAvailability[provider]
+        ? 'Sẵn sàng'
+        : (provider==='ktn'?'Chưa nối worker':'Thiếu API key');
       state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
     }
   }
@@ -1407,6 +1410,10 @@ async function generateSceneImage(scene,card,button){
   const status=imageBox.querySelector('.scene-image-status');
   const prompt=String(scene.image_prompt||'').trim();
   if(!prompt){showToast('Scene này chưa có image prompt.');return;}
+  if(!providerAvailability[provider]){
+    showToast(provider==='ktn'?'KTN FLUX chưa nối Colab/GPU worker.':'Provider ảnh chưa cấu hình.');
+    return;
+  }
   if(imageProviderBlocked[provider]){
     showToast(imageProviderBlockMessage[provider]||'Nhà cung cấp ảnh hiện không khả dụng.');
     return;
@@ -1561,6 +1568,9 @@ function renderScenes(scenes,meta){
     if(imageProviderBlocked[activeImageProvider]){
       imageBtn.disabled=true;
       imageBtn.textContent='Hết quota ảnh';
+    }else if(!providerAvailability[activeImageProvider]){
+      imageBtn.disabled=true;
+      imageBtn.textContent=activeImageProvider==='ktn'?'Chưa nối worker':'Thiếu API key';
     }
     sceneList.appendChild(card);
   });

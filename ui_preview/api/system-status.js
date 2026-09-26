@@ -43,6 +43,12 @@ export default async function handler(req,res){
         scriptModel:process.env.OPENAI_SCRIPT_MODEL||DEFAULTS.openai.scriptModel,
         imageModel:process.env.OPENAI_IMAGE_MODEL||DEFAULTS.openai.imageModel
       },
+      ktnImage:{
+        configured:Boolean(process.env.KTN_IMAGE_GATEWAY_URL),
+        model:'FLUX.1-schnell FP8',
+        gatewayUrlConfigured:Boolean(process.env.KTN_IMAGE_GATEWAY_URL),
+        tokenConfigured:Boolean(process.env.KTN_IMAGE_GATEWAY_TOKEN)
+      },
       render:{
         configured:Boolean(process.env.MPT_RENDER_BASE_URL),
         apiKeyConfigured:Boolean(process.env.MPT_RENDER_API_KEY)

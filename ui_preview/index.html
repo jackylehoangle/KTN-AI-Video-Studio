@@ -96,6 +96,7 @@
             <div>
               <label>Nhà cung cấp AI</label>
               <select id="scriptProvider">
+                <option value="ktn">KTN FLUX · Colab/VPS</option>
                 <option value="gemini">Gemini</option>
                 <option value="openai">OpenAI</option>
               </select>
@@ -168,14 +169,14 @@
                 <option value="gemini">Gemini</option>
                 <option value="openai">OpenAI</option>
               </select>
-              <span>Ảnh API có thể phát sinh phí</span>
+              <span>KTN FLUX tự host · Gemini/OpenAI dự phòng</span>
             </div>
             <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
           </div>
 
           <div class="info-box">
             <strong>Hướng phát triển hiện tại</strong>
-            <p>Trước mắt dùng API ảnh Gemini hoặc OpenAI. ComfyUI + Flux sẽ được thay vào sau qua KTN Image Gateway.</p>
+            <p>KTN Image Gateway là lớp ảnh chính: Colab để thử nghiệm, GPU VPS cho production. Gemini/OpenAI chỉ là provider dự phòng.</p>
           </div>
         </aside>
       </section>

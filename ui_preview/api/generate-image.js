@@ -10,6 +10,12 @@ const PROVIDERS={
     keyEnv:'OPENAI_API_KEY',
     modelEnv:'OPENAI_IMAGE_MODEL',
     defaultModel:'gpt-image-2.5-flare'
+  },
+  ktn:{
+    label:'KTN FLUX',
+    urlEnv:'KTN_IMAGE_GATEWAY_URL',
+    tokenEnv:'KTN_IMAGE_GATEWAY_TOKEN',
+    defaultModel:'flux'
   }
 };
 
@@ -89,6 +95,31 @@ async function generateGeminiImage(key,model,prompt,aspectRatio){
   return {b64_json:image.data,mime_type:mime};
 }
 
+async function generateKtnImage(baseUrl,token,model,prompt,aspectRatio){
+  const url=String(baseUrl||'').replace(/\/$/,'');
+  if(!url) throw new Error('Chưa cấu hình KTN_IMAGE_GATEWAY_URL.');
+  const headers={'content-type':'application/json','accept':'application/json'};
+  if(token) headers.authorization='Bearer '+token;
+  const response=await fetch(url+'/v1/images/generations',{
+    method:'POST',
+    headers,
+    body:JSON.stringify({
+      model,
+      prompt,
+      size:aspectRatio==='1:1'?'1024x1024':'1360x768',
+      n:1,
+      response_format:'b64_json'
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+    throw new Error(data?.error?.message||('KTN Image Gateway HTTP '+response.status));
+  }
+  const image=data?.data?.[0];
+  if(!image?.b64_json) throw new Error('KTN Image Gateway không trả về ảnh base64 hợp lệ.');
+  return {b64_json:image.b64_json,mime_type:'image/jpeg'};
+}
+
 async function generateOpenAIImage(key,model,prompt){
   const response=await fetch('https://api.openai.com/v1/images/generations',{
     method:'POST',
@@ -125,11 +156,13 @@ export default async function handler(req,res){
       service:'KTN Image Generator',
       providers:{
         gemini:Boolean(process.env.GEMINI_API_KEY),
-        openai:Boolean(process.env.OPENAI_API_KEY)
+        openai:Boolean(process.env.OPENAI_API_KEY),
+        ktn:Boolean(process.env.KTN_IMAGE_GATEWAY_URL)
       },
       models:{
         gemini:process.env.GEMINI_IMAGE_MODEL||PROVIDERS.gemini.defaultModel,
-        openai:process.env.OPENAI_IMAGE_MODEL||PROVIDERS.openai.defaultModel
+        openai:process.env.OPENAI_IMAGE_MODEL||PROVIDERS.openai.defaultModel,
+        ktn:PROVIDERS.ktn.defaultModel
       },
       contracts:{
         gemini:{responseMimeType:'image/jpeg'},
@@ -155,9 +188,19 @@ export default async function handler(req,res){
   if(prompt.length>12000) return send(res,400,{error:'Image prompt quá dài.'});
 
   const cfg=PROVIDERS[provider];
-  const key=process.env[cfg.keyEnv];
-  const model=process.env[cfg.modelEnv]||cfg.defaultModel;
-  if(!key){
+  const key=cfg.keyEnv?process.env[cfg.keyEnv]:'';
+  const gatewayUrl=cfg.urlEnv?process.env[cfg.urlEnv]:'';
+  const gatewayToken=cfg.tokenEnv?process.env[cfg.tokenEnv]:'';
+  const model=cfg.modelEnv?(process.env[cfg.modelEnv]||cfg.defaultModel):cfg.defaultModel;
+
+  if(provider==='ktn' && !gatewayUrl){
+    return send(res,503,{
+      error:'Chưa cấu hình KTN_IMAGE_GATEWAY_URL trên Vercel.',
+      code:'provider_gateway_missing',
+      provider
+    });
+  }
+  if(provider!=='ktn' && !key){
     return send(res,503,{
       error:'Chưa cấu hình '+cfg.keyEnv+' trên Vercel.',
       code:'provider_key_missing',
@@ -174,7 +217,9 @@ export default async function handler(req,res){
   try{
     const image=provider==='gemini'
       ? await generateGeminiImage(key,model,finalPrompt,aspectRatio)
-      : await generateOpenAIImage(key,model,finalPrompt);
+      : (provider==='openai'
+        ? await generateOpenAIImage(key,model,finalPrompt)
+        : await generateKtnImage(gatewayUrl,gatewayToken,model,finalPrompt,aspectRatio));
 
     return send(res,200,{
       ok:true,
