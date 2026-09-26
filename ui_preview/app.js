@@ -1176,7 +1176,25 @@ const subtitlePreview=document.getElementById('subtitlePreview');
 const subtitleMeta=document.getElementById('subtitleMeta');
 let currentSrt='';
 let renderWorkerAvailable=false;
+const RENDER_TASK_STORAGE_KEY='ktn-ai-video-active-render-task-v1';
 let activeRenderTaskId='';
+try{
+  activeRenderTaskId=localStorage.getItem(RENDER_TASK_STORAGE_KEY)||'';
+}catch(_error){
+  activeRenderTaskId='';
+}
+
+function rememberRenderTask(taskId){
+  activeRenderTaskId=String(taskId||'').trim();
+  try{
+    if(activeRenderTaskId) localStorage.setItem(RENDER_TASK_STORAGE_KEY,activeRenderTaskId);
+    else localStorage.removeItem(RENDER_TASK_STORAGE_KEY);
+  }catch(_error){}
+}
+
+function clearRenderTask(){
+  rememberRenderTask('');
+}
 
 let currentScriptProvider='gemini';
 let currentScenes=[];
@@ -1940,6 +1958,13 @@ async function submitRender(){
   button.disabled=true;
 
   try{
+    if(activeRenderTaskId){
+      label.textContent='Tiếp tục theo dõi render đang chạy...';
+      value.textContent='35%';
+      bar.style.width='35%';
+      await pollRenderTask(activeRenderTaskId);
+      return;
+    }
     for(let i=0;i<currentScenes.length;i++){
       label.textContent='Đang tải ảnh scene '+(i+1)+'/'+currentScenes.length+' lên render worker...';
       const p=Math.round(((i)/Math.max(currentScenes.length,1))*30);
@@ -1957,7 +1982,7 @@ async function submitRender(){
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||('Không thể tạo render task.'));
-    activeRenderTaskId=data.task_id;
+    rememberRenderTask(data.task_id);
     await pollRenderTask(activeRenderTaskId);
   }catch(err){
     label.textContent='Render thất bại';
@@ -1973,7 +1998,9 @@ async function pollRenderTask(taskId){
   const result=document.getElementById('renderResult');
   const button=document.getElementById('renderBtn');
 
-  for(let attempt=0;attempt<180;attempt++){
+  // Colab CPU + Edge TTS + MoviePy có thể cần lâu hơn nhiều so với 6 phút.
+  // Theo dõi tối đa khoảng 60 phút; task_id được lưu để có thể tiếp tục sau reload.
+  for(let attempt=0;attempt<1800;attempt++){
     await new Promise(resolve=>setTimeout(resolve,2000));
     const res=await fetch('/api/render-video?task_id='+encodeURIComponent(taskId),{headers:{accept:'application/json'}});
     const data=await res.json().catch(()=>({}));
@@ -1983,7 +2010,10 @@ async function pollRenderTask(taskId){
     label.textContent=data.state_label||'Đang render video...';
     value.textContent=p+'%'; bar.style.width=p+'%';
 
-    if(data.state==='failed') throw new Error(data.error||'MPT render thất bại.');
+    if(data.state==='failed'){
+      clearRenderTask();
+      throw new Error(data.error||'MPT render thất bại.');
+    }
     if(data.state==='complete'){
       value.textContent='100%'; bar.style.width='100%';
       label.textContent='Hoàn tất MP4';
@@ -1998,11 +2028,15 @@ async function pollRenderTask(taskId){
       }else{
         result.textContent='Task hoàn tất nhưng chưa có URL video.';
       }
+      clearRenderTask();
       button.disabled=false;
       return;
     }
   }
-  throw new Error('Render quá thời gian chờ của giao diện.');
+
+  label.textContent='Render vẫn đang chạy trên worker';
+  result.textContent='Giao diện đã dừng theo dõi sau thời gian dài, nhưng task vẫn được giữ. Bấm Xuất MP4 để tiếp tục theo dõi cùng task, không tạo task mới.';
+  button.disabled=false;
 }
 
 document.getElementById('downloadManifestBtn').addEventListener('click',()=>{
