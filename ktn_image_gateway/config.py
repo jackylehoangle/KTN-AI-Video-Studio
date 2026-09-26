@@ -13,12 +13,13 @@ class GatewaySettings:
     host: str = "127.0.0.1"
     port: int = 8189
     comfyui_base_url: str = "http://127.0.0.1:8188"
-    workflow_path: str = "ktn_image_gateway/workflows/flux_text2img.json"
+    workflow_path: str = "ktn_image_gateway/workflows/flux_schnell_api.json"
     output_dir: str = "storage/ktn_image_gateway"
     default_model: str = "flux"
     default_size: str = "1024x1024"
     request_timeout_seconds: int = 300
     poll_interval_seconds: float = 0.5
+    gateway_token: str = ""
 
     @classmethod
     def from_env(cls) -> "GatewaySettings":
@@ -30,7 +31,7 @@ class GatewaySettings:
             ).rstrip("/"),
             workflow_path=os.getenv(
                 "COMFYUI_WORKFLOW_PATH",
-                "ktn_image_gateway/workflows/flux_text2img.json",
+                "ktn_image_gateway/workflows/flux_schnell_api.json",
             ),
             output_dir=os.getenv(
                 "KTN_IMAGE_GATEWAY_OUTPUT_DIR", "storage/ktn_image_gateway"
@@ -43,4 +44,5 @@ class GatewaySettings:
             poll_interval_seconds=float(
                 os.getenv("KTN_IMAGE_POLL_INTERVAL_SECONDS", "0.5")
             ),
+            gateway_token=os.getenv("KTN_IMAGE_GATEWAY_TOKEN", "").strip(),
         )

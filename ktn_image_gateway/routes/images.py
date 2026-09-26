@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from fastapi.responses import JSONResponse
 
 from ktn_image_gateway.schemas import ImageGenerationRequest, ImageGenerationResponse
@@ -34,12 +34,28 @@ router = APIRouter(prefix="/v1/images", tags=["images"])
 )
 def create_image_generation(
     request: ImageGenerationRequest,
+    authorization: str | None = Header(default=None),
 ) -> ImageGenerationResponse | JSONResponse:
     """Accept the stable OpenAI-compatible request contract.
 
     In MPT-04B.2 this endpoint is real and fully validated, but the default
     backend intentionally reports 503 until ComfyUI is connected in MPT-04B.3.
     """
+    settings = image_backend.GatewaySettings.from_env()
+    if settings.gateway_token:
+        expected = f"Bearer {settings.gateway_token}"
+        if authorization != expected:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "message": "Invalid KTN Image Gateway token.",
+                        "type": "authentication_error",
+                        "code": "invalid_gateway_token",
+                    }
+                },
+            )
+
     try:
         return image_backend.generate_image(request)
     except image_backend.ImageBackendUnavailable as exc:

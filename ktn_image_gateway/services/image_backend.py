@@ -5,6 +5,9 @@ from __future__ import annotations
 import base64
 import random
 import time
+from io import BytesIO
+
+from PIL import Image
 
 from ktn_image_gateway.config import GatewaySettings
 from ktn_image_gateway.schemas import (
@@ -56,6 +59,10 @@ def generate_image(request: ImageGenerationRequest) -> ImageGenerationResponse:
             timeout_seconds=settings.request_timeout_seconds,
             poll_interval_seconds=settings.poll_interval_seconds,
         ).generate_image(workflow)
+        source = Image.open(BytesIO(image_bytes)).convert("RGB")
+        encoded = BytesIO()
+        source.save(encoded, format="JPEG", quality=92, optimize=True)
+        image_bytes = encoded.getvalue()
     except (
         FileNotFoundError,
         ValueError,

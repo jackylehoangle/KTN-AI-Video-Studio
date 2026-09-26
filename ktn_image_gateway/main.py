@@ -29,5 +29,8 @@ def health() -> dict[str, object]:
         "status": "ok",
         "service": "ktn-image-gateway",
         "version": __version__,
+        "backend": "comfyui",
+        "model": "FLUX.1-schnell FP8",
         "comfyui_base_url": settings.comfyui_base_url,
+        "auth_required": bool(settings.gateway_token),
     }
