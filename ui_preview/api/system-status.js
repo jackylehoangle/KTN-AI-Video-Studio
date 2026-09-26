@@ -6,7 +6,7 @@ const DEFAULTS={
   },
   openai:{
     scriptModel:'gpt-4.1-mini',
-    imageModel:'gpt-image-2.5-sunburst'
+    imageModel:'gpt-image-2.5-flare'
   }
 };
 

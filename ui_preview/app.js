@@ -640,8 +640,12 @@ async function refreshSystemStatus(){
     const res=await fetch('/api/system-status',{headers:{accept:'application/json'}});
     const data=await res.json().catch(()=>({}));
     if(!res.ok){
-      if(data.code==='provider_free_tier_unavailable' || data.retryable===false){
-        markImageProviderBlocked(provider,data.error||'Gemini Image không có quota Free Tier.');
+      if(
+        data.code==='provider_free_tier_unavailable' ||
+        data.code==='provider_billing_unavailable' ||
+        data.retryable===false
+      ){
+        markImageProviderBlocked(provider,data.error||'Nhà cung cấp ảnh hiện không khả dụng.');
       }
       throw new Error(data.error||('HTTP '+res.status));
     }

@@ -9,7 +9,7 @@ const PROVIDERS={
     label:'OpenAI',
     keyEnv:'OPENAI_API_KEY',
     modelEnv:'OPENAI_IMAGE_MODEL',
-    defaultModel:'gpt-image-2.5-sunburst'
+    defaultModel:'gpt-image-2.5-flare'
   }
 };
 
@@ -101,14 +101,21 @@ async function generateOpenAIImage(key,model,prompt){
       prompt,
       n:1,
       size:'1536x1024',
-      quality:'low'
+      quality:'low',
+      output_format:'jpeg'
     })
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||('OpenAI Image HTTP '+response.status));
+  if(!response.ok){
+    const message=data?.error?.message||('OpenAI Image HTTP '+response.status);
+    const err=new Error(message);
+    err.status=response.status;
+    err.code=data?.error?.code||data?.error?.type||'openai_image_error';
+    throw err;
+  }
   const image=data?.data?.[0];
   if(!image?.b64_json) throw new Error('OpenAI không trả về ảnh base64 hợp lệ.');
-  return {b64_json:image.b64_json,mime_type:'image/png'};
+  return {b64_json:image.b64_json,mime_type:'image/jpeg'};
 }
 
 export default async function handler(req,res){
@@ -125,7 +132,12 @@ export default async function handler(req,res){
         openai:process.env.OPENAI_IMAGE_MODEL||PROVIDERS.openai.defaultModel
       },
       contracts:{
-        gemini:{responseMimeType:'image/jpeg'}
+        gemini:{responseMimeType:'image/jpeg'},
+        openai:{
+          responseMimeType:'image/jpeg',
+          size:'1536x1024',
+          quality:'low'
+        }
       }
     });
   }
@@ -176,14 +188,17 @@ export default async function handler(req,res){
     });
   }catch(error){
     const providerMessage=String(error?.message||'Lỗi không xác định');
-    const rateLimited=/rate limit exceeded/i.test(providerMessage);
-    const zeroFreeTier=rateLimited && (
+    const rateLimited=/rate limit exceeded|rate_limit/i.test(providerMessage);
+    const zeroFreeTier=provider==='gemini' && rateLimited && (
       /limit:\s*0\s+requests per day/i.test(providerMessage) ||
       /limit:\s*0\s+input tokens per minute/i.test(providerMessage)
     );
-    const status=rateLimited?429:502;
-    const code=zeroFreeTier?'provider_free_tier_unavailable':(rateLimited?'provider_rate_limited':'image_provider_request_failed');
-    const retryable=!zeroFreeTier && rateLimited;
+    const billingBlocked=provider==='openai' && /billing|quota|insufficient_quota|credit/i.test(providerMessage);
+    const status=rateLimited?429:(billingBlocked?402:502);
+    const code=zeroFreeTier
+      ? 'provider_free_tier_unavailable'
+      : (billingBlocked?'provider_billing_unavailable':(rateLimited?'provider_rate_limited':'image_provider_request_failed'));
+    const retryable=!zeroFreeTier && !billingBlocked && rateLimited;
 
     console.error('image_generation_failed',{
       sceneId,
@@ -198,7 +213,9 @@ export default async function handler(req,res){
     return send(res,status,{
       error:zeroFreeTier
         ? 'Gemini Image không có quota Free Tier cho model '+model+' trên API key hiện tại.'
-        : ('Tạo ảnh thất bại: '+providerMessage),
+        : (billingBlocked
+          ? 'OpenAI Image chưa có quota/credit khả dụng cho API key hiện tại.'
+          : ('Tạo ảnh thất bại: '+providerMessage)),
       code,
       provider,
       sceneId,
