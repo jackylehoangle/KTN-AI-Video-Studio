@@ -115,7 +115,9 @@ jobs:
 
   mpt03b-e2e-video:
     name: MPT-03B real video E2E
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -186,7 +188,9 @@ jobs:
 
   mpt03c-full-e2e:
     name: MPT-03C topic to final video
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -288,7 +292,9 @@ jobs:
 
   mpt03c-full-e2e-local-llm:
     name: MPT-03C topic to MP4 with local LLM
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -385,7 +391,9 @@ jobs:
 
   mpt03d-local-llm-quality-and-stock:
     name: MPT-03D upgraded local LLM and real stock gate
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -559,7 +567,9 @@ jobs:
 
   mpt03d-qwen7b-quality:
     name: MPT-03D Qwen 7B script and English terms quality
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -646,7 +656,9 @@ jobs:
 
   mpt03e5d-image-assets-to-final-mp4:
     name: MPT-03E.5D scene image assets to final MP4
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -837,7 +849,9 @@ jobs:
 
   mpt03e5c-real-ai-image:
     name: MPT-03E.5C-REAL real AI images to 5D pipeline
-    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: ubuntu-latest
+    # Heavy/external E2E: manual gate only; keep normal PR/main CI fast and deterministic.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
       POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
