@@ -649,9 +649,14 @@ async function refreshSystemStatus(){
       scriptModel:data.providers?.openai?.scriptModel,
       imageModel:data.providers?.openai?.imageModel
     });
-    setSystemCard('render',Boolean(data.providers?.render?.configured));
+    setSystemCard('ktnImage',Boolean(data.providers?.ktnImage?.ready),{
+      model:data.providers?.ktnImage?.model,
+      gateway:data.providers?.ktnImage?.ready?'LIVE / HEALTH OK':data.providers?.ktnImage?.configured?'Đã cấu hình · chưa kết nối':'Chưa cấu hình',
+      token:data.providers?.ktnImage?.tokenConfigured?'Đã cấu hình':'Chưa cấu hình'
+    });
+    setSystemCard('render',Boolean(data.providers?.render?.ready));
   }catch(err){
-    ['gemini','openai','render'].forEach(name=>setSystemCard(name,false));
+    ['gemini','openai','ktnImage','render'].forEach(name=>setSystemCard(name,false));
     showToast('Không đọc được trạng thái hệ thống: '+(err?.message||'lỗi kết nối'));
   }finally{
     if(button){button.disabled=false;button.textContent='Kiểm tra lại';}
@@ -1916,8 +1921,8 @@ async function refreshRenderWorker(){
   try{
     const res=await fetch('/api/render-video',{headers:{accept:'application/json'}});
     const data=await res.json().catch(()=>({}));
-    renderWorkerAvailable=Boolean(res.ok && data.configured);
-    status.textContent=renderWorkerAvailable?'Render worker sẵn sàng':'Chưa cấu hình render worker';
+    renderWorkerAvailable=Boolean(res.ok && data.ready);
+    status.textContent=renderWorkerAvailable?'Render worker sẵn sàng':data.configured?'Render worker chưa phản hồi':'Chưa cấu hình render worker';
     status.style.background=renderWorkerAvailable?'#eaf8ef':'#fff7df';
     status.style.color=renderWorkerAvailable?'#198754':'#805d16';
   }catch{
