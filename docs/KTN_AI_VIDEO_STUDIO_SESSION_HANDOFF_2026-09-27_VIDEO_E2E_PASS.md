@@ -68,3 +68,10 @@ Các commit:
 `VIDEO-E2E-01D.1 — HANDOFF + SOURCE OF TRUTH` đã PASS trong phiên này.
 
 Mục tiêu tiếp theo: đóng băng baseline đã PASS, xác minh exact HEAD sạch và chuẩn bị merge/promotion có kiểm soát; chưa merge cho tới khi gate riêng PASS.
+
+## 6. CI recovery note — 27/09/2026
+
+- GitHub-hosted runner probe xác nhận Ubuntu/Windows đều fail trước step khi Actions budget bị chặn.
+- Owner đã nâng Actions Budget.
+- Sau thay đổi budget, phải xác minh bằng một **fresh commit workflow run**; không dùng kết quả cũ làm bằng chứng CORE CI PASS.
+- Merge main vẫn BLOCKED cho đến khi Python 3.11, Python 3.13 và Windows smoke chạy thật và PASS.
