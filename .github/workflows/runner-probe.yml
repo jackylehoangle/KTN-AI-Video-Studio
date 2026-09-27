@@ -1,0 +1,23 @@
+name: Runner Probe
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-probe:
+    name: Ubuntu hosted runner probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Runner acquired
+        run: echo "ubuntu-runner-ok"
+
+  windows-probe:
+    name: Windows hosted runner probe
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Runner acquired
+        shell: pwsh
+        run: Write-Output "windows-runner-ok"
