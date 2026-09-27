@@ -25,8 +25,31 @@ function send(res,status,body){
   res.end(JSON.stringify(body));
 }
 
+async function probe(url, options={}) {
+  if(!url) return false;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const response=await fetch(url,{...options,signal:controller.signal,cache:'no-store'});
+    return response.ok;
+  }catch{
+    return false;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 export default async function handler(req,res){
   if(req.method!=='GET') return send(res,405,{error:'Phương thức không được hỗ trợ.'});
+
+  const ktnImageUrl=String(process.env.KTN_IMAGE_GATEWAY_URL||'').trim().replace(/\/$/,'');
+  const ktnImageToken=String(process.env.KTN_IMAGE_GATEWAY_TOKEN||'').trim();
+  const renderUrl=String(process.env.MPT_RENDER_BASE_URL||'').trim().replace(/\/$/,'');
+
+  const [ktnImageReady,renderReady]=await Promise.all([
+    probe(ktnImageUrl?ktnImageUrl+'/health':''),
+    probe(renderUrl?renderUrl+'/docs':'')
+  ]);
 
   return send(res,200,{
     ok:true,
@@ -44,13 +67,15 @@ export default async function handler(req,res){
         imageModel:process.env.OPENAI_IMAGE_MODEL||DEFAULTS.openai.imageModel
       },
       ktnImage:{
-        configured:Boolean(process.env.KTN_IMAGE_GATEWAY_URL),
+        configured:Boolean(ktnImageUrl),
+        ready:ktnImageReady,
         model:'FLUX.1-schnell FP8',
-        gatewayUrlConfigured:Boolean(process.env.KTN_IMAGE_GATEWAY_URL),
-        tokenConfigured:Boolean(process.env.KTN_IMAGE_GATEWAY_TOKEN)
+        gatewayUrlConfigured:Boolean(ktnImageUrl),
+        tokenConfigured:Boolean(ktnImageToken)
       },
       render:{
-        configured:Boolean(process.env.MPT_RENDER_BASE_URL),
+        configured:Boolean(renderUrl),
+        ready:renderReady,
         apiKeyConfigured:Boolean(process.env.MPT_RENDER_API_KEY)
       }
     }
