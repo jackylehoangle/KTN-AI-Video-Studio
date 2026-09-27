@@ -63,6 +63,8 @@ Các commit:
 
 Ưu tiên đầu tiên:
 
-`VIDEO-E2E-01D.1 — FREEZE PASS BASELINE → EXACT-HEAD CI/BUILD AUDIT → BRANCH DIFF REVIEW → MERGE GATE PLAN`
+`VIDEO-E2E-01D.2 — FREEZE PASS BASELINE → EXACT-HEAD CI/BUILD AUDIT → BRANCH DIFF REVIEW → MERGE GATE PLAN`
 
-Mục tiêu: đóng băng baseline đã PASS, xác minh exact HEAD sạch và chuẩn bị merge/promotion có kiểm soát; chưa merge cho tới khi gate riêng PASS.
+`VIDEO-E2E-01D.1 — HANDOFF + SOURCE OF TRUTH` đã PASS trong phiên này.
+
+Mục tiêu tiếp theo: đóng băng baseline đã PASS, xác minh exact HEAD sạch và chuẩn bị merge/promotion có kiểm soát; chưa merge cho tới khi gate riêng PASS.
