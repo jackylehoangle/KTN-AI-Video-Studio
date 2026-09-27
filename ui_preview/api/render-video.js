@@ -26,7 +26,17 @@ export default async function handler(req,res){
   const cfg=config();
 
   if(req.method==='GET' && !req.query?.task_id){
-    return send(res,200,{ok:true,configured:Boolean(cfg.baseUrl)});
+    if(!cfg.baseUrl) return send(res,200,{ok:true,configured:false,ready:false});
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),8000);
+    try{
+      const response=await fetch(cfg.baseUrl+'/docs',{headers:headers(cfg),signal:controller.signal,cache:'no-store'});
+      return send(res,200,{ok:true,configured:true,ready:response.ok});
+    }catch{
+      return send(res,200,{ok:true,configured:true,ready:false});
+    }finally{
+      clearTimeout(timer);
+    }
   }
 
   if(!cfg.baseUrl){
