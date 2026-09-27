@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from app.utils import utils
 from app.services import voice as vs
 from app.services import task as task_service
-from pydub import AudioSegment
 
 temp_dir = utils.storage_dir("temp")
 
