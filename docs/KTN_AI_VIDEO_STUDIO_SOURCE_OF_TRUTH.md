@@ -225,6 +225,9 @@ PASS khi:
 
 ### VIDEO-E2E-01D — HARDENING + PRODUCTION PREP
 
+- `VIDEO-E2E-01D.1 — HANDOFF + SOURCE OF TRUTH` = **PASS**
+- Bước kế tiếp: `VIDEO-E2E-01D.2 — FREEZE PASS BASELINE → EXACT-HEAD CI/BUILD AUDIT → BRANCH DIFF REVIEW → MERGE GATE PLAN`
+
 Thứ tự đề nghị:
 
 1. Freeze trạng thái PASS hiện tại bằng tag/acceptance record.
