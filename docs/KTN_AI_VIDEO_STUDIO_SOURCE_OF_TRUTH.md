@@ -221,6 +221,29 @@ PASS khi:
 6. Chưa chuyển Image/Render workers sang GPU VPS endpoint ổn định.
 7. Chưa merge milestone này vào `main`.
 
+## 12. Hardening / merge-gate progress
+
+### VIDEO-E2E-01D.1 — HANDOFF + SOURCE OF TRUTH
+**PASS**
+
+- Source of Truth đã được tạo và cập nhật.
+- Session handoff đã được tạo.
+- Functional acceptance head được khóa ở `581926dbc3841ab76d9dd4de3c6030536a8e77ea`.
+
+### VIDEO-E2E-01D.2 — FREEZE PASS BASELINE → EXACT-HEAD CI/BUILD AUDIT → BRANCH DIFF REVIEW → MERGE GATE PLAN
+**IN PROGRESS**
+
+- Draft PR #2 đã mở từ `ui-vn-01-vietnamese-baseline` vào `main`; PR đang mergeable và chưa merge.
+- Exact PR head sau CI hardening: `cdade1e6bef7d1f14dbfc4c2e88259d90ae1d0c9`.
+- Branch hiện thay đổi 42 file so với `main`.
+- Đã harden CI: chỉ `tests` + `windows-smoke` chạy tự động; 7 heavy/external E2E chuyển sang manual `workflow_dispatch`.
+- Vercel check hiện fail do **build-rate-limit** (hơn 100 deployment/ngày), không phải bằng chứng code regression.
+- GitHub Actions CI run #21 đã retry 1 lần nhưng 3 core jobs (Python 3.11, Python 3.13, Windows smoke) đều fail trước khi có bất kỳ step nào; `runner_id=0`, không có job log blob. Root cause hạ tầng/quyền runner **chưa được xác minh**, nên CI gate chưa PASS.
+- Không merge `main` cho tới khi core CI chạy được và PASS.
+
+### Bước kế tiếp chính xác
+`VIDEO-E2E-01D.2A — GITHUB ACTIONS STARTUP FAILURE ROOT-CAUSE → CORE CI PASS`
+
 ## 12. Bước tiếp theo chuẩn
 
 ### VIDEO-E2E-01D — HARDENING + PRODUCTION PREP
