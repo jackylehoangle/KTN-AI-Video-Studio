@@ -3,7 +3,7 @@
 **Cập nhật:** 27/09/2026 (GMT+7)  
 **Repository:** `jackylehoangle/KTN-AI-Video-Studio`  
 **Nhánh đang nghiệm thu:** `ui-vn-01-vietnamese-baseline`  
-**Trạng thái milestone:** `VIDEO-E2E-01C.4 — PASS`
+**Trạng thái milestone:** `VIDEO-E2E-01D.2B.4 — MANUAL CI EVIDENCE LOCK / FINAL MERGE READINESS`
 
 > Tài liệu này là nguồn chuẩn kỹ thuật cho trạng thái hiện tại của KTN AI Video Studio trên nhánh nghiệm thu. Không lưu secret/token runtime trong tài liệu.
 
@@ -226,39 +226,75 @@ PASS khi:
 ### VIDEO-E2E-01D.1 — HANDOFF + SOURCE OF TRUTH
 **PASS**
 
-- Source of Truth đã được tạo và cập nhật.
-- Session handoff đã được tạo.
-- Functional acceptance head được khóa ở `581926dbc3841ab76d9dd4de3c6030536a8e77ea`.
+- Source of Truth và Session Handoff đã được tạo và duy trì.
+- Functional acceptance baseline trước hardening: `581926dbc3841ab76d9dd4de3c6030536a8e77ea`.
 
-### VIDEO-E2E-01D.2 — FREEZE PASS BASELINE → EXACT-HEAD CI/BUILD AUDIT → BRANCH DIFF REVIEW → MERGE GATE PLAN
-**IN PROGRESS**
+### VIDEO-E2E-01D.2B — MANUAL CORE CI SURROGATE
+**PASS với ngoại lệ hosted CI được ghi nhận**
 
-- Draft PR #2 đã mở từ `ui-vn-01-vietnamese-baseline` vào `main`; PR đang mergeable và chưa merge.
-- Exact PR head sau CI hardening: `cdade1e6bef7d1f14dbfc4c2e88259d90ae1d0c9`.
-- Branch hiện thay đổi 42 file so với `main`.
-- Đã harden CI: chỉ `tests` + `windows-smoke` chạy tự động; 7 heavy/external E2E chuyển sang manual `workflow_dispatch`.
-- Vercel check hiện fail do **build-rate-limit** (hơn 100 deployment/ngày), không phải bằng chứng code regression.
-- GitHub Actions CI run #21 đã retry 1 lần nhưng 3 core jobs (Python 3.11, Python 3.13, Windows smoke) đều fail trước khi có bất kỳ step nào; `runner_id=0`, không có job log blob. Root cause hạ tầng/quyền runner **chưa được xác minh**, nên CI gate chưa PASS.
-- Không merge `main` cho tới khi core CI chạy được và PASS.
+**Exact tested code head:** `8fbd050f23455cc65fc5cad05d1bc7f8cb838468`  
+**Acceptance lock branch:** `acceptance/video-e2e-01d-2b4-8fbd050f`
+
+Bằng chứng manual gate trên đúng exact head:
+
+| Gate | Kết quả |
+|---|---|
+| Redis prerequisite | PASS |
+| Python 3.11 environment/dependencies | PASS |
+| Compile | PASS |
+| Ruff full | PASS |
+| Gemini TTS targeted contract test | PASS |
+| Vietnamese i18n targeted gate | PASS |
+| Full Python 3.11 pytest suite | PASS |
+| Coverage | **81%** — PASS, ngưỡng yêu cầu >= 70% |
+| Windows clean clone / exact-head verify | PASS |
+| Windows Python 3.11 dependency sync | PASS |
+| Windows compile | PASS |
+| Windows smoke pytest | **PASS — 168 passed, 4 skipped, 2 warnings, 64 subtests; 121.10s** |
+
+Các lỗi được sửa trong hardening:
+- Gemini TTS unit test được cập nhật theo Interactions API hiện tại.
+- Xóa unused import làm Ruff F401.
+- Vietnamese `vi` được xác định là first-class fully maintained locale; test fallback không còn ép `vi` bỏ bản dịch tiếng Việt.
+- `vi.json` hiện cover đủ key theo `en.json` trong targeted i18n gate.
+
+### Hosted CI / Vercel evidence
+
+- GitHub Actions run #28 trên exact code head vẫn hiển thị failure cho Python 3.11, Python 3.13 và Windows smoke **trước khi có step thực thi**; job steps rỗng và không có log blob. Đây không được dùng làm bằng chứng code regression.
+- Manual Linux Python 3.11 + Windows smoke ở trên là surrogate evidence được khóa cho milestone này.
+- Python 3.13 compatibility job chưa được manual-retest trong surrogate flow này; trạng thái vẫn **DEFERRED / NOT INDEPENDENTLY VERIFIED**.
+- Vercel deployment cho exact code head `8fbd050f23455cc65fc5cad05d1bc7f8cb838468` hiện **READY**.
+- PR #2 hiện **Open + Draft + Mergeable**, base `main`, head branch `ui-vn-01-vietnamese-baseline`.
+
+### VIDEO-E2E-01D.2B.4 — MANUAL CI EVIDENCE LOCK → FINAL MERGE READINESS
+**PASS phần evidence lock / docs update. Merge vẫn cần owner decision.**
+
+Quy tắc merge:
+1. Không diễn giải hosted Actions đỏ trước-step là code failure.
+2. Không tuyên bố Python 3.13 PASS khi chưa chạy manual.
+3. Exact tested runtime/code head luôn là `8fbd050f23455cc65fc5cad05d1bc7f8cb838468`.
+4. Các commit sau exact tested head nếu chỉ sửa tài liệu phải được xác nhận bằng branch diff là docs-only.
+5. Không merge PR #2 tự động. Owner phải quyết định chấp nhận surrogate gate + deferred Python 3.13, hoặc yêu cầu khôi phục hosted CI/Python 3.13 trước merge.
+
+## 13. Trạng thái merge readiness hiện tại
+
+### Đã đủ
+- Image E2E: PASS.
+- MP4 render/playback E2E: PASS.
+- Python 3.11 full core manual gate: PASS.
+- Coverage: 81% PASS.
+- Windows smoke: PASS.
+- Exact-head Vercel preview deployment: READY.
+- PR #2: mergeable.
+
+### Còn ngoại lệ cần owner biết trước merge
+- GitHub-hosted Actions chưa xanh do job không khởi chạy được.
+- Python 3.13 compatibility chưa được independently verified trong manual surrogate.
+- Production persistence/GPU endpoint vẫn là hardening sau MVP, không phải blocker của functional acceptance hiện tại.
 
 ### Bước kế tiếp chính xác
-`VIDEO-E2E-01D.2A — GITHUB ACTIONS STARTUP FAILURE ROOT-CAUSE → CORE CI PASS`
+`VIDEO-E2E-01D.2B.5 — DOCS-ONLY HEAD DIFF VERIFY → OWNER MERGE DECISION`
 
-## 12. Bước tiếp theo chuẩn
+Nếu owner chấp nhận hai ngoại lệ trên, có thể chuyển sang controlled merge PR #2. Nếu không chấp nhận, bước tiếp theo phải là khôi phục hosted CI và/hoặc chạy manual Python 3.13 compatibility gate trước merge.
 
-### VIDEO-E2E-01D — HARDENING + PRODUCTION PREP
-
-- `VIDEO-E2E-01D.1 — HANDOFF + SOURCE OF TRUTH` = **PASS**
-- Bước kế tiếp: `VIDEO-E2E-01D.2 — FREEZE PASS BASELINE → EXACT-HEAD CI/BUILD AUDIT → BRANCH DIFF REVIEW → MERGE GATE PLAN`
-
-Thứ tự đề nghị:
-
-1. Freeze trạng thái PASS hiện tại bằng tag/acceptance record.
-2. Kiểm tra CI/build của exact HEAD.
-3. Audit branch diff trước merge.
-4. Chuẩn hóa project persistence backend.
-5. Chuẩn hóa stable GPU worker endpoint / named tunnel.
-6. Tách runtime secrets khỏi manual update workflow nếu production.
-7. Thực hiện controlled merge/promotion chỉ sau acceptance gate.
-
-**Không merge `main` tự động chỉ vì VIDEO-E2E đã PASS. Merge/promotion là gate riêng.**
+**Không merge `main` tự động.**
