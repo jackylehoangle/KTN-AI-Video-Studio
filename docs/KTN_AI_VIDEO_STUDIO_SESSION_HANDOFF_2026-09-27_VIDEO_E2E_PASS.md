@@ -1,7 +1,7 @@
 # KTN AI VIDEO STUDIO — SESSION HANDOFF
 
 **Ngày:** 27/09/2026 (GMT+7)  
-**Milestone:** `VIDEO-E2E-01D.2B.4 — MANUAL CI EVIDENCE LOCK / FINAL MERGE READINESS`  
+**Milestone:** `VIDEO-E2E-01D.2B.5A — MANUAL PYTHON 3.13 COMPATIBILITY GATE — PASS`  
 **Branch:** `ui-vn-01-vietnamese-baseline`
 
 ## 1. Kết quả phiên
@@ -52,7 +52,7 @@ Các commit:
 | Windows smoke | PASS — 168 passed, 4 skipped, 64 subtests |
 | Exact-head Vercel preview | READY |
 | Hosted GitHub Actions | BLOCKED/RED before steps — infrastructure/account exception |
-| Python 3.13 independent compatibility | DEFERRED |
+| Python 3.13 independent compatibility | PASS — Python 3.13.15, full pytest PASS, coverage 81% |
 
 ## 4. Lưu ý quan trọng cho phiên sau
 
@@ -106,9 +106,26 @@ Run #28 vẫn hiển thị failure cho:
 
 Các job dừng trước step, steps rỗng và không có log blob. Không dùng kết quả này để kết luận code regression.
 
-Manual Linux Python 3.11 + Windows smoke được dùng làm surrogate gate tạm thời.
+Manual Linux Python 3.11 + Windows smoke + Python 3.13 manual gate được dùng làm complete core CI surrogate.
 
-**Python 3.13 chưa được manual-retest và không được ghi là PASS.**
+### Python 3.13 manual compatibility gate
+
+Tested HEAD: `d3007d2962a2fa536eb0d13257c53be5f60c8d3d`
+
+- Python 3.13.15: PASS.
+- Redis: PASS.
+- Dependencies: PASS.
+- Compile: PASS.
+- Full pytest: PASS (`PYTEST EXIT CODE: 0`).
+- Coverage: 81% PASS.
+- coverage.xml export: PASS.
+- Acceptance lock: `acceptance/video-e2e-01d-2b5a-py313-pass`.
+
+**Hosted core CI surrogate = COMPLETE**
+
+- Python 3.11 core: MANUAL PASS.
+- Python 3.13 core: MANUAL PASS.
+- Windows smoke: MANUAL PASS.
 
 ## 6. Sửa lỗi hardening trong phiên
 
@@ -130,17 +147,16 @@ Manual Linux Python 3.11 + Windows smoke được dùng làm surrogate gate tạ
 - Sau khi cập nhật tài liệu, branch head sẽ có docs-only commit mới; phải kiểm tra diff từ exact tested head tới final PR head trước owner decision.
 - Không merge tự động.
 
-## 8. Ngoại lệ owner cần quyết định
+## 8. Ngoại lệ owner cần biết trước merge
 
-Trước merge có hai ngoại lệ còn mở:
+Chỉ còn một ngoại lệ hạ tầng/account:
 
-1. Hosted GitHub Actions chưa xanh vì jobs không khởi chạy được.
-2. Python 3.13 compatibility chưa được independently verified trong manual surrogate.
+1. Hosted GitHub Actions chưa xanh vì jobs không khởi chạy được do account/billing.
 
-Nếu owner chấp nhận surrogate gate hiện tại, có thể chuyển sang controlled merge sau docs-only diff verify. Nếu owner yêu cầu gate đầy đủ như CI gốc, phải chạy Python 3.13 manual và/hoặc khôi phục GitHub-hosted Actions trước merge.
+Ba core CI jobs đã được thay thế thủ công và đều PASS. Vì vậy hosted Actions không còn là blocker kỹ thuật bắt buộc cho milestone hiện tại.
 
 ## 9. Bước tiếp theo chính xác
 
-`VIDEO-E2E-01D.2B.5 — DOCS-ONLY HEAD DIFF VERIFY → OWNER MERGE DECISION`
+`VIDEO-E2E-01D.2B.5B — COMPLETE CI SURROGATE LOCK → OWNER MERGE GATE`
 
-Không cần chạy lại Image E2E, MP4 E2E, Python 3.11 full suite hay Windows smoke nếu không có runtime/code change sau exact tested head.
+Không cần chạy lại Image E2E, MP4 E2E, Python 3.11, Python 3.13 hay Windows smoke nếu không có runtime/application/test code change sau tested heads.
