@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KTN AI Video Studio</title>
+  <meta name="description" content="KTN AI Video Studio - bản xem trước giao diện tiếng Việt" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">KTN</div>
+        <div>
+          <strong>AI Video Studio</strong>
+          <span>Bản xem trước</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-section="create"><span>✦</span>Tạo video</button>
+        <button class="nav-item" id="newProjectBtn"><span>＋</span>Dự án mới</button>
+        <button class="nav-item" data-section="script"><span>▤</span>Kịch bản</button>
+        <button class="nav-item" data-section="scene"><span>▦</span>Cảnh & hình ảnh</button>
+        <button class="nav-item" data-section="voice"><span>◉</span>Giọng đọc</button>
+        <button class="nav-item" data-section="subtitle"><span>CC</span>Phụ đề</button>
+        <button class="nav-item" data-section="library"><span>▣</span>Thư viện</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-section="settings"><span>⚙</span>Cài đặt</button>
+        <div class="engine-card">
+          <div class="dot"></div>
+          <div>
+            <strong>Engine</strong>
+            <span>MoneyPrinterTurbo</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">KTN AI VIDEO STUDIO</p>
+          <h1>Tạo video AI</h1>
+        </div>
+        <div class="top-actions">
+          <div class="project-state">
+            <input id="projectName" value="Dự án chưa đặt tên" aria-label="Tên dự án" />
+            <span id="autosaveStatus">Chưa lưu</span>
+          </div>
+          <button class="ghost" id="saveProjectBtn">Lưu</button>
+          <button class="ghost" id="exportProjectBtn">Xuất dự án</button>
+          <label class="ghost import-project-label">Nhập dự án<input id="importProjectInput" type="file" accept=".json,application/json" hidden></label>
+          <span class="preview-badge" id="backendStatus">Đang kiểm tra AI...</span>
+          <button class="ghost">Tiếng Việt</button>
+          <button class="icon-btn" aria-label="Cài đặt">⚙</button>
+        </div>
+      </header>
+
+      <section class="workflow">
+        <div class="step done"><span>1</span><div><strong>Chủ đề</strong><small>Nhập ý tưởng</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>2</span><div><strong>Kịch bản</strong><small>AI biên soạn</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>3</span><div><strong>Hình ảnh</strong><small>Gemini / OpenAI</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>4</span><div><strong>Giọng & phụ đề</strong><small>Tự động</small></div></div>
+        <div class="line"></div>
+        <div class="step"><span>5</span><div><strong>Xuất video</strong><small>MP4</small></div></div>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel main-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Nội dung video</h2>
+              <p>Nhập chủ đề, chọn ngôn ngữ và AI để bắt đầu tạo kịch bản.</p>
+            </div>
+            <span class="status-pill">Bước 1/5</span>
+          </div>
+
+          <label>Chủ đề video</label>
+          <textarea id="topic" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
+
+          <div class="two-col">
+            <div>
+              <label>Ngôn ngữ kịch bản</label>
+              <select id="scriptLanguage">
+                <option value="vi">Tiếng Việt</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div>
+              <label>Nhà cung cấp AI</label>
+              <select id="scriptProvider">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+          </div>
+
+          <details>
+            <summary>Cài đặt kịch bản nâng cao</summary>
+            <div class="advanced">
+              <div>
+                <label>Số đoạn</label>
+                <input id="paragraphCount" type="number" min="1" max="20" value="6" />
+              </div>
+              <div>
+                <label>Độ dài mục tiêu</label>
+                <select id="targetDuration"><option value="60-90s">60–90 giây</option><option value="3-5m">3–5 phút</option><option value="8-12m">8–12 phút</option></select>
+              </div>
+              <div class="full">
+                <label>Yêu cầu bổ sung</label>
+                <input id="extraInstruction" placeholder="Phong cách kể chuyện, đối tượng người xem..." />
+              </div>
+            </div>
+          </details>
+
+          <div class="actions">
+            <button class="secondary" id="keywordBtn" disabled>Tạo từ khóa từ kịch bản</button>
+            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
+          </div>
+        </div>
+
+        <aside class="panel side-panel">
+          <div class="panel-head compact">
+            <div>
+              <h2>Cấu hình nhanh</h2>
+              <p>Dùng cho bản video hiện tại.</p>
+            </div>
+          </div>
+
+          <div class="quick-row voice-provider-row">
+            <div class="quick-icon">🎙</div>
+            <div>
+              <strong>Giọng đọc</strong>
+              <select id="voiceName" class="inline-select">
+                <option value="Kore">Kore · Rõ, chắc</option>
+                <option value="Achernar">Achernar · Nhẹ nhàng</option>
+                <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+                <option value="Charon">Charon · Thuyết minh</option>
+                <option value="Sulafat">Sulafat · Ấm</option>
+                <option value="Puck">Puck · Năng lượng</option>
+              </select>
+              <span>Gemini TTS · vi-VN</span>
+            </div>
+            <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
+          </div>
+          <div class="quick-row">
+            <div class="quick-icon">CC</div>
+            <div><strong>Phụ đề</strong><span>Bật · Dưới màn hình</span></div>
+            <button>Đổi</button>
+          </div>
+          <div class="quick-row">
+            <div class="quick-icon">▭</div>
+            <div><strong>Tỷ lệ video</strong><span>16:9 · 1920×1080</span></div>
+            <button>Đổi</button>
+          </div>
+          <div class="quick-row image-provider-row">
+            <div class="quick-icon">◈</div>
+            <div>
+              <strong>Nguồn hình ảnh</strong>
+              <select id="imageProvider" class="inline-select">
+                <option value="ktn">KTN FLUX · Colab/VPS</option>
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+              </select>
+              <span>KTN FLUX tự host · Gemini/OpenAI dự phòng</span>
+            </div>
+            <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
+          </div>
+
+          <div class="info-box">
+            <strong>Hướng phát triển hiện tại</strong>
+            <p>KTN Image Gateway là lớp ảnh chính: Colab để thử nghiệm, GPU VPS cho production. Gemini/OpenAI chỉ là provider dự phòng.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel script-preview">
+        <div class="panel-head">
+          <div>
+            <h2>Kịch bản</h2>
+            <p>Kết quả AI sẽ hiển thị tại đây để chỉnh sửa trước khi chia cảnh.</p>
+          </div>
+          <div class="segmented">
+            <button class="active" id="scriptTabBtn">Kịch bản</button>
+            <button id="keywordTabBtn">Từ khóa</button>
+            <button id="historyTabBtn">Lịch sử</button>
+          </div>
+        </div>
+        <div id="scriptEmpty" class="empty-state">
+          <div class="empty-icon">✦</div>
+          <strong>Chưa có kịch bản</strong>
+          <p>Nhập chủ đề ở trên và chọn “Tạo kịch bản bằng AI”.</p>
+        </div>
+        <div id="scriptDemo" class="script-demo hidden">
+          <div class="script-toolbar">
+            <span id="scriptMeta">Đã tạo · bản nháp</span>
+            <div>
+              <button id="copyScriptBtn">Sao chép</button>
+              <button id="editScriptBtn">Chỉnh sửa</button>
+            </div>
+          </div>
+          <h3 id="scriptTitle">Kịch bản AI</h3>
+          <textarea id="scriptResult" readonly></textarea>
+        </div>
+
+        <div id="keywordPanel" class="keyword-panel hidden">
+          <div class="keyword-head">
+            <div>
+              <strong>Từ khóa nội dung</strong>
+              <p>Dùng để định hướng hình ảnh, tìm kiếm và kiểm tra độ phủ nội dung.</p>
+            </div>
+            <span id="keywordMeta"></span>
+          </div>
+          <div id="keywordList" class="keyword-list"></div>
+        </div>
+
+        <div id="historyPanel" class="empty-state hidden">
+          <div class="empty-icon">↺</div>
+          <strong>Lịch sử phiên</strong>
+          <p>Lịch sử phiên bản sẽ được hoàn thiện ở bước quản lý dự án. Hiện tại chưa lưu lâu dài.</p>
+        </div>
+      </section>
+
+
+      <section class="panel voice-workspace-panel" id="voiceSection">
+        <div class="panel-head">
+          <div>
+            <h2>Giọng đọc</h2>
+            <p>Nghe thử giọng Gemini TTS và tạo audio cho từng scene hoặc nhiều scene có kiểm soát.</p>
+          </div>
+          <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Gemini TTS</span>
+        </div>
+
+        <div id="voiceDailyQuotaNotice" class="voice-daily-quota-notice hidden">
+          <strong>Đã chạm quota TTS Free Tier theo ngày</strong>
+          <span>Hệ thống đã dừng retry và khóa tạo audio mới trong phiên này để tránh gọi API vô ích. Audio đã tạo vẫn được giữ nguyên.</span>
+        </div>
+
+        <div class="voice-workspace-grid">
+          <div class="voice-preview-card">
+            <div class="voice-card-head">
+              <div>
+                <strong>Nghe thử giọng</strong>
+                <p>Tạo một đoạn ngắn trước khi áp dụng cho toàn bộ video.</p>
+              </div>
+              <span id="voicePreviewModel">Gemini TTS</span>
+            </div>
+
+            <label>Giọng</label>
+            <select id="voiceWorkspaceVoice">
+              <option value="Kore">Kore · Rõ, chắc</option>
+              <option value="Achernar">Achernar · Nhẹ nhàng</option>
+              <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+              <option value="Charon">Charon · Thuyết minh</option>
+              <option value="Sulafat">Sulafat · Ấm</option>
+              <option value="Puck">Puck · Năng lượng</option>
+            </select>
+
+            <label>Câu nghe thử</label>
+            <textarea id="voicePreviewText">Xin chào, đây là bản thử giọng của KTN AI Video Studio. Hãy lắng nghe tốc độ, độ rõ và cảm xúc của giọng đọc này.</textarea>
+
+            <div class="voice-preview-actions">
+              <span class="cost-note">Mỗi lần nghe thử là một request TTS.</span>
+              <button class="primary compact-btn" id="voicePreviewBtn">Nghe thử</button>
+            </div>
+
+            <div id="voicePreviewOutput" class="voice-preview-output hidden">
+              <div id="voicePreviewMeta">Audio mẫu</div>
+              <audio id="voicePreviewAudio" controls preload="metadata"></audio>
+            </div>
+          </div>
+
+          <div class="voice-batch-card">
+            <div class="voice-card-head">
+              <div>
+                <strong>Tạo audio hàng loạt</strong>
+                <p>Chạy tuần tự từng scene và tự giãn nhịp theo quota Gemini Free Tier để tránh lỗi giới hạn request.</p>
+              </div>
+              <span id="voiceBatchSummary">0/0 audio</span>
+            </div>
+
+            <div class="voice-stats">
+              <div><strong id="voiceSceneTotal">0</strong><span>Tổng scene</span></div>
+              <div><strong id="voiceSceneReady">0</strong><span>Đã có audio</span></div>
+              <div><strong id="voiceSceneMissing">0</strong><span>Chưa có audio</span></div>
+            </div>
+
+            <label>Phạm vi tạo</label>
+            <select id="voiceBatchScope">
+              <option value="test2" selected>Kiểm thử tối đa 2 scene chưa có audio</option>
+              <option value="missing">Tất cả scene chưa có audio</option>
+              <option value="all">Tạo lại toàn bộ scene</option>
+            </select>
+
+            <label class="voice-confirm-row">
+              <input type="checkbox" id="voiceBatchConfirm" />
+              <span>Tôi hiểu việc tạo audio hàng loạt có thể phát sinh phí API và chỉ muốn chạy phạm vi đã chọn.</span>
+            </label>
+
+            <button class="primary voice-batch-btn" id="voiceBatchBtn" disabled>Tạo audio hàng loạt</button>
+
+            <div id="voiceBatchProgress" class="voice-batch-progress hidden">
+              <div class="voice-batch-progress-head">
+                <span id="voiceBatchProgressLabel">Đang chuẩn bị...</span>
+                <strong id="voiceBatchProgressValue">0%</strong>
+              </div>
+              <div class="voice-batch-track"><div id="voiceBatchBar"></div></div>
+              <div id="voiceBatchResults" class="voice-batch-results"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="voice-scene-status">
+          <div class="voice-scene-status-head">
+            <strong>Trạng thái audio theo scene</strong>
+            <button class="secondary compact-btn" id="refreshVoiceWorkspaceBtn">Làm mới</button>
+          </div>
+          <div id="voiceSceneStatusEmpty" class="empty-state">
+            <div class="empty-icon">🎙</div>
+            <strong>Chưa có scene</strong>
+            <p>Hãy tạo kịch bản và chia cảnh trước khi tạo audio.</p>
+          </div>
+          <div id="voiceSceneStatusList" class="voice-scene-status-list hidden"></div>
+        </div>
+      </section>
+
+      <section id="imageQuotaNotice" class="panel image-quota-notice hidden">
+        <strong>Gemini Image không có quota Free Tier trên API key hiện tại</strong>
+        <span>Hệ thống đã khóa tạo ảnh bằng Gemini trong phiên này để tránh gọi API vô ích. Có thể cấu hình nhà cung cấp ảnh khác sau.</span>
+      </section>
+
+      <section class="panel scene-panel" id="sceneSection">
+        <div class="panel-head">
+          <div>
+            <h2>Chia cảnh</h2>
+            <p>AI tách kịch bản thành các scene có lời đọc, thời lượng và prompt hình ảnh.</p>
+          </div>
+          <button class="primary compact-btn" id="sceneBtn" disabled>
+            <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
+          </button>
+        </div>
+        <div id="sceneEmpty" class="empty-state">
+          <div class="empty-icon">▦</div>
+          <strong>Chưa có cảnh</strong>
+          <p>Tạo hoặc nhập kịch bản trước, sau đó chọn “Chia cảnh bằng AI”.</p>
+        </div>
+        <div id="sceneList" class="scene-list hidden"></div>
+      </section>
+
+      <section class="panel subtitle-panel" id="subtitleSection">
+        <div class="panel-head">
+          <div>
+            <h2>Phụ đề</h2>
+            <p>Tạo timeline SRT từ lời đọc từng scene. Nếu đã tạo audio, hệ thống ưu tiên thời lượng audio thật.</p>
+          </div>
+          <button class="primary compact-btn" id="subtitleBtn" disabled>Tạo phụ đề SRT</button>
+        </div>
+        <div class="subtitle-settings">
+          <div>
+            <label>Độ dài tối đa mỗi dòng</label>
+            <select id="subtitleMaxChars">
+              <option value="36">36 ký tự</option>
+              <option value="42" selected>42 ký tự</option>
+              <option value="50">50 ký tự</option>
+            </select>
+          </div>
+          <div>
+            <label>Khoảng nghỉ giữa cảnh</label>
+            <select id="subtitleGap">
+              <option value="0">0 giây</option>
+              <option value="0.15" selected>0,15 giây</option>
+              <option value="0.3">0,30 giây</option>
+            </select>
+          </div>
+        </div>
+        <div id="subtitleEmpty" class="empty-state">
+          <div class="empty-icon">CC</div>
+          <strong>Chưa có phụ đề</strong>
+          <p>Hãy chia cảnh trước. Sau đó có thể tạo SRT ngay cả khi chưa tạo audio.</p>
+        </div>
+        <div id="subtitleOutput" class="subtitle-output hidden">
+          <div class="subtitle-toolbar">
+            <span id="subtitleMeta">SRT</span>
+            <button id="downloadSrtBtn">Tải file .srt</button>
+          </div>
+          <pre id="subtitlePreview"></pre>
+        </div>
+      </section>
+
+      <section class="panel asset-library-panel" id="librarySection">
+        <div class="panel-head">
+          <div>
+            <h2>Thư viện tài nguyên</h2>
+            <p>Quản lý toàn bộ scene, ảnh và audio của dự án hiện tại.</p>
+          </div>
+          <button class="secondary compact-btn" id="refreshLibraryBtn">Làm mới</button>
+        </div>
+
+        <div class="asset-summary">
+          <div><strong id="assetSceneCount">0</strong><span>Scene</span></div>
+          <div><strong id="assetImageCount">0</strong><span>Ảnh</span></div>
+          <div><strong id="assetAudioCount">0</strong><span>Audio</span></div>
+          <div><strong id="assetSubtitleState">—</strong><span>Phụ đề</span></div>
+        </div>
+
+        <div class="asset-filters">
+          <button class="active" data-asset-filter="all">Tất cả</button>
+          <button data-asset-filter="image">Có ảnh</button>
+          <button data-asset-filter="audio">Có audio</button>
+          <button data-asset-filter="missing">Thiếu asset</button>
+        </div>
+
+        <div id="assetLibraryEmpty" class="empty-state">
+          <div class="empty-icon">▣</div>
+          <strong>Thư viện đang trống</strong>
+          <p>Sau khi chia cảnh, các scene và asset sẽ xuất hiện tại đây.</p>
+        </div>
+        <div id="assetLibraryGrid" class="asset-library-grid hidden"></div>
+      </section>
+
+      <section class="panel render-panel" id="renderSection">
+        <div class="panel-head">
+          <div>
+            <h2>Xuất video</h2>
+            <p>Gửi ảnh theo đúng thứ tự scene sang MoneyPrinterTurbo worker và dựng MP4 bằng FFmpeg/MoviePy.</p>
+          </div>
+          <span class="status-pill" id="renderWorkerStatus">Chưa kiểm tra worker</span>
+        </div>
+
+        <div class="render-readiness" id="renderReadiness">
+          <div class="readiness-item" data-check="script"><span>○</span><div><strong>Kịch bản</strong><small>Chưa sẵn sàng</small></div></div>
+          <div class="readiness-item" data-check="scenes"><span>○</span><div><strong>Scene</strong><small>Chưa sẵn sàng</small></div></div>
+          <div class="readiness-item" data-check="images"><span>○</span><div><strong>Ảnh scene</strong><small>Chưa sẵn sàng</small></div></div>
+          <div class="readiness-item" data-check="subtitles"><span>○</span><div><strong>Phụ đề</strong><small>Tùy chọn</small></div></div>
+        </div>
+
+        <div class="render-settings">
+          <div>
+            <label>Tỷ lệ video</label>
+            <select id="renderAspect">
+              <option value="16:9" selected>16:9 · 1920×1080</option>
+              <option value="9:16">9:16 · 1080×1920</option>
+              <option value="1:1">1:1 · 1080×1080</option>
+            </select>
+          </div>
+          <div>
+            <label>Hiệu ứng chuyển cảnh</label>
+            <select id="renderTransition">
+              <option value="" selected>Không</option>
+              <option value="FadeIn">Fade In</option>
+              <option value="FadeOut">Fade Out</option>
+              <option value="ZoomIn">Zoom In</option>
+              <option value="ZoomOut">Zoom Out</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="render-actions">
+          <button class="secondary" id="downloadManifestBtn">Tải Render Manifest</button>
+          <button class="primary" id="renderBtn" disabled>Xuất MP4</button>
+        </div>
+
+        <div id="renderProgress" class="render-progress hidden">
+          <div class="render-progress-head">
+            <span id="renderProgressLabel">Đang chuẩn bị...</span>
+            <strong id="renderProgressValue">0%</strong>
+          </div>
+          <div class="render-progress-track"><div id="renderProgressBar"></div></div>
+          <div id="renderResult" class="render-result"></div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel" id="settingsSection">
+        <div class="panel-head">
+          <div>
+            <h2>Cài đặt hệ thống</h2>
+            <p>Chỉ hiển thị trạng thái cấu hình. API key được lưu bằng Environment Variables trên Vercel/worker và không bao giờ hiển thị ở đây.</p>
+          </div>
+          <button class="secondary compact-btn" id="refreshSystemStatusBtn">Kiểm tra lại</button>
+        </div>
+
+        <div class="system-status-grid">
+          <article class="system-card" data-system="gemini">
+            <div class="system-card-head"><strong>Gemini</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · chia cảnh · hình ảnh · giọng đọc</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>GEMINI_API_KEY</dd></div>
+              <div><dt>Script</dt><dd data-field="scriptModel">—</dd></div>
+              <div><dt>Image</dt><dd data-field="imageModel">—</dd></div>
+              <div><dt>TTS</dt><dd data-field="ttsModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="openai">
+            <div class="system-card-head"><strong>OpenAI</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · hình ảnh dự phòng</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>OPENAI_API_KEY</dd></div>
+              <div><dt>Script</dt><dd data-field="scriptModel">—</dd></div>
+              <div><dt>Image</dt><dd data-field="imageModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="ktnImage">
+            <div class="system-card-head"><strong>KTN FLUX Image Engine</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>ComfyUI · FLUX.1-schnell FP8 · KTN Image Gateway</p>
+            <dl>
+              <div><dt>Model</dt><dd data-field="model">FLUX.1-schnell FP8</dd></div>
+              <div><dt>Gateway</dt><dd data-field="gateway">Đang kiểm tra</dd></div>
+              <div><dt>Xác thực</dt><dd data-field="token">Đang kiểm tra</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="render">
+            <div class="system-card-head"><strong>MoneyPrinterTurbo Worker</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>FFmpeg/MoviePy · tạo voice cuối · subtitle · MP4</p>
+            <dl>
+              <div><dt>Worker URL</dt><dd>MPT_RENDER_BASE_URL</dd></div>
+              <div><dt>Xác thực</dt><dd>MPT_RENDER_API_KEY (tùy chọn)</dd></div>
+              <div><dt>Vai trò</dt><dd>Render nặng ngoài Vercel</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <div class="persistence-diagnostic" id="persistenceDiagnostic">
+          <div>
+            <strong>Lưu dự án trên trình duyệt</strong>
+            <span id="persistenceDiagnosticText">Chưa kiểm tra IndexedDB</span>
+          </div>
+          <button class="secondary compact-btn" id="checkPersistenceBtn">Kiểm tra lưu</button>
+        </div>
+
+        <div class="security-note">
+          <strong>Nguyên tắc bảo mật</strong>
+          <span>Không lưu API key trong project JSON, IndexedDB, LocalStorage hay mã frontend.</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast">Đây là bản xem trước giao diện. Chức năng AI sẽ được nối ở bước tiếp theo.</div>
+  <script src="./app.js"></script>
+</body>
+</html>

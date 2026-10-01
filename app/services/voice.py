@@ -1600,124 +1600,184 @@ def gemini_tts(
     voice_file: str,
     voice_volume: float = 1.0,
 ) -> Union[SubMaker, None]:
+    """Generate speech with Gemini 3.8 TTS through the Interactions API.
+
+    Gemini 3.8 treats input text as the verbatim transcript. Delivery guidance
+    is sent through speech_metadata.style. Unary requests explicitly ask for
+    WAV so returned bytes already contain a RIFF header.
     """
-    使用Google Gemini TTS生成语音
-    
-    Args:
-        text: 要转换的文本
-        voice_name: 语音名称，如 "Zephyr", "Puck" 等
-        voice_rate: 语音速率（当前未使用）
-        voice_file: 输出音频文件路径
-        voice_volume: 音频音量（当前未使用）
-        
-    Returns:
-        SubMaker对象或None
-    """
-    import base64
-    import io
     from pydub import AudioSegment
-    from google import genai
-    from google.genai import types
+
     _configure_pydub_ffmpeg(AudioSegment)
-    
+
+    text = (text or "").strip()
+    if not text:
+        logger.error("Gemini TTS text is empty")
+        return None
+
     try:
-        api_key = config.app.get("gemini_api_key", "")
+        api_key = str(config.app.get("gemini_api_key", "") or "").strip()
+        if not api_key:
+            api_key = os.getenv("GEMINI_API_KEY", "").strip()
         if not api_key:
             logger.error("Gemini API key is not set")
             return None
 
-        logger.info(f"start, voice name: {voice_name}, try: 1")
-
-        generation_config = types.GenerateContentConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=voice_name
-                    )
-                )
-            ),
+        model_name = (
+            str(config.app.get("gemini_tts_model_name", "") or "").strip()
+            or os.getenv("GEMINI_TTS_MODEL", "").strip()
+            or "gemini-3.8-flash-lite-tts"
         )
+        voice_name = (voice_name or "Kore").strip() or "Kore"
 
-        # google-genai 使用统一 Client 调用文本和 TTS 模型。上下文管理器确保
-        # 请求结束后释放 HTTP 连接，同时保留原有 PCM 转码和字幕时间轴逻辑。
-        with genai.Client(api_key=api_key) as client:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash-preview-tts",
-                contents=text,
-                config=generation_config,
+        style_parts = [
+            "Natural, clear professional video narration",
+            "accurate pronunciation",
+            "do not add words beyond the transcript",
+        ]
+        try:
+            rate = float(voice_rate or 1.0)
+        except (TypeError, ValueError):
+            rate = 1.0
+        if rate >= 1.15:
+            style_parts.append("slightly faster pace")
+        elif rate <= 0.85:
+            style_parts.append("slightly slower pace")
+        style = ", ".join(style_parts)
+
+        payload = {
+            "model": model_name,
+            "input": [
+                {
+                    "type": "user_input",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": text,
+                            "annotations": [
+                                {
+                                    "type": "speech_metadata",
+                                    "style": style,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "response_format": {
+                "type": "audio",
+                "mime_type": "audio/wav",
+                "sample_rate": 24000,
+            },
+            "generation_config": {
+                "speech_config": [
+                    {
+                        "voice": voice_name,
+                    }
+                ]
+            },
+        }
+
+        logger.info(
+            f"start Gemini TTS, model: {model_name}, voice name: {voice_name}"
+        )
+        response = requests.post(
+            "https://generativelanguage.googleapis.com/v1beta/interactions",
+            headers={
+                "x-goog-api-key": api_key,
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            proxies=config.proxy,
+            timeout=(30, 180),
+        )
+        if response.status_code != 200:
+            try:
+                error_body = response.json()
+                detail = str((error_body.get("error") or {}).get("message") or "")
+            except Exception:
+                detail = ""
+            logger.error(
+                "Gemini TTS request failed: "
+                f"status={response.status_code}, detail={detail[:500]}"
             )
+            return None
 
-        # 检查响应
-        if not response.candidates or not response.candidates[0].content:
-            logger.error("No audio content received from Gemini TTS")
+        try:
+            response_body = response.json()
+        except Exception as exc:
+            logger.error(
+                f"Gemini TTS returned invalid JSON: {type(exc).__name__}"
+            )
             return None
-            
-        # 获取音频数据
-        audio_data = None
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, 'inline_data') and part.inline_data:
-                audio_data = part.inline_data.data
+
+        audio_b64 = ""
+        for step in reversed(response_body.get("steps") or []):
+            if not isinstance(step, dict) or step.get("type") != "model_output":
+                continue
+            content = step.get("content") or []
+            if not isinstance(content, list):
+                continue
+            for item in reversed(content):
+                if (
+                    isinstance(item, dict)
+                    and item.get("type") == "audio"
+                    and isinstance(item.get("data"), str)
+                    and item.get("data")
+                ):
+                    audio_b64 = item["data"]
+                    break
+            if audio_b64:
                 break
-                
-        if not audio_data:
-            logger.error("No audio data found in response")
+
+        if not audio_b64:
+            logger.error("No audio data found in Gemini TTS Interactions response")
             return None
-            
-        # 音频数据已经是原始字节，不需要base64解码
-        if isinstance(audio_data, str):
-            # 如果是字符串，则需要base64解码
-            audio_bytes = base64.b64decode(audio_data)
-        else:
-            # 如果已经是字节，直接使用
-            audio_bytes = audio_data
-        
-        # 尝试不同的音频格式 - Gemini可能返回不同的格式
-        audio_segment = None
-        
-        # Gemini返回Linear PCM格式，按照文档参数解析
+
+        try:
+            audio_bytes = base64.b64decode(audio_b64, validate=True)
+        except Exception as exc:
+            logger.error(
+                f"Gemini TTS returned invalid base64 audio: {type(exc).__name__}"
+            )
+            return None
+
+        if len(audio_bytes) < 44 or audio_bytes[:4] != b"RIFF":
+            logger.error("Gemini TTS response is not a valid WAV/RIFF file")
+            return None
+
         try:
             audio_segment = AudioSegment.from_file(
-                io.BytesIO(audio_bytes), 
-                format="raw",
-                frame_rate=24000,  # Gemini TTS默认采样率
-                channels=1,        # 单声道
-                sample_width=2     # 16-bit
+                io.BytesIO(audio_bytes),
+                format="wav",
             )
-        except Exception as e:
-            logger.error(f"Failed to load PCM audio: {e}")
+        except Exception as exc:
+            logger.error(f"Failed to decode Gemini WAV audio: {exc}")
             return None
-        
-        # API、CLI 或测试可以直接把尚不存在的嵌套目录作为输出位置。这里在
-        # 真正写文件前统一创建父目录，避免一次成功的 Gemini 请求最后因为
-        # 本地路径不存在而丢失结果，也让该 provider 与其他 TTS 实现行为一致。
-        ensure_file_path_exists(voice_file)
 
-        # pydub 会返回打开的输出文件对象。批量生成时若不主动关闭，文件描述符
-        # 会持续累积，并在 Windows 上增加后续覆盖或删除音频文件失败的概率。
+        if not math.isclose(float(voice_volume or 1.0), 1.0):
+            try:
+                volume = max(float(voice_volume), 0.01)
+                audio_segment += 20 * math.log10(volume)
+            except (TypeError, ValueError):
+                pass
+
+        ensure_file_path_exists(voice_file)
         exported_audio = audio_segment.export(voice_file, format="mp3")
         exported_audio.close()
-        
-        logger.info(f"completed, output file: {voice_file}")
-        
-        # Gemini 拿不到 edge_tts 那种逐词边界事件，因此这里退回到
-        # 项目原有的 `subs/offset` 兼容结构，至少保证后续字幕与时长
-        # 计算链路可继续工作。
+
+        logger.info(f"completed Gemini TTS, output file: {voice_file}")
+
         sub_maker = ensure_legacy_submaker_fields(SubMaker())
-        audio_duration = len(audio_segment) / 1000.0  # 转换为秒
+        audio_duration = len(audio_segment) / 1000.0
         return populate_legacy_submaker_with_full_text(
             sub_maker=sub_maker,
             text=text,
             audio_duration_seconds=audio_duration,
         )
-        
-    except ImportError as e:
-        logger.error(f"Missing required package for Gemini TTS: {str(e)}. Please install: pip install pydub")
+    except Exception as exc:
+        logger.error(f"Gemini TTS failed, error: {str(exc)}")
         return None
-    except Exception as e:
-        logger.error(f"Gemini TTS failed, error: {str(e)}")
-        return None
-
 
 def mimo_tts(
     text: str,

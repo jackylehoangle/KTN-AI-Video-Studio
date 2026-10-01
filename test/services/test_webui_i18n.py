@@ -14,6 +14,7 @@ I18N_DIR = ROOT_DIR / "webui" / "i18n"
 LLM_PROVIDER_TIPS_PREFIX = "llm_provider_tips."
 TTS_PROVIDER_TIPS_PREFIX = "tts_provider_tips."
 SECONDARY_LOCALES = ("az", "ca", "de", "es", "fr", "id", "it", "ko", "pt", "ru", "tr", "vi")
+FALLBACK_LOCALES = tuple(locale for locale in SECONDARY_LOCALES if locale != "vi")
 PROVIDER_TIPS_PREFIXES = (
     LLM_PROVIDER_TIPS_PREFIX,
     TTS_PROVIDER_TIPS_PREFIX,
@@ -294,9 +295,10 @@ class TestWebuiI18n(unittest.TestCase):
                 self.assertEqual(sorted(required_en_keys - locale_keys), [])
 
     def test_secondary_locales_do_not_duplicate_provider_tips(self):
-        # Provider 配置长说明只维护中英文，其它语言运行时回退英文。
-        # 禁止复制这些 key，避免出现不会持续维护的半翻译内容。
-        for locale in SECONDARY_LOCALES:
+        # Provider 配置长说明只维护中英文；Vietnamese is a fully maintained
+        # product locale and intentionally carries its own translated provider tips.
+        # Other secondary locales continue to fall back to English.
+        for locale in FALLBACK_LOCALES:
             with self.subTest(locale=locale):
                 locale_keys = set(_load_translation(locale))
                 duplicated_keys = sorted(
@@ -305,10 +307,28 @@ class TestWebuiI18n(unittest.TestCase):
                 self.assertEqual(duplicated_keys, [])
 
     def test_secondary_locales_do_not_duplicate_english_fallback_keys(self):
-        for locale in SECONDARY_LOCALES:
+        # Vietnamese is promoted to a complete locale: it intentionally translates
+        # these UI strings instead of falling back to English at runtime.
+        for locale in FALLBACK_LOCALES:
             with self.subTest(locale=locale):
                 locale_keys = set(_load_translation(locale))
                 self.assertEqual(sorted(ENGLISH_FALLBACK_KEYS & locale_keys), [])
+
+    def test_vietnamese_locale_is_complete(self):
+        """Vietnamese is a first-class product locale and must cover every English key."""
+        en_keys = set(_load_translation("en"))
+        vi_keys = set(_load_translation("vi"))
+
+        self.assertEqual(sorted(en_keys - vi_keys), [])
+        self.assertEqual(sorted(vi_keys - en_keys), [])
+        self.assertEqual(sorted(ENGLISH_FALLBACK_KEYS - vi_keys), [])
+
+        provider_tip_keys = {
+            key
+            for key in en_keys
+            if key.startswith(PROVIDER_TIPS_PREFIXES)
+        }
+        self.assertEqual(sorted(provider_tip_keys - vi_keys), [])
 
     def test_secondary_locales_cover_static_webui_labels(self):
         tree = ast.parse(WEBUI_MAIN.read_text(encoding="utf-8"))
