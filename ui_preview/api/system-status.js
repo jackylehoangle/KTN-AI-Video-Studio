@@ -45,10 +45,14 @@ export default async function handler(req,res){
   const ktnImageUrl=String(process.env.KTN_IMAGE_GATEWAY_URL||'').trim().replace(/\/$/,'');
   const ktnImageToken=String(process.env.KTN_IMAGE_GATEWAY_TOKEN||'').trim();
   const renderUrl=String(process.env.MPT_RENDER_BASE_URL||'').trim().replace(/\/$/,'');
+  const renderApiKey=String(process.env.MPT_RENDER_API_KEY||'').trim();
 
   const [ktnImageReady,renderReady]=await Promise.all([
     probe(ktnImageUrl?ktnImageUrl+'/health':''),
-    probe(renderUrl?renderUrl+'/docs':'')
+    probe(
+      renderUrl?renderUrl+'/api/v1/tasks?page=1&page_size=1':'',
+      {headers:renderApiKey?{'x-api-key':renderApiKey}:{}}
+    )
   ]);
 
   return send(res,200,{
@@ -76,7 +80,7 @@ export default async function handler(req,res){
       render:{
         configured:Boolean(renderUrl),
         ready:renderReady,
-        apiKeyConfigured:Boolean(process.env.MPT_RENDER_API_KEY)
+        apiKeyConfigured:Boolean(renderApiKey)
       }
     }
   });
