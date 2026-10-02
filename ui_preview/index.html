@@ -82,6 +82,19 @@
             <span class="status-pill">Bước 1/5</span>
           </div>
 
+          <div class="platform-block">
+            <div class="field-title-row">
+              <label for="platformMode">Nền tảng & định dạng</label>
+              <span class="quality-badge">Content Quality V2</span>
+            </div>
+            <select id="platformMode">
+              <option value="youtube_long">YouTube Long</option>
+              <option value="youtube_short">YouTube Short</option>
+              <option value="facebook_short">Facebook Short / Reels</option>
+            </select>
+            <p class="field-note" id="platformHint">Video dài có cấu trúc, ưu tiên chiều sâu và khả năng giữ chân người xem.</p>
+          </div>
+
           <label>Chủ đề video</label>
           <textarea id="topic" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
 
@@ -102,20 +115,119 @@
             </div>
           </div>
 
+          <details class="quality-details" open>
+            <summary>Content Brief · AI cần hiểu video trước khi viết</summary>
+            <div class="brief-grid">
+              <div>
+                <label>Người xem mục tiêu *</label>
+                <input id="targetAudience" placeholder="Ví dụ: Người đi làm 25–40 tuổi, quan tâm tâm lý và phát triển bản thân" />
+              </div>
+              <div>
+                <label>Mục tiêu nội dung *</label>
+                <select id="contentGoal">
+                  <option value="educate">Giải thích / giáo dục</option>
+                  <option value="storytelling">Kể chuyện / tạo cảm xúc</option>
+                  <option value="retention">Giữ chân / khám phá chủ đề</option>
+                  <option value="persuade">Thuyết phục / thay đổi góc nhìn</option>
+                  <option value="entertain">Giải trí</option>
+                </select>
+              </div>
+              <div>
+                <label>Tông giọng</label>
+                <select id="contentTone">
+                  <option value="natural">Tự nhiên, gần gũi</option>
+                  <option value="cinematic">Cinematic, chiêm nghiệm</option>
+                  <option value="documentary">Tài liệu, điềm tĩnh</option>
+                  <option value="energetic">Nhanh, năng lượng</option>
+                  <option value="expert">Chuyên gia, rõ ràng</option>
+                  <option value="witty">Thông minh, dí dỏm</option>
+                </select>
+              </div>
+              <div>
+                <label>Mức độ chuyên môn</label>
+                <select id="expertiseLevel">
+                  <option value="general">Phổ thông, dễ hiểu</option>
+                  <option value="intermediate">Trung cấp</option>
+                  <option value="advanced">Chuyên sâu</option>
+                </select>
+              </div>
+              <div class="full">
+                <label>Góc tiếp cận mong muốn</label>
+                <input id="anglePreference" placeholder="Ví dụ: Không coi trì hoãn là lười biếng; giải thích từ tâm lý hành vi" />
+              </div>
+              <div>
+                <label>CTA cuối video</label>
+                <select id="ctaStyle">
+                  <option value="soft">Nhẹ nhàng, tự nhiên</option>
+                  <option value="none">Không CTA</option>
+                  <option value="comment">Gợi mở bình luận</option>
+                  <option value="follow">Theo dõi / đăng ký</option>
+                  <option value="action">Kêu gọi hành động cụ thể</option>
+                </select>
+              </div>
+              <div>
+                <label>Dữ kiện / nguồn do người dùng cung cấp</label>
+                <input id="sourceNotes" placeholder="Số liệu, luận điểm hoặc nguồn bắt buộc phải bám theo" />
+              </div>
+              <div class="full">
+                <label>Điều không được làm</label>
+                <input id="forbiddenContent" placeholder="Ví dụ: Không sáo rỗng, không giật tít, không tự bịa số liệu" />
+              </div>
+            </div>
+          </details>
+
+          <details class="quality-details">
+            <summary>Channel Bible · DNA cố định của kênh</summary>
+            <div class="brief-grid">
+              <div>
+                <label>Tên kênh</label>
+                <input id="channelName" placeholder="Ví dụ: The Hidden Mind" />
+              </div>
+              <div>
+                <label>Phong cách kênh</label>
+                <input id="channelStyle" placeholder="Ví dụ: Cinematic Psychology + documentary storytelling" />
+              </div>
+              <div class="full">
+                <label>Nhân vật người kể / narrator</label>
+                <input id="narratorPersona" placeholder="Ví dụ: Điềm tĩnh, quan sát tinh tế, không phán xét, nói như đang trò chuyện riêng với người xem" />
+              </div>
+              <div>
+                <label>Phong cách từ vựng</label>
+                <input id="vocabularyStyle" placeholder="Ví dụ: đời thường, chính xác, tránh thuật ngữ nếu chưa giải thích" />
+              </div>
+              <div>
+                <label>Kiểu mở đầu thường dùng</label>
+                <input id="openingStyle" placeholder="Ví dụ: một tình huống quen thuộc hoặc câu hỏi khiến người xem nhận ra chính mình" />
+              </div>
+              <div class="full">
+                <label>Phong cách kể chuyện</label>
+                <input id="storytellingStyle" placeholder="Ví dụ: mở bằng trải nghiệm → lý giải → ví dụ → chuyển góc nhìn → payoff" />
+              </div>
+              <div class="full">
+                <label>Cụm từ / kiểu viết cấm dùng</label>
+                <input id="forbiddenPhrases" placeholder="Ví dụ: Hãy cùng khám phá; Trong thế giới ngày nay; Điều quan trọng cần lưu ý là..." />
+              </div>
+            </div>
+          </details>
+
           <details>
             <summary>Cài đặt kịch bản nâng cao</summary>
             <div class="advanced">
               <div>
-                <label>Số đoạn</label>
-                <input id="paragraphCount" type="number" min="1" max="20" value="6" />
+                <label>Số phần / đoạn mục tiêu</label>
+                <input id="paragraphCount" type="number" min="1" max="40" value="10" />
               </div>
               <div>
                 <label>Độ dài mục tiêu</label>
-                <select id="targetDuration"><option value="60-90s">60–90 giây</option><option value="3-5m">3–5 phút</option><option value="8-12m">8–12 phút</option></select>
+                <select id="targetDuration">
+                  <option value="8-12m">8–12 phút</option>
+                  <option value="12-20m">12–20 phút</option>
+                  <option value="20-30m">20–30 phút</option>
+                </select>
               </div>
               <div class="full">
                 <label>Yêu cầu bổ sung</label>
-                <input id="extraInstruction" placeholder="Phong cách kể chuyện, đối tượng người xem..." />
+                <input id="extraInstruction" placeholder="Yêu cầu riêng chỉ áp dụng cho video hiện tại..." />
               </div>
             </div>
           </details>
