@@ -35,6 +35,7 @@ RENDER_ENV = Path("/content/mpt-render-uv311")
 IMAGE_PORT = 8189
 COMFY_PORT = 8188
 RENDER_PORT = 8090
+RUNTIME_REF = os.environ.get("KTN_RUNTIME_REF", "main").strip() or "main"
 
 
 def run(cmd, *, cwd=None, env=None, quiet=False, check=True):
@@ -85,7 +86,7 @@ def ensure_repo() -> None:
         raise RuntimeError(
             f"Không thấy repo tại {REPO}. Cell bootstrap phải clone repo trước khi chạy script này."
         )
-    run(["git", "-C", str(REPO), "checkout", "main"], quiet=True)
+    run(["git", "-C", str(REPO), "checkout", RUNTIME_REF], quiet=True)
     run(
         [
             "git",
@@ -94,11 +95,11 @@ def ensure_repo() -> None:
             "pull",
             "--ff-only",
             "origin",
-            "main",
+            RUNTIME_REF,
         ],
         quiet=True,
     )
-    print("✅ Repository ready")
+    print(f"✅ Repository ready: {RUNTIME_REF}")
 
 
 def ensure_base_tools() -> None:
