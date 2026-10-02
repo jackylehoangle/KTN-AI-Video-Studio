@@ -321,3 +321,28 @@ Quy tắc merge:
 Hosted GitHub Actions không còn là blocker bắt buộc cho milestone này, nhưng vẫn được ghi nhận là unavailable/red trước-step do account/billing.
 
 **Không merge `main` tự động.**
+
+
+## Canonical Product UI — KTN-VIDEO-UI-PROD-01
+
+**Decision:** `ui_preview/` is the canonical product-facing browser UI for Vercel. The directory name is retained temporarily for deployment stability; it is no longer classified as mockup-only.
+
+**`webui/Main.py` remains Engine/Admin Console**, used for deep provider settings, task manager/recovery, credential backup/restore, local/headless operations, and advanced MoneyPrinterTurbo controls.
+
+Product architecture:
+
+```text
+Browser user
+  → ui_preview (official product UI)
+  → Vercel API adapters
+  → Gemini/OpenAI / KTN Image Gateway / MPT Render Worker
+
+Operations/admin
+  → webui/Main.py (Streamlit Engine/Admin Console)
+```
+
+Cutover branch: `ui-prod-01-canonical-cutover`.
+
+Product-facing copy has been changed from **Bản xem trước** to **Bản chính thức** without changing runtime API behavior. Detailed capability map: `docs/KTN_AI_VIDEO_STUDIO_CANONICAL_UI.md`.
+
+Acceptance sequence: Vercel preview READY → HTTP/UI/system-status smoke → merge to `main` → production deployment → production smoke → close hardening.
