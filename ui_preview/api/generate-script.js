@@ -210,8 +210,8 @@ async function generateGemini(key,model,prompt){
       input:prompt,
       generation_config:{
         temperature:0.82,
-        max_output_tokens:16384,
-        thinking_level:'medium'
+        max_output_tokens:8192,
+        thinking_level:'low'
       }
     })
   });
