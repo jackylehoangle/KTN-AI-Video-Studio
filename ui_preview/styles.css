@@ -186,3 +186,22 @@ label{display:block;font-size:12px;font-weight:700;margin:0 0 7px}.main-panel te
 .image-quota-notice{margin-top:20px;border-color:#efcaca!important;background:#fff5f5!important;color:#9b3333}
 .image-quota-notice strong,.image-quota-notice span{display:block}
 .image-quota-notice strong{font-size:11px}.image-quota-notice span{font-size:9px;line-height:1.45;margin-top:4px}
+
+
+/* Content Quality V2 — platform mode, brief, channel bible */
+.platform-block{margin-bottom:14px;padding:13px;border:1px solid #dfe5f3;border-radius:12px;background:#f8faff}
+.field-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.field-title-row label{margin:0}
+.quality-badge{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand);background:var(--soft);border:1px solid #d9e2ff;border-radius:999px;padding:5px 8px;white-space:nowrap}
+.field-note{font-size:10px;line-height:1.5;color:var(--muted);margin:7px 0 0}
+.quality-details{border:1px solid #e5e9f1;border-radius:12px;padding:0;background:#fbfcfe;overflow:hidden}
+.quality-details summary{padding:12px 14px;color:#3f4d68;background:#f7f9fc}
+.quality-details[open] summary{border-bottom:1px solid #e9edf3}
+.brief-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
+.brief-grid .full{grid-column:1/-1}
+.brief-grid input,.brief-grid select{background:#fff}
+@media(max-width:720px){
+  .brief-grid{grid-template-columns:1fr}
+  .brief-grid .full{grid-column:auto}
+  .field-title-row{align-items:flex-start}
+}
