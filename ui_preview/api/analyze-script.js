@@ -1,6 +1,8 @@
 const PROVIDERS={
-  gemini:{label:'Gemini',keyEnv:'GEMINI_API_KEY',modelEnv:'GEMINI_SCRIPT_MODEL',defaultModel:'gemini-3.8-flash'},
-  openai:{label:'OpenAI',keyEnv:'OPENAI_API_KEY',modelEnv:'OPENAI_SCRIPT_MODEL',defaultModel:'gpt-4.1-mini'}
+  gemini:{label:'Google Gemini',keyEnv:'GEMINI_API_KEY',modelEnv:'GEMINI_SCRIPT_MODEL',defaultModel:'gemini-3.8-flash'},
+  openai:{label:'OpenAI',keyEnv:'OPENAI_API_KEY',modelEnv:'OPENAI_SCRIPT_MODEL',defaultModel:'gpt-6.1-sol'},
+  anthropic:{label:'Anthropic Claude',keyEnv:'ANTHROPIC_API_KEY',modelEnv:'ANTHROPIC_SCRIPT_MODEL',defaultModel:'claude-sonnet-5-5'},
+  xai:{label:'xAI Grok',keyEnv:'XAI_API_KEY',modelEnv:'XAI_SCRIPT_MODEL',defaultModel:'grok-4.7'}
 };
 
 function send(res,status,body){
@@ -126,24 +128,86 @@ async function callGeminiJson(key,model,prompt,action){
 }
 
 async function callOpenAIJson(key,model,prompt){
-  const response=await fetch('https://api.openai.com/v1/chat/completions',{
+  const response=await fetch('https://api.openai.com/v1/responses',{
+    method:'POST',
+    headers:{'content-type':'application/json','authorization':'Bearer '+key},
+    body:JSON.stringify({
+      model,
+      input:[
+        {role:'system',content:[{type:'input_text',text:'Return valid JSON only. Do not wrap JSON in markdown fences.'}]},
+        {role:'user',content:[{type:'input_text',text:prompt}]}
+      ],
+      max_output_tokens:10000
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error?.message||('OpenAI HTTP '+response.status));
+  const text=typeof data?.output_text==='string'
+    ? data.output_text
+    : (Array.isArray(data?.output)?data.output:[])
+      .flatMap(item=>Array.isArray(item?.content)?item.content:[])
+      .map(item=>String(item?.text||'')).join('');
+  if(!String(text||'').trim()) throw new Error('OpenAI không trả về dữ liệu phân tích.');
+  return parseJsonText(text);
+}
+
+async function callAnthropicJson(key,model,prompt){
+  const response=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01'
+    },
+    body:JSON.stringify({
+      model,
+      max_tokens:10000,
+      system:'Return one valid JSON object only. Do not use markdown fences or explanatory text.',
+      messages:[{role:'user',content:prompt}]
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error?.message||('Anthropic HTTP '+response.status));
+  const text=(Array.isArray(data?.content)?data.content:[])
+    .filter(item=>item?.type==='text')
+    .map(item=>String(item.text||'')).join('');
+  if(!String(text||'').trim()) throw new Error('Anthropic không trả về dữ liệu phân tích.');
+  return parseJsonText(text);
+}
+
+async function callXAIJson(key,model,prompt){
+  const response=await fetch('https://api.x.ai/v1/chat/completions',{
     method:'POST',
     headers:{'content-type':'application/json','authorization':'Bearer '+key},
     body:JSON.stringify({
       model,
       messages:[
-        {role:'system',content:'Return valid JSON only. Do not wrap JSON in markdown fences.'},
+        {role:'system',content:'Return one valid JSON object only. Do not use markdown fences or explanatory text.'},
         {role:'user',content:prompt}
-      ],
-      response_format:{type:'json_object'},
-      temperature:0.35
+      ]
     })
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||('OpenAI HTTP '+response.status));
-  const text=data?.choices?.[0]?.message?.content;
-  if(!text) throw new Error('OpenAI không trả về dữ liệu phân tích.');
+  if(!response.ok) throw new Error(data?.error?.message||('xAI HTTP '+response.status));
+  const text=String(data?.choices?.[0]?.message?.content||'').trim();
+  if(!text) throw new Error('xAI không trả về dữ liệu phân tích.');
   return parseJsonText(text);
+}
+
+function resolveProviderModel(provider,requested){
+  const cfg=PROVIDERS[provider];
+  const explicit=String(requested||'').trim();
+  if(explicit) return explicit.slice(0,120);
+  if(provider==='gemini') return resolveGeminiScriptModel(process.env[cfg.modelEnv]);
+  return String(process.env[cfg.modelEnv]||cfg.defaultModel).trim();
+}
+
+async function callProviderJson(provider,key,model,prompt,action){
+  if(provider==='gemini') return callGeminiJson(key,model,prompt,action);
+  if(provider==='openai') return callOpenAIJson(key,model,prompt);
+  if(provider==='anthropic') return callAnthropicJson(key,model,prompt);
+  if(provider==='xai') return callXAIJson(key,model,prompt);
+  throw new Error('Provider chưa được hỗ trợ.');
 }
 
 function normalizeKeywords(payload){
@@ -221,14 +285,12 @@ export default async function handler(req,res){
     return send(res,200,{
       ok:true,
       service:'KTN Script Analyzer',
-      providers:{
-        gemini:Boolean(process.env.GEMINI_API_KEY),
-        openai:Boolean(process.env.OPENAI_API_KEY)
-      },
-      models:{
-        gemini:resolveGeminiScriptModel(process.env.GEMINI_SCRIPT_MODEL),
-        openai:process.env.OPENAI_SCRIPT_MODEL||PROVIDERS.openai.defaultModel
-      },
+      providers:Object.fromEntries(
+        Object.entries(PROVIDERS).map(([id,cfg])=>[id,Boolean(process.env[cfg.keyEnv])])
+      ),
+      models:Object.fromEntries(
+        Object.entries(PROVIDERS).map(([id])=>[id,resolveProviderModel(id,'')])
+      ),
       actions:['keywords','scenes']
     });
   }
@@ -238,6 +300,7 @@ export default async function handler(req,res){
   const action=String(body.action||'').toLowerCase();
   const script=String(body.script||'').trim();
   const provider=String(body.provider||'gemini').toLowerCase();
+  const requestedModel=String(body.model||'').trim().slice(0,120);
   const language=body.language==='en'?'en':'vi';
   const topic=String(body.topic||'').trim().slice(0,2000);
 
@@ -248,7 +311,7 @@ export default async function handler(req,res){
 
   const cfg=PROVIDERS[provider];
   const key=process.env[cfg.keyEnv];
-  const model=provider==='gemini' ? resolveGeminiScriptModel(process.env[cfg.modelEnv]) : (process.env[cfg.modelEnv]||cfg.defaultModel);
+  const model=resolveProviderModel(provider,requestedModel);
   if(!key) return send(res,503,{error:'Chưa cấu hình '+cfg.keyEnv+' trên Vercel.',code:'provider_key_missing',provider});
 
   const prompt=action==='keywords'
@@ -256,9 +319,7 @@ export default async function handler(req,res){
     : scenePrompt({script,language,topic});
 
   try{
-    const payload=provider==='gemini'
-      ? await callGeminiJson(key,model,prompt,action)
-      : await callOpenAIJson(key,model,prompt);
+    const payload=await callProviderJson(provider,key,model,prompt,action);
 
     if(action==='keywords'){
       const keywords=normalizeKeywords(payload);
