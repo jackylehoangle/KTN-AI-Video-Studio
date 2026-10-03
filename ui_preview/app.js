@@ -521,7 +521,8 @@ function openChannelManager(profileId=''){
 
 
 const WORKSPACE_META={
-  brief:{title:'Tạo video',project:true},
+  projects:{title:'Dự án',project:false},
+  brief:{title:'Brief',project:true},
   script:{title:'Kịch bản',project:true},
   scene:{title:'Cảnh & hình ảnh',project:true},
   voice:{title:'Giọng đọc',project:true},
@@ -556,8 +557,13 @@ function updateWorkspaceContext(){
 }
 
 function setWorkspace(name,{updateHash=true}={}){
-  const target=WORKSPACE_META[name]?name:'brief';
-  const meta=WORKSPACE_META[target];
+  let target=WORKSPACE_META[name]?name:'projects';
+  let meta=WORKSPACE_META[target];
+  if(meta.project && !activeProjectId){
+    target='projects';
+    meta=WORKSPACE_META.projects;
+    showToast('Hãy tạo hoặc mở một dự án trước.');
+  }
 
   document.body.dataset.activeWorkspace=target;
   document.querySelectorAll('[data-workspace-view]').forEach(view=>{
@@ -582,6 +588,7 @@ function setWorkspace(name,{updateHash=true}={}){
     if(!showInspector) main.classList.remove('inspector-compact');
   }
 
+  if(target==='projects') renderProjectLibrary();
   if(target==='voice') renderVoiceWorkspace();
   if(target==='library') renderAssetLibrary();
   if(target==='channels') renderChannelProfileLibrary();
@@ -599,7 +606,7 @@ function setWorkspace(name,{updateHash=true}={}){
 
 function workspaceFromLocation(){
   const raw=String(location.hash||'').replace(/^#/,'').trim();
-  return WORKSPACE_META[raw]?raw:'brief';
+  return WORKSPACE_META[raw]?raw:'projects';
 }
 
 function bindWorkspaceNavigation(){
@@ -1285,6 +1292,12 @@ async function refreshSystemStatus(){
       scriptModel:data.providers?.openai?.scriptModel,
       imageModel:data.providers?.openai?.imageModel
     });
+    setSystemCard('anthropic',Boolean(data.providers?.anthropic?.configured),{
+      scriptModel:data.providers?.anthropic?.scriptModel
+    });
+    setSystemCard('xai',Boolean(data.providers?.xai?.configured),{
+      scriptModel:data.providers?.xai?.scriptModel
+    });
     setSystemCard('ktnImage',Boolean(data.providers?.ktnImage?.ready),{
       model:data.providers?.ktnImage?.model,
       gateway:data.providers?.ktnImage?.ready?'LIVE / HEALTH OK':data.providers?.ktnImage?.configured?'Đã cấu hình · chưa kết nối':'Chưa cấu hình',
@@ -1292,7 +1305,7 @@ async function refreshSystemStatus(){
     });
     setSystemCard('render',Boolean(data.providers?.render?.ready));
   }catch(err){
-    ['gemini','openai','ktnImage','render'].forEach(name=>setSystemCard(name,false));
+    ['gemini','openai','anthropic','xai','ktnImage','render'].forEach(name=>setSystemCard(name,false));
     showToast('Không đọc được trạng thái hệ thống: '+(err?.message||'lỗi kết nối'));
   }finally{
     if(button){button.disabled=false;button.textContent='Kiểm tra lại';}
@@ -3102,6 +3115,17 @@ document.getElementById('saveProjectBtn').addEventListener('click',()=>saveProje
 document.getElementById('exportProjectBtn').addEventListener('click',exportProject);
 document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
 document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
+document.getElementById('newProjectFromLibraryBtn').addEventListener('click',openNewProjectModal);
+document.getElementById('newProjectEmptyBtn').addEventListener('click',openNewProjectModal);
+document.getElementById('closeNewProjectModalBtn').addEventListener('click',closeNewProjectModal);
+document.getElementById('cancelNewProjectBtn').addEventListener('click',closeNewProjectModal);
+document.getElementById('confirmNewProjectBtn').addEventListener('click',createProjectFromModal);
+document.getElementById('newProjectModal').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) closeNewProjectModal();
+});
+document.getElementById('newProjectNameInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter') createProjectFromModal();
+});
 document.getElementById('refreshSystemStatusBtn').addEventListener('click',refreshSystemStatus);
 document.getElementById('checkPersistenceBtn').addEventListener('click',checkPersistenceHealth);
 document.getElementById('refreshLibraryBtn').addEventListener('click',renderAssetLibrary);
@@ -3112,6 +3136,12 @@ document.querySelectorAll('[data-asset-filter]').forEach(button=>{
     renderAssetLibrary();
   });
 });
+document.getElementById('scriptProvider').addEventListener('change',e=>{
+  populateScriptModels(e.target.value,'');
+  scheduleAutosave();
+});
+document.getElementById('scriptModel').addEventListener('change',scheduleAutosave);
+
 document.getElementById('platformMode').addEventListener('change',e=>{
   configurePlatformMode(e.target.value,'',true);
   scheduleAutosave();
@@ -3149,13 +3179,13 @@ document.getElementById('voiceBatchConfirm').addEventListener('change',updateVoi
 document.getElementById('voiceBatchScope').addEventListener('change',updateVoiceBatchButton);
 document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch);
 document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
-document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
-
 loadChannelProfiles();
 refreshChannelProfileSelect();
 renderChannelProfileLibrary();
 resetChannelEditor();
+populateScriptModels(document.getElementById('scriptProvider')?.value||'gemini','');
 bindWorkspaceNavigation();
+updateProjectNavigationState();
 configurePlatformMode(document.getElementById('platformMode')?.value||'youtube_long',document.getElementById('targetDuration')?.value||'8-12m',false);
 activateScriptTools();
 updateImageProviderState();
@@ -3163,6 +3193,7 @@ updateVoiceProviderState();
 renderVoiceWorkspace();
 updateRenderReadiness();
 renderAssetLibrary();
+renderProjectLibrary();
 bindAutosave();
 refreshBackendStatus();
 refreshRenderWorker();
