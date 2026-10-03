@@ -1348,6 +1348,10 @@ function updateProjectNavigationState(){
   });
   const projectName=document.getElementById('projectName');
   if(projectName) projectName.disabled=!hasProject;
+  const saveButton=document.getElementById('saveProjectBtn');
+  const exportButton=document.getElementById('exportProjectBtn');
+  if(saveButton) saveButton.disabled=!hasProject;
+  if(exportButton) exportButton.disabled=!hasProject;
 }
 
 function openProjectDb(){
@@ -1792,10 +1796,12 @@ async function loadAutosavedProject(){
     }
 
     setNoActiveProjectState();
+    if(document.body.dataset.activeWorkspace!=='projects') setWorkspace('projects');
     return false;
   }catch(err){
     setAutosaveStatus('Không đọc được dự án','error');
     setNoActiveProjectState();
+    if(document.body.dataset.activeWorkspace!=='projects') setWorkspace('projects');
     return false;
   }
 }
@@ -1846,6 +1852,8 @@ function resetProjectForm({name='Dự án mới',channelId='',platformMode='yout
     document.getElementById('ctaStyle').value='soft';
     document.getElementById('sourceNotes').value='';
     document.getElementById('forbiddenContent').value='';
+    document.getElementById('voiceName').value='Kore';
+    document.getElementById('voiceWorkspaceVoice').value='Kore';
     refreshChannelProfileSelect(channelId);
     if(channelId) selectChannelProfile(channelId,{applyDefaults:true,autosave:false});
     else{
@@ -1853,8 +1861,6 @@ function resetProjectForm({name='Dự án mới',channelId='',platformMode='yout
       renderSelectedChannelSummary();
     }
     document.getElementById('imageProvider').value='ktn';
-    document.getElementById('voiceName').value='Kore';
-    document.getElementById('voiceWorkspaceVoice').value='Kore';
     document.getElementById('renderAspect').value=platformMode==='youtube_long'?'16:9':'9:16';
     document.getElementById('renderTransition').value='';
     scriptResult.value='';
@@ -3111,7 +3117,10 @@ document.getElementById('downloadManifestBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('renderBtn').addEventListener('click',submitRender);
-document.getElementById('saveProjectBtn').addEventListener('click',()=>saveProjectNow());
+document.getElementById('saveProjectBtn').addEventListener('click',()=>{
+  if(!activeProjectId){openNewProjectModal();return;}
+  saveProjectNow();
+});
 document.getElementById('exportProjectBtn').addEventListener('click',exportProject);
 document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
 document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
