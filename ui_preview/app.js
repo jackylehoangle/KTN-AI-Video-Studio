@@ -37,6 +37,73 @@ const PLATFORM_PRESETS={
   }
 };
 
+
+const SCRIPT_MODEL_REGISTRY={
+  gemini:{
+    label:'Google Gemini',
+    hint:'Gemini 3.8 Flash phù hợp mặc định cho tốc độ và chất lượng; Pro dùng khi cần reasoning sâu hơn.',
+    models:[
+      ['gemini-3.8-flash','Gemini 3.8 Flash · Khuyến nghị'],
+      ['gemini-3.7-flash','Gemini 3.7 Flash'],
+      ['gemini-3.1-pro-preview','Gemini 3.1 Pro · Preview'],
+      ['gemini-3.6-flash','Gemini 3.6 Flash']
+    ]
+  },
+  openai:{
+    label:'OpenAI',
+    hint:'Chọn giữa model mạnh, cân bằng và nhanh tùy độ dài/chất lượng kịch bản.',
+    models:[
+      ['gpt-6-astra','GPT-6 Astra · Chất lượng cao'],
+      ['gpt-6.1-sol','GPT-6.1 Sol · Cân bằng'],
+      ['gpt-6-luna','GPT-6 Luna · Nhanh / tiết kiệm'],
+      ['gpt-5.6-sol','GPT-5.6 Sol · Ổn định']
+    ]
+  },
+  anthropic:{
+    label:'Anthropic Claude',
+    hint:'Claude phù hợp long-form, biên tập giọng văn và các bài cần mạch lập luận dài.',
+    models:[
+      ['claude-opus-5-5','Claude Opus 5.5 · Cao cấp'],
+      ['claude-sonnet-5-5','Claude Sonnet 5.5 · Khuyến nghị'],
+      ['claude-opus-5','Claude Opus 5'],
+      ['claude-sonnet-5','Claude Sonnet 5'],
+      ['claude-sonnet-4-6','Claude Sonnet 4.6']
+    ]
+  },
+  xai:{
+    label:'xAI Grok',
+    hint:'Grok là provider bổ sung cho drafting và phân tích; model khả dụng phụ thuộc API key xAI.',
+    models:[
+      ['grok-4.7','Grok 4.7 · Khuyến nghị'],
+      ['grok-4.6','Grok 4.6'],
+      ['grok-4.3','Grok 4.3']
+    ]
+  }
+};
+
+function populateScriptModels(provider,preferred=''){
+  const select=document.getElementById('scriptModel');
+  const hint=document.getElementById('scriptModelHint');
+  if(!select) return;
+  const cfg=SCRIPT_MODEL_REGISTRY[provider]||SCRIPT_MODEL_REGISTRY.gemini;
+  const current=String(preferred||select.value||'');
+  select.innerHTML='';
+  cfg.models.forEach(([value,label],index)=>{
+    const option=document.createElement('option');
+    option.value=value;
+    option.textContent=label;
+    select.appendChild(option);
+    if(index===0) option.dataset.recommended='true';
+  });
+  if(cfg.models.some(([value])=>value===current)) select.value=current;
+  else select.value=cfg.models[0]?.[0]||'';
+  if(hint) hint.textContent=cfg.hint;
+}
+
+function selectedScriptModel(){
+  return String(document.getElementById('scriptModel')?.value||'').trim();
+}
+
 function inferPlatformFromDuration(duration){
   return ['15-30s','30-60s','60-90s','90-180s'].includes(String(duration||''))
     ? 'youtube_short'
@@ -1433,6 +1500,7 @@ function serializeProjectState({includeMaterialKeys=false}={}){
       platformMode:document.getElementById('platformMode').value,
       scriptLanguage:document.getElementById('scriptLanguage').value,
       scriptProvider:document.getElementById('scriptProvider').value,
+      scriptModel:selectedScriptModel(),
       paragraphCount:Number(document.getElementById('paragraphCount').value||6),
       targetDuration:document.getElementById('targetDuration').value,
       extraInstruction:document.getElementById('extraInstruction').value,
@@ -1551,7 +1619,9 @@ async function restoreProject(project){
     restoreInput('platformMode',restoredPlatform);
     configurePlatformMode(restoredPlatform,restoredDuration,false);
     restoreInput('scriptLanguage',project.inputs?.scriptLanguage||'vi');
-    restoreInput('scriptProvider',project.inputs?.scriptProvider||'gemini');
+    const restoredProvider=project.inputs?.scriptProvider||'gemini';
+    restoreInput('scriptProvider',restoredProvider);
+    populateScriptModels(restoredProvider,project.inputs?.scriptModel||'');
     restoreInput('paragraphCount',project.inputs?.paragraphCount||PLATFORM_PRESETS[restoredPlatform]?.paragraphCount||6);
     restoreInput('extraInstruction',project.inputs?.extraInstruction||'');
     restoreInput('targetAudience',project.inputs?.contentBrief?.targetAudience||'');
@@ -1655,6 +1725,7 @@ async function startNewProject(){
     configurePlatformMode('youtube_long','8-12m',true);
     document.getElementById('scriptLanguage').value='vi';
     document.getElementById('scriptProvider').value='gemini';
+    populateScriptModels('gemini','gemini-3.8-flash');
     document.getElementById('extraInstruction').value='';
     document.getElementById('targetAudience').value='';
     document.getElementById('contentGoal').value='educate';
@@ -1754,7 +1825,7 @@ async function checkPersistenceHealth(){
 
 function bindAutosave(){
   [
-    'projectName','topic','platformMode','scriptLanguage','scriptProvider','paragraphCount',
+    'projectName','topic','platformMode','scriptLanguage','scriptProvider','scriptModel','paragraphCount',
     'targetDuration','extraInstruction','targetAudience','contentGoal','contentTone',
     'expertiseLevel','anglePreference','ctaStyle','sourceNotes','forbiddenContent',
     'channelProfileSelect','voiceName','imageProvider',
@@ -1836,14 +1907,21 @@ async function refreshBackendStatus(){
     ]);
     const scriptData=await scriptRes.json().catch(()=>({}));
     const imageData=await imageRes.json().catch(()=>({}));
+    const providerConfigured=(value)=>Boolean(
+      typeof value==='object' ? value?.configured : value
+    );
     providerAvailability={
-      gemini:Boolean(scriptData.providers?.gemini || imageData.providers?.gemini),
-      openai:Boolean(scriptData.providers?.openai || imageData.providers?.openai),
+      gemini:Boolean(providerConfigured(scriptData.providers?.gemini) || imageData.providers?.gemini),
+      openai:Boolean(providerConfigured(scriptData.providers?.openai) || imageData.providers?.openai),
+      anthropic:providerConfigured(scriptData.providers?.anthropic),
+      xai:providerConfigured(scriptData.providers?.xai),
       ktn:Boolean(imageData.providers?.ktn)
     };
     const configured=[];
     if(providerAvailability.gemini) configured.push('Gemini');
     if(providerAvailability.openai) configured.push('OpenAI');
+    if(providerAvailability.anthropic) configured.push('Claude');
+    if(providerAvailability.xai) configured.push('Grok');
     if(providerAvailability.ktn) configured.push('KTN FLUX');
 
     const imageProvider=document.getElementById('imageProvider');
@@ -1858,7 +1936,7 @@ async function refreshBackendStatus(){
       backendStatus.textContent='Chưa cấu hình provider';
       backendStatus.className='preview-badge warn';
     }
-    voiceAvailability.gemini=Boolean(scriptData.providers?.gemini);
+    voiceAvailability.gemini=providerConfigured(scriptData.providers?.gemini);
     updateVoiceProviderState();
   }catch(e){
     backendStatus.textContent='Không kết nối được AI';
@@ -2276,6 +2354,7 @@ function renderScenes(scenes,meta){
 async function analyzeScript(action){
   const script=scriptResult.value.trim();
   const provider=document.getElementById('scriptProvider').value||currentScriptProvider;
+  const model=selectedScriptModel();
   const language=document.getElementById('scriptLanguage').value;
   if(!script){showToast('Cần có kịch bản trước.');return;}
 
@@ -2289,7 +2368,7 @@ async function analyzeScript(action){
     const res=await fetch('/api/analyze-script',{
       method:'POST',
       headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({action,script,provider,language,topic:document.getElementById('topic').value.trim()})
+      body:JSON.stringify({action,script,provider,model,language,topic:document.getElementById('topic').value.trim()})
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
@@ -2351,6 +2430,7 @@ generateBtn.addEventListener('click',async()=>{
   const topic=document.getElementById('topic').value.trim();
   const platformMode=document.getElementById('platformMode').value;
   const provider=document.getElementById('scriptProvider').value;
+  const model=selectedScriptModel();
   const language=document.getElementById('scriptLanguage').value;
   const paragraphs=Number(document.getElementById('paragraphCount').value||6);
   const duration=document.getElementById('targetDuration').value;
@@ -2392,7 +2472,7 @@ generateBtn.addEventListener('click',async()=>{
       method:'POST',
       headers:{'content-type':'application/json','accept':'application/json'},
       body:JSON.stringify({
-        topic,platformMode,provider,language,paragraphs,duration,extraInstruction,
+        topic,platformMode,provider,model,language,paragraphs,duration,extraInstruction,
         contentBrief,channelBible
       })
     });
