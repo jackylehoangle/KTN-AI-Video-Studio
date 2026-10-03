@@ -9,7 +9,7 @@ const DEFAULTS={
     imageModel:'gpt-image-2.5-flare'
   },
   anthropic:{
-    scriptModel:'claude-sonnet-5-5'
+    scriptModel:'claude-sonnet-5'
   },
   xai:{
     scriptModel:'grok-4.7'
