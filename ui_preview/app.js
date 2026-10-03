@@ -681,7 +681,7 @@ async function requestVoiceWithRetry(payload,onRetry){
   const transientStatuses=new Set([429,500,502,503,504]);
   let lastError=null;
 
-  if(voiceDailyQuotaBlocked){
+  if(payload?.provider==='gemini' && voiceDailyQuotaBlocked){
     throw makeVoiceError(
       voiceDailyQuotaMessage||'Gemini TTS đã hết quota Free Tier theo ngày.',
       {code:'provider_daily_quota_exhausted',quota_scope:'day',retryable:false},
@@ -708,12 +708,12 @@ async function requestVoiceWithRetry(payload,onRetry){
 
       if(
         requestError.code==='provider_daily_quota_exhausted' ||
-        requestError.quotaScope==='day' ||
-        requestError.retryable===false
+        requestError.quotaScope==='day'
       ){
-        markVoiceDailyQuotaBlocked(message);
+        if(payload?.provider==='gemini') markVoiceDailyQuotaBlocked(message);
         throw requestError;
       }
+      if(requestError.retryable===false) throw requestError;
 
       if(!transientStatuses.has(res.status) || attempt===3) throw requestError;
 
@@ -2191,9 +2191,20 @@ let providerAvailability={gemini:false,openai:false,ktn:false};
 let providerConfiguredState={gemini:false,openai:false,ktn:false};
 let imageProviderBlocked={gemini:false,openai:false,ktn:false};
 let imageProviderBlockMessage={gemini:'',openai:'',ktn:''};
-let voiceAvailability={gemini:false};
+let voiceAvailability={gemini:false,elevenlabs:false};
+let voiceLibrary=[];
 let voiceDailyQuotaBlocked=false;
 let voiceDailyQuotaMessage='';
+let voiceBatchJob={
+  running:false,
+  paused:false,
+  cancelled:false,
+  queue:[],
+  currentSceneId:'',
+  completed:0,
+  failed:0,
+  total:0
+};
 
 const showToast=(msg)=>{toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3200)};
 
