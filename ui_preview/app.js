@@ -771,68 +771,343 @@ async function requestVoiceWithRetry(payload,onRetry){
   throw lastError||new Error('Không thể tạo giọng.');
 }
 
+const GEMINI_FALLBACK_VOICES=[
+  {id:'Kore',name:'Kore',provider:'gemini',type:'prebuilt',category:'prebuilt',description:'Rõ, chắc'},
+  {id:'Achernar',name:'Achernar',provider:'gemini',type:'prebuilt',category:'prebuilt',description:'Nhẹ nhàng'},
+  {id:'Aoede',name:'Aoede',provider:'gemini',type:'prebuilt',category:'prebuilt',description:'Thoáng, tự nhiên'},
+  {id:'Charon',name:'Charon',provider:'gemini',type:'prebuilt',category:'prebuilt',description:'Thuyết minh'},
+  {id:'Sulafat',name:'Sulafat',provider:'gemini',type:'prebuilt',category:'prebuilt',description:'Ấm'},
+  {id:'Puck',name:'Puck',provider:'gemini',type:'prebuilt',category:'prebuilt',description:'Năng lượng'}
+];
+
 function getVoiceBatchCandidates(scope){
   const missing=currentScenes.filter(scene=>!scene.audio_asset?.b64_audio);
   if(scope==='all') return currentScenes.slice();
   if(scope==='test2') return missing.slice(0,2);
+  if(scope==='failed') return currentScenes.filter(scene=>scene.voice_job_status==='fail');
   return missing;
 }
 
+function voiceProviderLabel(provider){
+  return provider==='elevenlabs'?'ElevenLabs':'Gemini TTS';
+}
 
-function syncVoiceSelectors(source){
+function voiceTypeLabel(type){
+  const value=String(type||'').toLowerCase();
+  if(value.includes('replicated')) return 'Clone · Replicated';
+  if(value.includes('cloned')) return 'Clone · Instant';
+  if(value.includes('professional')) return 'Professional';
+  if(value.includes('premade')||value.includes('prebuilt')) return 'Prebuilt';
+  if(value.includes('prompted')) return 'Voice Design';
+  return type||'Voice';
+}
+
+function providerVoices(provider){
+  let voices=voiceLibrary.filter(item=>item.provider===provider);
+  if(provider==='gemini'){
+    const ids=new Set(voices.map(item=>item.id));
+    voices=[...voices,...GEMINI_FALLBACK_VOICES.filter(item=>!ids.has(item.id))];
+  }
+  return voices;
+}
+
+function populateVoiceSelectors(provider=selectedVoiceProvider(),preferred=''){
+  const voices=providerVoices(provider);
+  const current=String(preferred||selectedVoiceId()||'');
+  const selects=[
+    document.getElementById('voiceName'),
+    document.getElementById('voiceWorkspaceVoice')
+  ].filter(Boolean);
+
+  selects.forEach(select=>{
+    select.innerHTML='';
+    if(!voices.length){
+      const option=document.createElement('option');
+      option.value='';
+      option.textContent='— Chưa có giọng khả dụng —';
+      select.appendChild(option);
+      return;
+    }
+    voices.forEach(item=>{
+      const option=document.createElement('option');
+      option.value=item.id;
+      option.textContent=item.name+' · '+voiceTypeLabel(item.type);
+      option.dataset.provider=item.provider;
+      select.appendChild(option);
+    });
+    const value=voices.some(item=>item.id===current)?current:voices[0].id;
+    select.value=value;
+  });
+}
+
+async function refreshVoiceLibrary({preserveSelection=true,silent=false}={}){
+  const provider=selectedVoiceProvider();
+  const preferred=preserveSelection?selectedVoiceId():'';
+  const empty=document.getElementById('voiceLibraryEmpty');
+  if(empty){
+    empty.classList.remove('hidden');
+    empty.textContent='Đang đồng bộ Voice Library...';
+  }
+  try{
+    const res=await fetch('/api/voices',{headers:{accept:'application/json'},cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+
+    voiceLibrary=Array.isArray(data.voices)?data.voices:[];
+    voiceAvailability.gemini=Boolean(data.providers?.gemini?.configured);
+    voiceAvailability.elevenlabs=Boolean(data.providers?.elevenlabs?.configured);
+    populateVoiceSelectors(provider,preferred);
+    renderVoiceLibrary();
+    updateVoiceProviderState();
+    renderVoiceWorkspace();
+    if(!silent) showToast('Đã đồng bộ Voice Library.');
+    return data;
+  }catch(error){
+    voiceLibrary=[];
+    populateVoiceSelectors(provider,preferred);
+    renderVoiceLibrary();
+    updateVoiceProviderState();
+    if(empty) empty.textContent='Không thể đồng bộ Voice Library: '+(error?.message||'lỗi không xác định');
+    if(!silent) showToast(error?.message||'Không thể đồng bộ Voice Library.');
+    return null;
+  }
+}
+
+function renderVoiceLibrary(){
+  const provider=selectedVoiceProvider();
+  const voices=providerVoices(provider);
+  const grid=document.getElementById('voiceLibraryGrid');
+  const empty=document.getElementById('voiceLibraryEmpty');
+  const count=document.getElementById('voiceLibraryCount');
+  if(count) count.textContent=voices.length+' giọng';
+  if(!grid||!empty) return;
+
+  if(!voices.length){
+    grid.innerHTML='';
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    empty.textContent=voiceAvailability[provider]
+      ? 'Provider chưa trả về giọng nào.'
+      : 'Provider chưa được cấu hình API key.';
+    return;
+  }
+
+  empty.classList.add('hidden');
+  grid.classList.remove('hidden');
+  const selected=selectedVoiceId();
+
+  grid.innerHTML=voices.map(item=>{
+    const active=item.id===selected?' active':'';
+    const canDelete=Boolean(item.owner && ['replicated','cloned','professional','prompted'].some(x=>String(item.type||item.category).toLowerCase().includes(x)));
+    return '<article class="voice-library-card'+active+'" data-voice-id="'+escapeChannelHtml(item.id)+'">'+
+      '<div><strong>'+escapeChannelHtml(item.name)+'</strong>'+
+      '<span>'+escapeChannelHtml(voiceTypeLabel(item.type||item.category))+'</span></div>'+
+      '<p>'+escapeChannelHtml(item.description||item.languageCode||voiceProviderLabel(item.provider))+'</p>'+
+      '<div class="voice-library-actions">'+
+        '<button data-voice-action="use">Dùng giọng</button>'+
+        (item.previewUrl?'<a href="'+escapeChannelHtml(item.previewUrl)+'" target="_blank" rel="noopener">Nghe mẫu</a>':'')+
+        (canDelete?'<button class="danger" data-voice-action="delete">Xóa</button>':'')+
+      '</div>'+
+    '</article>';
+  }).join('');
+
+  grid.querySelectorAll('[data-voice-action]').forEach(button=>{
+    button.addEventListener('click',async event=>{
+      event.stopPropagation();
+      const card=button.closest('[data-voice-id]');
+      const id=card?.dataset.voiceId||'';
+      if(button.dataset.voiceAction==='use'){
+        selectVoiceById(id);
+      }else if(button.dataset.voiceAction==='delete'){
+        await deleteRemoteVoice(id);
+      }
+    });
+  });
+  grid.querySelectorAll('.voice-library-card').forEach(card=>{
+    card.addEventListener('click',()=>selectVoiceById(card.dataset.voiceId));
+  });
+}
+
+function selectVoiceById(id){
   const quick=document.getElementById('voiceName');
   const workspace=document.getElementById('voiceWorkspaceVoice');
-  const value=source?.value||quick?.value||workspace?.value||'Kore';
-  if(quick && quick.value!==value) quick.value=value;
-  if(workspace && workspace.value!==value) workspace.value=value;
+  if(quick && Array.from(quick.options).some(option=>option.value===id)) quick.value=id;
+  if(workspace && Array.from(workspace.options).some(option=>option.value===id)) workspace.value=id;
+  scheduleAutosave();
+  renderVoiceLibrary();
+  renderVoiceWorkspace();
+  updateWorkspaceContext();
+}
+
+function syncVoiceSelectors(source){
+  const value=source?.value||selectedVoiceId();
+  selectVoiceById(value);
+}
+
+function updateVoiceProviderState(){
+  const provider=selectedVoiceProvider();
+  const available=Boolean(voiceAvailability[provider]);
+  const state=document.getElementById('voiceProviderState');
+  const status=document.getElementById('voiceWorkspaceStatus');
+  const quotaBlocked=provider==='gemini' && voiceDailyQuotaBlocked;
+
+  if(state){
+    state.textContent=quotaBlocked
+      ? 'Hết quota Gemini hôm nay'
+      : (available?'Sẵn sàng':'Chưa cấu hình');
+    state.style.color=quotaBlocked?'#a23b3b':(available?'#198754':'#9b6b16');
+  }
+  if(status){
+    status.textContent=quotaBlocked
+      ? 'Gemini TTS hết quota hôm nay'
+      : (available?(voiceProviderLabel(provider)+' sẵn sàng'):(voiceProviderLabel(provider)+' chưa cấu hình'));
+    status.style.background=quotaBlocked?'#fff0f0':(available?'#eaf8ef':'#fff7df');
+    status.style.color=quotaBlocked?'#a23b3b':(available?'#198754':'#805d16');
+  }
+
+  const cloneButton=document.getElementById('openVoiceCloneBtn');
+  if(cloneButton) cloneButton.disabled=!available;
+}
+
+function voiceTechnicalQa(scene){
+  const hasAudio=Boolean(scene.audio_asset?.b64_audio);
+  if(!hasAudio) return {pass:false,label:'THIẾU AUDIO',detail:'Chưa có file audio.'};
+  const actual=Number(scene.audio_duration_seconds||scene.audio_asset?.duration_seconds||0);
+  const target=Number(scene.duration_seconds||0);
+  if(actual>0 && target>0){
+    const ratio=actual/target;
+    if(ratio<0.55 || ratio>1.85){
+      return {
+        pass:false,
+        label:'CẦN KIỂM TRA',
+        detail:'Audio '+actual.toFixed(1)+'s lệch đáng kể so với scene '+target.toFixed(1)+'s.'
+      };
+    }
+  }
+  return {
+    pass:true,
+    label:'TECH PASS',
+    detail:actual>0?('Audio '+actual.toFixed(1)+'s · file hợp lệ'):'Có file audio · duration sẽ xác minh khi phát.'
+  };
+}
+
+function setAudioQaApproved(scene,approved){
+  scene.audio_qa_approved=Boolean(approved);
   scheduleAutosave();
   renderVoiceWorkspace();
 }
 
+function renderVoiceBatchQueue(){
+  const results=document.getElementById('voiceBatchResults');
+  if(!results) return;
+  const ids=voiceBatchJob.queue.length
+    ? voiceBatchJob.queue
+    : currentScenes.filter(scene=>['queued','running','pass','fail','paused'].includes(scene.voice_job_status)).map(scene=>scene.id);
+
+  results.innerHTML='';
+  ids.forEach(id=>{
+    const scene=currentScenes.find(item=>item.id===id);
+    if(!scene) return;
+    const state=scene.voice_job_status||'queued';
+    const row=document.createElement('div');
+    row.className='voice-batch-result '+state;
+    const name=document.createElement('strong');
+    name.textContent=String(scene.order||0).padStart(2,'0')+' · '+(scene.title||scene.id);
+    const status=document.createElement('span');
+    const labels={
+      queued:'QUEUED',
+      running:'ĐANG TẠO...',
+      pass:'PASS',
+      fail:'FAIL',
+      paused:'PAUSED'
+    };
+    status.textContent=labels[state]||state.toUpperCase();
+    if(scene.voice_job_error) status.title=scene.voice_job_error;
+    row.append(name,status);
+    results.appendChild(row);
+  });
+}
+
+function updateVoiceBatchProgress(){
+  const queueScenes=voiceBatchJob.queue.map(id=>currentScenes.find(scene=>scene.id===id)).filter(Boolean);
+  const total=voiceBatchJob.total||queueScenes.length;
+  const pass=queueScenes.filter(scene=>scene.voice_job_status==='pass').length;
+  const fail=queueScenes.filter(scene=>scene.voice_job_status==='fail').length;
+  const running=queueScenes.filter(scene=>scene.voice_job_status==='running').length;
+  const queued=queueScenes.filter(scene=>['queued','paused'].includes(scene.voice_job_status)).length;
+  const done=pass+fail;
+  const pct=total?Math.round(done/total*100):0;
+
+  const assign=(id,value)=>{const el=document.getElementById(id);if(el) el.textContent=value;};
+  assign('voiceBatchProgressValue',pct+'%');
+  assign('voiceQueueMetric',queued+' queued');
+  assign('voiceRunningMetric',running+' running');
+  assign('voicePassMetric',pass+' pass');
+  assign('voiceFailMetric',fail+' fail');
+  const bar=document.getElementById('voiceBatchBar');
+  if(bar) bar.style.width=pct+'%';
+
+  const label=document.getElementById('voiceBatchProgressLabel');
+  if(label){
+    if(voiceBatchJob.cancelled) label.textContent='Đã hủy batch';
+    else if(voiceBatchJob.paused) label.textContent='Đã tạm dừng';
+    else if(voiceBatchJob.running){
+      const current=currentScenes.find(scene=>scene.id===voiceBatchJob.currentSceneId);
+      label.textContent=current?'Đang tạo · Scene '+current.order+' · '+current.title:'Đang chạy batch...';
+    }else if(total && done>=total) label.textContent='Hoàn tất · '+pass+' thành công'+(fail?' · '+fail+' lỗi':'');
+    else label.textContent='Sẵn sàng';
+  }
+
+  document.getElementById('voiceBatchPauseBtn').disabled=!voiceBatchJob.running || voiceBatchJob.paused;
+  document.getElementById('voiceBatchResumeBtn').disabled=!voiceBatchJob.running || !voiceBatchJob.paused;
+  document.getElementById('voiceBatchCancelBtn').disabled=!voiceBatchJob.running;
+  document.getElementById('voiceBatchRetryBtn').disabled=voiceBatchJob.running || currentScenes.every(scene=>scene.voice_job_status!=='fail');
+  renderVoiceBatchQueue();
+}
+
 function renderVoiceWorkspace(){
+  const provider=selectedVoiceProvider();
   const total=currentScenes.length;
   const ready=currentScenes.filter(scene=>scene.audio_asset?.b64_audio).length;
+  const failed=currentScenes.filter(scene=>scene.voice_job_status==='fail').length;
   const missing=Math.max(0,total-ready);
-  const status=document.getElementById('voiceWorkspaceStatus');
+
+  updateVoiceProviderState();
+
   const quotaNotice=document.getElementById('voiceDailyQuotaNotice');
-  if(status){
-    if(voiceDailyQuotaBlocked){
-      status.textContent='Hết quota TTS hôm nay';
-      status.style.background='#fff0f0';
-      status.style.color='#a23b3b';
-    }else{
-      status.textContent=voiceAvailability.gemini?'Gemini TTS sẵn sàng':'Chưa cấu hình Gemini TTS';
-      status.style.background=voiceAvailability.gemini?'#eaf8ef':'#fff7df';
-      status.style.color=voiceAvailability.gemini?'#198754':'#805d16';
-    }
-  }
   if(quotaNotice){
-    quotaNotice.classList.toggle('hidden',!voiceDailyQuotaBlocked);
+    const show=provider==='gemini' && voiceDailyQuotaBlocked;
+    quotaNotice.classList.toggle('hidden',!show);
     const detail=quotaNotice.querySelector('span');
-    if(detail && voiceDailyQuotaBlocked){
+    if(detail && show){
       detail.textContent=voiceDailyQuotaMessage+
-        ' Hệ thống đã dừng retry và khóa tạo audio mới trong phiên này.';
+        ' Có thể chuyển sang provider khác nếu đã cấu hình.';
     }
   }
-  document.getElementById('voiceSceneTotal').textContent=String(total);
-  document.getElementById('voiceSceneReady').textContent=String(ready);
-  document.getElementById('voiceSceneMissing').textContent=String(missing);
-  document.getElementById('voiceBatchSummary').textContent=ready+'/'+total+' audio';
+
+  const assign=(id,value)=>{const el=document.getElementById(id);if(el) el.textContent=String(value);};
+  assign('voiceSceneTotal',total);
+  assign('voiceSceneReady',ready);
+  assign('voiceSceneMissing',missing);
+  assign('voiceSceneFailed',failed);
+  assign('voiceBatchSummary',ready+'/'+total+' audio');
 
   const list=document.getElementById('voiceSceneStatusList');
   const empty=document.getElementById('voiceSceneStatusEmpty');
-  list.innerHTML='';
+  if(list) list.innerHTML='';
 
   if(!total){
-    empty.classList.remove('hidden');
-    list.classList.add('hidden');
+    empty?.classList.remove('hidden');
+    list?.classList.add('hidden');
   }else{
-    empty.classList.add('hidden');
-    list.classList.remove('hidden');
+    empty?.classList.add('hidden');
+    list?.classList.remove('hidden');
+
     currentScenes.forEach(scene=>{
       const hasAudio=Boolean(scene.audio_asset?.b64_audio);
+      const qa=voiceTechnicalQa(scene);
       const row=document.createElement('div');
-      row.className='voice-status-row';
+      row.className='voice-status-row voice-qa-row';
 
       const number=document.createElement('div');
       number.className='voice-status-number';
@@ -844,17 +1119,41 @@ function renderVoiceWorkspace(){
       strong.textContent=scene.title||scene.id;
       const small=document.createElement('small');
       small.textContent=hasAudio
-        ? ((scene.audio_asset.voice||'Giọng')+' · '+(Number(scene.audio_duration_seconds||scene.audio_asset.duration_seconds)||0).toFixed(1)+' giây')
-        : 'Chưa có audio';
+        ? ((scene.audio_asset.providerLabel||voiceProviderLabel(scene.audio_asset.provider))+' · '+(scene.audio_asset.voice||'Voice')+' · '+qa.detail)
+        : (scene.voice_job_error||'Chưa có audio');
       main.append(strong,small);
 
-      const badge=document.createElement('span');
-      badge.className='voice-status-badge'+(hasAudio?' ready':'');
-      badge.textContent=hasAudio?'READY':'THIẾU AUDIO';
+      const stateWrap=document.createElement('div');
+      stateWrap.className='voice-qa-badges';
+      const technical=document.createElement('span');
+      technical.className='voice-status-badge'+(qa.pass?' ready':'');
+      technical.textContent=qa.label;
+      const manual=document.createElement('span');
+      manual.className='voice-status-badge'+(scene.audio_qa_approved?' approved':'');
+      manual.textContent=scene.audio_qa_approved?'ĐÃ DUYỆT':'CHỜ DUYỆT';
+      stateWrap.append(technical,manual);
+
+      const controls=document.createElement('div');
+      controls.className='voice-scene-actions';
+
+      if(hasAudio){
+        const audio=document.createElement('audio');
+        audio.controls=true;
+        audio.preload='metadata';
+        audio.src='data:'+(scene.audio_asset.mime_type||'audio/wav')+';base64,'+scene.audio_asset.b64_audio;
+        controls.appendChild(audio);
+
+        const approve=document.createElement('button');
+        approve.className=scene.audio_qa_approved?'approved':'';
+        approve.textContent=scene.audio_qa_approved?'Bỏ duyệt':'Duyệt audio';
+        approve.addEventListener('click',()=>setAudioQaApproved(scene,!scene.audio_qa_approved));
+        controls.appendChild(approve);
+      }
 
       const action=document.createElement('button');
-      action.textContent=voiceDailyQuotaBlocked?'Hết quota':(hasAudio?'Tạo lại':'Tạo audio');
-      action.disabled=voiceDailyQuotaBlocked;
+      const blocked=provider==='gemini'&&voiceDailyQuotaBlocked;
+      action.textContent=blocked?'Hết quota':(hasAudio?'Tạo lại':'Tạo audio');
+      action.disabled=blocked || !voiceAvailability[provider] || voiceBatchJob.running;
       action.addEventListener('click',()=>{
         const card=findSceneCard(scene.id);
         const button=card?.querySelector('.scene-voice-btn');
@@ -867,186 +1166,363 @@ function renderVoiceWorkspace(){
           showToast('Không tìm thấy scene trên giao diện.');
         }
       });
+      controls.appendChild(action);
 
-      row.append(number,main,badge,action);
+      row.append(number,main,stateWrap,controls);
       list.appendChild(row);
     });
   }
 
   const previewButton=document.getElementById('voicePreviewBtn');
-  if(previewButton) previewButton.disabled=voiceDailyQuotaBlocked || !voiceAvailability.gemini;
+  if(previewButton) previewButton.disabled=!voiceAvailability[provider] || (provider==='gemini'&&voiceDailyQuotaBlocked) || voiceBatchJob.running;
+
   document.querySelectorAll('.scene-voice-btn').forEach(btn=>{
-    btn.disabled=voiceDailyQuotaBlocked;
-    if(voiceDailyQuotaBlocked) btn.textContent='Hết quota TTS';
+    const blocked=provider==='gemini'&&voiceDailyQuotaBlocked;
+    btn.disabled=blocked || !voiceAvailability[provider] || voiceBatchJob.running;
+    if(blocked) btn.textContent='Hết quota TTS';
   });
+
   updateVoiceBatchButton();
+  updateVoiceBatchProgress();
 }
 
 function updateVoiceBatchButton(){
   const button=document.getElementById('voiceBatchBtn');
-  const confirmed=document.getElementById('voiceBatchConfirm').checked;
-  const scope=document.getElementById('voiceBatchScope').value;
+  const provider=selectedVoiceProvider();
+  const confirmed=Boolean(document.getElementById('voiceBatchConfirm')?.checked);
+  const scope=document.getElementById('voiceBatchScope')?.value||'missing';
   const candidates=getVoiceBatchCandidates(scope);
-  button.disabled=!(voiceAvailability.gemini && !voiceDailyQuotaBlocked && confirmed && candidates.length>0);
-  button.textContent=voiceDailyQuotaBlocked
-    ? 'Hết quota TTS hôm nay'
-    : (candidates.length
-      ? ((scope==='test2'?'Test batch':'Tạo audio hàng loạt')+' · '+candidates.length+' scene')
-      : 'Không có scene cần tạo');
+  const quotaBlocked=provider==='gemini'&&voiceDailyQuotaBlocked;
+  if(!button) return;
+  button.disabled=voiceBatchJob.running || !voiceAvailability[provider] || quotaBlocked || !confirmed || candidates.length===0;
+  button.textContent=quotaBlocked
+    ? 'Hết quota Gemini hôm nay'
+    : (candidates.length?('▶ Chạy batch · '+candidates.length+' scene'):'Không có scene cần tạo');
 }
 
 async function previewVoice(){
   const button=document.getElementById('voicePreviewBtn');
-  const text=document.getElementById('voicePreviewText').value.trim();
-  const voice=document.getElementById('voiceWorkspaceVoice').value||'Kore';
+  const text=document.getElementById('voicePreviewText')?.value.trim();
+  const provider=selectedVoiceProvider();
+  const voice=String(document.getElementById('voiceWorkspaceVoice')?.value||selectedVoiceId());
   const output=document.getElementById('voicePreviewOutput');
   const audio=document.getElementById('voicePreviewAudio');
   const meta=document.getElementById('voicePreviewMeta');
 
   if(!text){showToast('Hãy nhập câu nghe thử.');return;}
-  if(voiceDailyQuotaBlocked){showToast('Gemini TTS đã hết quota Free Tier theo ngày. Không gửi thêm request.');return;}
-  if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
+  if(!voiceAvailability[provider]){showToast(voiceProviderLabel(provider)+' chưa sẵn sàng.');return;}
+  if(provider==='gemini'&&voiceDailyQuotaBlocked){showToast('Gemini TTS đã hết quota theo ngày.');return;}
 
   button.disabled=true;
   button.textContent='Đang tạo mẫu...';
-  output.classList.remove('hidden');
-  meta.textContent='Gemini đang tạo audio mẫu...';
-  audio.removeAttribute('src');
-  audio.load();
+  output?.classList.remove('hidden');
+  if(meta) meta.textContent=voiceProviderLabel(provider)+' đang tạo audio mẫu...';
+  audio?.removeAttribute('src');
+  audio?.load();
 
   try{
     const data=await requestVoiceWithRetry({
-      provider:'gemini',
+      provider,
       text,
       voice,
       languageCode:'vi-VN',
-      sceneId:'voice_preview'
+      sceneId:'voice_preview',
+      styleInstruction:voiceStyleInstruction(),
+      voiceSettings:voiceRequestSettings()
     },info=>{
-      if(info.remaining){
-        meta.textContent='Gemini đang giới hạn request · đợi '+info.remaining+' giây...';
-      }else{
-        meta.textContent='Gemini đang bận · chuẩn bị thử lại...';
-      }
+      if(meta) meta.textContent=info.remaining
+        ? ('Provider giới hạn request · đợi '+info.remaining+' giây...')
+        : 'Provider đang bận · chuẩn bị thử lại...';
     });
-    audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
-    meta.textContent=(data.voice||voice)+' · '+(data.model||'Gemini TTS')+
-      (Number(data.duration_seconds)>0?' · '+Number(data.duration_seconds).toFixed(1)+' giây':'');
-    audio.load();
+    if(audio){
+      audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
+      audio.load();
+    }
+    if(meta){
+      meta.textContent=(data.voice||voice)+' · '+(data.providerLabel||voiceProviderLabel(provider))+
+        (Number(data.duration_seconds)>0?' · '+Number(data.duration_seconds).toFixed(1)+' giây':'');
+    }
     showToast('Đã tạo audio nghe thử.');
   }catch(err){
-    meta.textContent=err.message||'Không thể tạo audio mẫu.';
+    if(meta) meta.textContent=err.message||'Không thể tạo audio mẫu.';
     showToast(err.message||'Không thể tạo audio mẫu.');
   }finally{
-    button.disabled=voiceDailyQuotaBlocked;
-    button.textContent=voiceDailyQuotaBlocked?'Hết quota TTS':'Nghe thử';
+    button.disabled=false;
+    button.textContent='▶ Nghe thử';
+    renderVoiceWorkspace();
   }
 }
 
-async function runVoiceBatch(){
-  const button=document.getElementById('voiceBatchBtn');
-  const scope=document.getElementById('voiceBatchScope').value;
-  const confirmed=document.getElementById('voiceBatchConfirm').checked;
-  if(!confirmed){showToast('Cần xác nhận trước khi tạo audio hàng loạt.');return;}
-  if(voiceDailyQuotaBlocked){showToast('Gemini TTS đã hết quota Free Tier theo ngày. Batch không được chạy.');return;}
-  if(!voiceAvailability.gemini){showToast('Gemini TTS chưa sẵn sàng.');return;}
+async function waitWhileVoicePaused(){
+  while(voiceBatchJob.paused && !voiceBatchJob.cancelled){
+    await wait(250);
+  }
+}
 
-  const targets=getVoiceBatchCandidates(scope);
-  if(!targets.length){showToast('Không có scene cần tạo audio.');return;}
+function initializeVoiceBatch(targets){
+  voiceBatchJob={
+    running:true,
+    paused:false,
+    cancelled:false,
+    queue:targets.map(scene=>scene.id),
+    currentSceneId:'',
+    completed:0,
+    failed:0,
+    total:targets.length
+  };
+  targets.forEach(scene=>{
+    scene.voice_job_status='queued';
+    scene.voice_job_error='';
+  });
+  updateVoiceBatchProgress();
+  renderVoiceWorkspace();
+}
 
-  const progress=document.getElementById('voiceBatchProgress');
-  const label=document.getElementById('voiceBatchProgressLabel');
-  const value=document.getElementById('voiceBatchProgressValue');
-  const bar=document.getElementById('voiceBatchBar');
-  const results=document.getElementById('voiceBatchResults');
-  progress.classList.remove('hidden');
-  results.innerHTML='';
-  button.disabled=true;
+async function processVoiceBatch(){
+  const provider=selectedVoiceProvider();
+  const gapSeconds=provider==='gemini'?21:1;
 
-  let success=0;
-  let failed=0;
-  const minBatchGapSeconds=21;
+  for(let index=0;index<voiceBatchJob.queue.length;index++){
+    if(voiceBatchJob.cancelled) break;
+    await waitWhileVoicePaused();
+    if(voiceBatchJob.cancelled) break;
 
-  let stoppedByDailyQuota=false;
+    const scene=currentScenes.find(item=>item.id===voiceBatchJob.queue[index]);
+    if(!scene) continue;
 
-  for(let i=0;i<targets.length;i++){
-    if(voiceDailyQuotaBlocked){
-      stoppedByDailyQuota=true;
-      break;
+    if(index>0 && gapSeconds>1){
+      for(let remaining=gapSeconds;remaining>0;remaining--){
+        if(voiceBatchJob.cancelled) break;
+        await waitWhileVoicePaused();
+        const label=document.getElementById('voiceBatchProgressLabel');
+        if(label) label.textContent='Đợi quota · scene tiếp theo sau '+remaining+' giây';
+        await wait(1000);
+      }
     }
-    if(i>0){
-      await waitWithCountdown(minBatchGapSeconds,remaining=>{
-        label.textContent='Đợi quota Gemini · scene tiếp theo sau '+remaining+' giây';
-      });
-    }
-    const scene=targets[i];
-    label.textContent='Scene '+(i+1)+'/'+targets.length+' · '+(scene.title||scene.id);
-    const pct=Math.round((i/targets.length)*100);
-    value.textContent=pct+'%';
-    bar.style.width=pct+'%';
+    if(voiceBatchJob.cancelled) break;
 
-    const resultRow=document.createElement('div');
-    resultRow.className='voice-batch-result running';
-    const resultName=document.createElement('strong');
-    resultName.textContent=String(scene.order||i+1).padStart(2,'0')+' · '+(scene.title||scene.id);
-    const resultState=document.createElement('span');
-    resultState.textContent='Đang tạo...';
-    resultRow.append(resultName,resultState);
-    results.appendChild(resultRow);
+    scene.voice_job_status='running';
+    voiceBatchJob.currentSceneId=scene.id;
+    updateVoiceBatchProgress();
+    renderVoiceWorkspace();
 
     const card=findSceneCard(scene.id);
     const sceneButton=card?.querySelector('.scene-voice-btn');
     if(!card || !sceneButton){
-      failed+=1;
-      resultRow.className='voice-batch-result fail';
-      resultState.textContent='FAIL · thiếu scene UI';
+      scene.voice_job_status='fail';
+      scene.voice_job_error='Không tìm thấy scene UI.';
+      voiceBatchJob.failed+=1;
+      updateVoiceBatchProgress();
       continue;
     }
 
     const ok=await generateSceneVoice(scene,card,sceneButton,{silent:true});
     if(ok){
+      scene.voice_job_status='pass';
+      voiceBatchJob.completed+=1;
       const saved=await saveProjectNow({silent:true});
-      if(saved?.ok){
-        success+=1;
-        resultRow.className='voice-batch-result pass';
-        resultState.textContent='PASS · ĐÃ LƯU';
-      }else{
-        failed+=1;
-        resultRow.className='voice-batch-result fail';
-        resultState.textContent='AUDIO OK · LƯU FAIL';
+      if(!saved?.ok){
+        scene.voice_job_status='fail';
+        scene.voice_job_error='Audio OK nhưng lưu dự án thất bại.';
+        voiceBatchJob.failed+=1;
       }
     }else{
-      failed+=1;
-      resultRow.className='voice-batch-result fail';
-      if(voiceDailyQuotaBlocked){
-        resultState.textContent='DỪNG · HẾT QUOTA NGÀY';
-        stoppedByDailyQuota=true;
-      }else{
-        resultState.textContent='TTS FAIL';
-      }
+      scene.voice_job_status='fail';
+      voiceBatchJob.failed+=1;
     }
 
+    updateVoiceBatchProgress();
     renderVoiceWorkspace();
     renderAssetLibrary();
-    const donePct=Math.round(((i+1)/targets.length)*100);
-    value.textContent=donePct+'%';
-    bar.style.width=donePct+'%';
-    if(stoppedByDailyQuota) break;
+
+    if(provider==='gemini'&&voiceDailyQuotaBlocked) break;
   }
 
-  label.textContent=stoppedByDailyQuota
-    ? 'Đã dừng batch: Gemini TTS hết quota Free Tier theo ngày'
-    : ('Hoàn tất: '+success+' thành công'+(failed?' · '+failed+' lỗi':''));
+  voiceBatchJob.running=false;
+  voiceBatchJob.paused=false;
+  voiceBatchJob.currentSceneId='';
+  await saveProjectNow({silent:true});
   document.getElementById('voiceBatchConfirm').checked=false;
+  updateVoiceBatchProgress();
   renderVoiceWorkspace();
-  renderAssetLibrary();
-  const finalSave=await saveProjectNow({silent:true});
-  showToast(
-    stoppedByDailyQuota
-      ? ('Đã dừng batch vì hết quota TTS theo ngày. '+success+' scene đã hoàn tất trước khi dừng.')
-      : ((scope==='test2'?'Kiểm thử batch':'Tạo audio hàng loạt')+
-        ' hoàn tất: '+success+' scene'+(failed?', '+failed+' lỗi':'')+
-        (finalSave?.ok?' · dữ liệu đã xác minh lưu.':' · CẢNH BÁO: lưu dự án thất bại.'))
-  );
+
+  if(voiceBatchJob.cancelled){
+    showToast('Đã hủy batch. Audio hoàn thành trước đó vẫn được giữ.');
+  }else if(provider==='gemini'&&voiceDailyQuotaBlocked){
+    showToast('Batch dừng vì Gemini hết quota ngày. Có thể đổi provider rồi Retry lỗi.');
+  }else{
+    showToast('Batch hoàn tất · '+voiceBatchJob.completed+' thành công · '+voiceBatchJob.failed+' lỗi.');
+  }
+}
+
+async function runVoiceBatch(){
+  if(voiceBatchJob.running) return;
+  const provider=selectedVoiceProvider();
+  const scope=document.getElementById('voiceBatchScope')?.value||'missing';
+  const confirmed=Boolean(document.getElementById('voiceBatchConfirm')?.checked);
+
+  if(!confirmed){showToast('Cần xác nhận phạm vi batch trước khi chạy.');return;}
+  if(!voiceAvailability[provider]){showToast(voiceProviderLabel(provider)+' chưa sẵn sàng.');return;}
+  if(provider==='gemini'&&voiceDailyQuotaBlocked){showToast('Gemini TTS hết quota hôm nay. Hãy đổi provider hoặc chờ quota mới.');return;}
+
+  const targets=getVoiceBatchCandidates(scope);
+  if(!targets.length){showToast('Không có scene phù hợp phạm vi batch.');return;}
+
+  initializeVoiceBatch(targets);
+  await processVoiceBatch();
+}
+
+function pauseVoiceBatch(){
+  if(!voiceBatchJob.running) return;
+  voiceBatchJob.paused=true;
+  const current=currentScenes.find(scene=>scene.id===voiceBatchJob.currentSceneId);
+  if(current && current.voice_job_status==='running') current.voice_job_status='paused';
+  updateVoiceBatchProgress();
+}
+
+function resumeVoiceBatch(){
+  if(!voiceBatchJob.running) return;
+  voiceBatchJob.paused=false;
+  const current=currentScenes.find(scene=>scene.id===voiceBatchJob.currentSceneId);
+  if(current && current.voice_job_status==='paused') current.voice_job_status='running';
+  updateVoiceBatchProgress();
+}
+
+function cancelVoiceBatch(){
+  if(!voiceBatchJob.running) return;
+  voiceBatchJob.cancelled=true;
+  voiceBatchJob.paused=false;
+  currentScenes.forEach(scene=>{
+    if(scene.voice_job_status==='queued'||scene.voice_job_status==='paused'){
+      scene.voice_job_status='queued';
+    }
+  });
+  updateVoiceBatchProgress();
+}
+
+function retryFailedVoiceBatch(){
+  if(voiceBatchJob.running) return;
+  const failed=currentScenes.filter(scene=>scene.voice_job_status==='fail');
+  if(!failed.length){showToast('Không có scene lỗi để retry.');return;}
+  document.getElementById('voiceBatchScope').value='failed';
+  document.getElementById('voiceBatchConfirm').checked=true;
+  runVoiceBatch();
+}
+
+function fileToBase64Payload(file){
+  return new Promise((resolve,reject)=>{
+    if(!file) return resolve(null);
+    const maxBytes=20*1024*1024;
+    if(file.size>maxBytes) return reject(new Error('File audio vượt quá 20 MB.'));
+    const reader=new FileReader();
+    reader.onerror=()=>reject(reader.error||new Error('Không đọc được file audio.'));
+    reader.onload=()=>{
+      const value=String(reader.result||'');
+      const comma=value.indexOf(',');
+      resolve({
+        data:comma>=0?value.slice(comma+1):value,
+        mime_type:file.type||'audio/wav'
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function openVoiceCloneModal(){
+  const provider=selectedVoiceProvider();
+  document.getElementById('voiceCloneProvider').value=provider;
+  document.getElementById('voiceCloneName').value='';
+  document.getElementById('voiceCloneReferenceFile').value='';
+  document.getElementById('voiceCloneConsentFile').value='';
+  document.getElementById('voiceCloneDescription').value='';
+  document.getElementById('voiceCloneConsentConfirmed').checked=false;
+  document.getElementById('voiceCloneStatus').textContent='';
+  updateVoiceCloneProviderUi();
+  document.getElementById('voiceCloneModal')?.classList.remove('hidden');
+}
+
+function closeVoiceCloneModal(){
+  document.getElementById('voiceCloneModal')?.classList.add('hidden');
+}
+
+function updateVoiceCloneProviderUi(){
+  const provider=document.getElementById('voiceCloneProvider')?.value||'gemini';
+  document.getElementById('geminiConsentAudioBlock')?.classList.toggle('hidden',provider!=='gemini');
+}
+
+async function createVoiceClone(){
+  const button=document.getElementById('createVoiceCloneBtn');
+  const status=document.getElementById('voiceCloneStatus');
+  const provider=document.getElementById('voiceCloneProvider')?.value||'gemini';
+  const name=document.getElementById('voiceCloneName')?.value.trim();
+  const reference=document.getElementById('voiceCloneReferenceFile')?.files?.[0];
+  const consent=document.getElementById('voiceCloneConsentFile')?.files?.[0];
+  const description=document.getElementById('voiceCloneDescription')?.value.trim();
+  const consentConfirmed=Boolean(document.getElementById('voiceCloneConsentConfirmed')?.checked);
+
+  if(!name){showToast('Hãy đặt tên Voice Profile.');return;}
+  if(!reference){showToast('Hãy chọn reference audio.');return;}
+  if(provider==='gemini'&&!consent){showToast('Gemini yêu cầu consent audio của cùng người nói.');return;}
+  if(!consentConfirmed){showToast('Cần xác nhận quyền sở hữu/sự đồng ý.');return;}
+
+  button.disabled=true;
+  button.textContent='Đang tạo clone...';
+  if(status) status.textContent='Đang đọc audio và gửi tới '+voiceProviderLabel(provider)+'...';
+
+  try{
+    const [sourceAudio,consentAudio]=await Promise.all([
+      fileToBase64Payload(reference),
+      provider==='gemini'?fileToBase64Payload(consent):Promise.resolve(null)
+    ]);
+    const res=await fetch('/api/voices',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({
+        action:'clone',
+        provider,
+        name,
+        description,
+        sourceAudio,
+        consentAudio,
+        consentConfirmed:true
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    if(status) status.textContent='PASS · '+data.voice?.name+' · '+data.voice?.id;
+    await refreshVoiceLibrary({preserveSelection:false,silent:true});
+    document.getElementById('voiceProvider').value=provider;
+    populateVoiceSelectors(provider,data.voice?.id||'');
+    selectVoiceById(data.voice?.id||'');
+    closeVoiceCloneModal();
+    showToast('Đã tạo Voice Clone: '+(data.voice?.name||name)+'.');
+  }catch(error){
+    if(status) status.textContent='FAIL · '+(error?.message||'Không thể clone giọng.');
+    showToast(error?.message||'Không thể clone giọng.');
+  }finally{
+    button.disabled=false;
+    button.textContent='Tạo Voice Clone';
+  }
+}
+
+async function deleteRemoteVoice(voiceId){
+  const provider=selectedVoiceProvider();
+  const item=voiceLibrary.find(voice=>voice.provider===provider&&voice.id===voiceId);
+  if(!item) return;
+  if(!confirm('Xóa voice “'+item.name+'” khỏi '+voiceProviderLabel(provider)+'?')) return;
+  try{
+    const res=await fetch('/api/voices',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({action:'delete',provider,voiceId})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    await refreshVoiceLibrary({preserveSelection:false,silent:true});
+    showToast('Đã xóa voice.');
+  }catch(error){
+    showToast(error?.message||'Không thể xóa voice.');
+  }
 }
 
 
