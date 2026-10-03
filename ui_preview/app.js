@@ -1777,6 +1777,9 @@ async function refreshSystemStatus(){
     setSystemCard('xai',Boolean(data.providers?.xai?.configured),{
       scriptModel:data.providers?.xai?.scriptModel
     });
+    setSystemCard('elevenlabs',Boolean(data.providers?.elevenlabs?.configured),{
+      ttsModel:data.providers?.elevenlabs?.ttsModel
+    });
     setSystemCard('ktnImage',Boolean(data.providers?.ktnImage?.ready),{
       model:data.providers?.ktnImage?.model,
       gateway:data.providers?.ktnImage?.ready?'LIVE / HEALTH OK':data.providers?.ktnImage?.configured?'Đã cấu hình · chưa kết nối':'Chưa cấu hình',
@@ -1784,7 +1787,7 @@ async function refreshSystemStatus(){
     });
     setSystemCard('render',Boolean(data.providers?.render?.ready));
   }catch(err){
-    ['gemini','openai','anthropic','xai','ktnImage','render'].forEach(name=>setSystemCard(name,false));
+    ['gemini','openai','anthropic','xai','elevenlabs','ktnImage','render'].forEach(name=>setSystemCard(name,false));
     showToast('Không đọc được trạng thái hệ thống: '+(err?.message||'lỗi kết nối'));
   }finally{
     if(button){button.disabled=false;button.textContent='Kiểm tra lại';}
