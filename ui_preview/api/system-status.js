@@ -13,6 +13,9 @@ const DEFAULTS={
   },
   xai:{
     scriptModel:'grok-4.7'
+  },
+  elevenlabs:{
+    ttsModel:'eleven_multilingual_v2'
   }
 };
 
@@ -79,6 +82,10 @@ export default async function handler(req,res){
       xai:{
         configured:Boolean(process.env.XAI_API_KEY),
         scriptModel:process.env.XAI_SCRIPT_MODEL||DEFAULTS.xai.scriptModel
+      },
+      elevenlabs:{
+        configured:Boolean(process.env.ELEVENLABS_API_KEY),
+        ttsModel:process.env.ELEVENLABS_TTS_MODEL||DEFAULTS.elevenlabs.ttsModel
       },
       ktnImage:{
         configured:Boolean(ktnImageUrl),

@@ -335,60 +335,109 @@
       <section class="panel voice-workspace-panel workspace-view" id="voiceSection" data-workspace-view="voice">
         <div class="workspace-section-head">
           <div>
-            <span class="workspace-kicker">04 · VOICE WORKSPACE</span>
+            <span class="workspace-kicker">04 · VOICE STUDIO</span>
             <h2>Giọng đọc</h2>
-            <p>Chọn giọng, nghe thử và quản lý audio theo scene trong một màn hình.</p>
+            <p>Quản lý Voice Profile, clone giọng, tạo audio hàng loạt và kiểm soát QA theo từng scene.</p>
           </div>
-          <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Gemini TTS</span>
+          <div class="workspace-head-actions">
+            <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Voice Provider</span>
+            <button class="secondary compact-btn" id="refreshVoiceLibraryBtn" type="button">↻ Đồng bộ giọng</button>
+            <button class="primary compact-btn" id="openVoiceCloneBtn" type="button">＋ Clone giọng</button>
+          </div>
         </div>
 
-        <div class="tab-context-bar">
-          <div>
-            <label>Giọng mặc định của dự án</label>
-            <select id="voiceName">
-              <option value="Kore">Kore · Rõ, chắc</option>
-              <option value="Achernar">Achernar · Nhẹ nhàng</option>
-              <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
-              <option value="Charon">Charon · Thuyết minh</option>
-              <option value="Sulafat">Sulafat · Ấm</option>
-              <option value="Puck">Puck · Năng lượng</option>
-            </select>
+        <div class="voice-profile-shell">
+          <div class="voice-profile-main">
+            <div class="voice-card-head">
+              <div>
+                <strong>Voice Profile của dự án</strong>
+                <p>Chọn provider và giọng dùng mặc định cho toàn bộ video. Có thể đổi riêng từng scene sau.</p>
+              </div>
+              <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
+            </div>
+
+            <div class="voice-profile-fields">
+              <div>
+                <label>Nhà cung cấp</label>
+                <select id="voiceProvider">
+                  <option value="gemini">Google Gemini TTS</option>
+                  <option value="elevenlabs">ElevenLabs</option>
+                </select>
+              </div>
+              <div class="voice-select-field">
+                <label>Giọng mặc định</label>
+                <select id="voiceName">
+                  <option value="Kore">Kore · Gemini</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="voice-style-grid">
+              <div>
+                <label>Phong cách đọc</label>
+                <select id="voiceStylePreset">
+                  <option value="documentary">Documentary · điềm tĩnh</option>
+                  <option value="cinematic">Cinematic · giàu cảm xúc</option>
+                  <option value="conversational">Conversational · gần gũi</option>
+                  <option value="energetic">Energetic · nhanh, sáng</option>
+                  <option value="expert">Expert · rõ, chắc</option>
+                  <option value="custom">Tùy chỉnh</option>
+                </select>
+              </div>
+              <div>
+                <label>Tốc độ</label>
+                <select id="voiceSpeed">
+                  <option value="0.85">0.85× · Chậm</option>
+                  <option value="0.95">0.95×</option>
+                  <option value="1" selected>1.00× · Chuẩn</option>
+                  <option value="1.05">1.05×</option>
+                  <option value="1.1">1.10× · Nhanh</option>
+                </select>
+              </div>
+              <div class="full">
+                <label>Voice direction / ghi chú cách đọc</label>
+                <input id="voiceStyleInstruction" placeholder="Ví dụ: trầm, gần gũi, có khoảng nghỉ sau câu hỏi; không đọc như quảng cáo..." />
+              </div>
+            </div>
           </div>
-          <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
-          <p>Thiết lập giọng chỉ xuất hiện trong workspace Giọng đọc.</p>
+
+          <div class="voice-library-panel">
+            <div class="voice-card-head">
+              <div>
+                <strong>Voice Library</strong>
+                <p>Prebuilt + cloned voices từ provider đang chọn.</p>
+              </div>
+              <span id="voiceLibraryCount">0 giọng</span>
+            </div>
+            <div id="voiceLibraryEmpty" class="voice-library-empty">Đang tải thư viện giọng...</div>
+            <div id="voiceLibraryGrid" class="voice-library-grid hidden"></div>
+          </div>
         </div>
 
         <div id="voiceDailyQuotaNotice" class="voice-daily-quota-notice hidden">
-          <strong>Đã chạm quota TTS Free Tier theo ngày</strong>
-          <span>Hệ thống đã dừng retry và khóa tạo audio mới trong phiên này để tránh gọi API vô ích. Audio đã tạo vẫn được giữ nguyên.</span>
+          <strong>Provider hiện không cho tạo thêm audio</strong>
+          <span>Hệ thống đã dừng retry để tránh gọi API vô ích. Audio đã tạo vẫn được giữ nguyên.</span>
         </div>
 
-        <div class="voice-workspace-grid">
-          <div class="voice-preview-card">
+        <div class="voice-production-grid">
+          <div class="voice-preview-card voice-studio-card">
             <div class="voice-card-head">
               <div>
-                <strong>Nghe thử giọng</strong>
-                <p>Tạo một đoạn ngắn trước khi áp dụng cho toàn bộ video.</p>
+                <strong>Nghe thử</strong>
+                <p>Kiểm tra voice profile trước khi chạy batch.</p>
               </div>
-              <span id="voicePreviewModel">Gemini TTS</span>
+              <span id="voicePreviewModel">TTS</span>
             </div>
 
-            <label>Giọng</label>
-            <select id="voiceWorkspaceVoice">
-              <option value="Kore">Kore · Rõ, chắc</option>
-              <option value="Achernar">Achernar · Nhẹ nhàng</option>
-              <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
-              <option value="Charon">Charon · Thuyết minh</option>
-              <option value="Sulafat">Sulafat · Ấm</option>
-              <option value="Puck">Puck · Năng lượng</option>
-            </select>
+            <label>Giọng nghe thử</label>
+            <select id="voiceWorkspaceVoice"><option value="Kore">Kore</option></select>
 
             <label>Câu nghe thử</label>
             <textarea id="voicePreviewText">Xin chào, đây là bản thử giọng của KTN AI Video Studio. Hãy lắng nghe tốc độ, độ rõ và cảm xúc của giọng đọc này.</textarea>
 
             <div class="voice-preview-actions">
               <span class="cost-note">Mỗi lần nghe thử là một request TTS.</span>
-              <button class="primary compact-btn" id="voicePreviewBtn">Nghe thử</button>
+              <button class="primary compact-btn" id="voicePreviewBtn">▶ Nghe thử</button>
             </div>
 
             <div id="voicePreviewOutput" class="voice-preview-output hidden">
@@ -397,11 +446,11 @@
             </div>
           </div>
 
-          <div class="voice-batch-card">
+          <div class="voice-batch-card voice-studio-card">
             <div class="voice-card-head">
               <div>
-                <strong>Tạo audio hàng loạt</strong>
-                <p>Chạy tuần tự từng scene và tự giãn nhịp theo quota Gemini Free Tier để tránh lỗi giới hạn request.</p>
+                <strong>Batch Job Queue</strong>
+                <p>Tạo audio theo hàng đợi; có Pause / Resume / Retry lỗi và tiến độ trực quan.</p>
               </div>
               <span id="voiceBatchSummary">0/0 audio</span>
             </div>
@@ -410,36 +459,57 @@
               <div><strong id="voiceSceneTotal">0</strong><span>Tổng scene</span></div>
               <div><strong id="voiceSceneReady">0</strong><span>Đã có audio</span></div>
               <div><strong id="voiceSceneMissing">0</strong><span>Chưa có audio</span></div>
+              <div><strong id="voiceSceneFailed">0</strong><span>Lỗi</span></div>
             </div>
 
-            <label>Phạm vi tạo</label>
-            <select id="voiceBatchScope">
-              <option value="test2" selected>Kiểm thử tối đa 2 scene chưa có audio</option>
-              <option value="missing">Tất cả scene chưa có audio</option>
-              <option value="all">Tạo lại toàn bộ scene</option>
-            </select>
+            <div class="voice-batch-config">
+              <div>
+                <label>Phạm vi tạo</label>
+                <select id="voiceBatchScope">
+                  <option value="test2">Test tối đa 2 scene</option>
+                  <option value="missing" selected>Tất cả scene chưa có audio</option>
+                  <option value="all">Tạo lại toàn bộ scene</option>
+                  <option value="failed">Chỉ retry scene lỗi</option>
+                </select>
+              </div>
+              <label class="voice-confirm-row">
+                <input type="checkbox" id="voiceBatchConfirm" />
+                <span>Tôi xác nhận phạm vi batch và chi phí API có thể phát sinh.</span>
+              </label>
+            </div>
 
-            <label class="voice-confirm-row">
-              <input type="checkbox" id="voiceBatchConfirm" />
-              <span>Tôi hiểu việc tạo audio hàng loạt có thể phát sinh phí API và chỉ muốn chạy phạm vi đã chọn.</span>
-            </label>
-
-            <button class="primary voice-batch-btn" id="voiceBatchBtn" disabled>Tạo audio hàng loạt</button>
-
-            <div id="voiceBatchProgress" class="voice-batch-progress hidden">
+            <div id="voiceBatchProgress" class="voice-batch-progress">
               <div class="voice-batch-progress-head">
-                <span id="voiceBatchProgressLabel">Đang chuẩn bị...</span>
+                <span id="voiceBatchProgressLabel">Sẵn sàng</span>
                 <strong id="voiceBatchProgressValue">0%</strong>
               </div>
               <div class="voice-batch-track"><div id="voiceBatchBar"></div></div>
-              <div id="voiceBatchResults" class="voice-batch-results"></div>
+              <div class="voice-job-metrics">
+                <span id="voiceQueueMetric">0 queued</span>
+                <span id="voiceRunningMetric">0 running</span>
+                <span id="voicePassMetric">0 pass</span>
+                <span id="voiceFailMetric">0 fail</span>
+              </div>
             </div>
+
+            <div class="voice-batch-controls">
+              <button class="primary" id="voiceBatchBtn" disabled>▶ Chạy batch</button>
+              <button class="secondary" id="voiceBatchPauseBtn" disabled>Pause</button>
+              <button class="secondary" id="voiceBatchResumeBtn" disabled>Resume</button>
+              <button class="secondary" id="voiceBatchRetryBtn" disabled>Retry lỗi</button>
+              <button class="secondary danger-soft" id="voiceBatchCancelBtn" disabled>Cancel</button>
+            </div>
+
+            <div id="voiceBatchResults" class="voice-batch-results voice-job-queue"></div>
           </div>
         </div>
 
         <div class="voice-scene-status">
           <div class="voice-scene-status-head">
-            <strong>Trạng thái audio theo scene</strong>
+            <div>
+              <strong>Scene Audio QA</strong>
+              <p>Kiểm tra file audio, thời lượng và duyệt thủ công trước khi render.</p>
+            </div>
             <button class="secondary compact-btn" id="refreshVoiceWorkspaceBtn">Làm mới</button>
           </div>
           <div id="voiceSceneStatusEmpty" class="empty-state">
@@ -847,6 +917,15 @@
             </dl>
           </article>
 
+          <article class="system-card" data-system="elevenlabs">
+            <div class="system-card-head"><strong>ElevenLabs</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>TTS Premium · Voice Library · Instant Voice Clone</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>ELEVENLABS_API_KEY</dd></div>
+              <div><dt>TTS</dt><dd data-field="ttsModel">—</dd></div>
+            </dl>
+          </article>
+
           <article class="system-card" data-system="ktnImage">
             <div class="system-card-head"><strong>KTN FLUX Image Engine</strong><span class="system-badge">Đang kiểm tra</span></div>
             <p>ComfyUI · FLUX.1-schnell FP8 · KTN Image Gateway</p>
@@ -882,6 +961,61 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="voiceCloneModal" role="dialog" aria-modal="true" aria-labelledby="voiceCloneModalTitle">
+    <div class="modal-card voice-clone-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="workspace-kicker">VOICE CLONE</span>
+          <h2 id="voiceCloneModalTitle">Clone giọng đọc</h2>
+          <p>Chỉ clone giọng của chính chủ sở hữu hoặc khi có quyền và sự đồng ý hợp lệ.</p>
+        </div>
+        <button class="icon-btn" id="closeVoiceCloneBtn" type="button">×</button>
+      </div>
+      <div class="modal-body voice-clone-form">
+        <div class="two-col">
+          <div>
+            <label>Provider</label>
+            <select id="voiceCloneProvider">
+              <option value="gemini">Google Gemini · Voice Replication</option>
+              <option value="elevenlabs">ElevenLabs · Instant Voice Clone</option>
+            </select>
+          </div>
+          <div>
+            <label>Tên Voice Profile *</label>
+            <input id="voiceCloneName" placeholder="Ví dụ: Sóc Narrator V1" />
+          </div>
+        </div>
+
+        <label>Reference audio *</label>
+        <input id="voiceCloneReferenceFile" type="file" accept="audio/*" />
+        <p class="field-note">Gemini khuyến nghị 10–30 giây giọng thật sạch, một người nói. ElevenLabs có thể dùng sample ngắn nhưng chất lượng phụ thuộc audio nguồn.</p>
+
+        <div id="geminiConsentAudioBlock">
+          <label>Consent audio của cùng người nói *</label>
+          <input id="voiceCloneConsentFile" type="file" accept="audio/*" />
+          <div class="consent-script">
+            <strong>Câu phải đọc chính xác cho Gemini (vi-VN):</strong>
+            <p>Tôi là chủ sở hữu giọng nói này và tôi đồng ý cho Google sử dụng giọng nói này để tạo mô hình giọng nói tổng hợp.</p>
+          </div>
+        </div>
+
+        <label>Mô tả</label>
+        <input id="voiceCloneDescription" placeholder="Ví dụ: Giọng nam trầm, documentary, tiếng Việt" />
+
+        <label class="scene-lock-row voice-consent-row">
+          <input id="voiceCloneConsentConfirmed" type="checkbox" />
+          Tôi xác nhận người nói là người trưởng thành, là chủ sở hữu giọng hoặc đã cấp quyền hợp lệ cho việc clone và sử dụng giọng này.
+        </label>
+
+        <div id="voiceCloneStatus" class="voice-clone-status"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="cancelVoiceCloneBtn" type="button">Hủy</button>
+        <button class="primary" id="createVoiceCloneBtn" type="button">Tạo Voice Clone</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal-backdrop hidden" id="sceneEditorModal" role="dialog" aria-modal="true" aria-labelledby="sceneEditorTitle">
