@@ -2389,80 +2389,143 @@ function updateImageProviderState(){
   resetImageProviderButtons();
 }
 
+function selectedVoiceProvider(){
+  return String(document.getElementById('voiceProvider')?.value||'gemini');
+}
+
+function selectedVoiceId(){
+  return String(document.getElementById('voiceName')?.value||document.getElementById('voiceWorkspaceVoice')?.value||'Kore');
+}
+
+function voiceStyleInstruction(){
+  const preset=String(document.getElementById('voiceStylePreset')?.value||'documentary');
+  const custom=String(document.getElementById('voiceStyleInstruction')?.value||'').trim();
+  const profile=getSelectedChannelProfile?.();
+  const presets={
+    documentary:'Giọng tài liệu điềm tĩnh, rõ nghĩa, tiết chế cảm xúc; có nhịp nghỉ tự nhiên.',
+    cinematic:'Giọng cinematic có chiều sâu, cảm xúc có kiểm soát, nhấn vào các turning point; tránh kịch quá mức.',
+    conversational:'Giọng trò chuyện gần gũi như đang nói với một người; tự nhiên và không đọc như quảng cáo.',
+    energetic:'Giọng sáng, giàu năng lượng, nhịp nhanh vừa phải nhưng vẫn rõ từ.',
+    expert:'Giọng chuyên gia rõ ràng, chắc, có trọng âm hợp lý; không lên lớp.',
+    custom:''
+  };
+  return [
+    presets[preset]||'',
+    profile?.pronunciationNotes?('Quy tắc phát âm: '+profile.pronunciationNotes):'',
+    custom
+  ].filter(Boolean).join(' ');
+}
+
+function voiceRequestSettings(){
+  return {
+    speed:Number(document.getElementById('voiceSpeed')?.value||1),
+    stability:0.52,
+    similarity_boost:0.78,
+    style:document.getElementById('voiceStylePreset')?.value==='cinematic'?0.22:0.08
+  };
+}
+
 async function generateSceneVoice(scene,card,button,{silent=false}={}){
   const text=String(scene.narration||'').trim();
-  const voice=document.getElementById('voiceName').value||'Kore';
-  const audioBox=card.querySelector('.scene-audio');
-  const status=audioBox.querySelector('.scene-audio-status');
+  const provider=selectedVoiceProvider();
+  const voice=selectedVoiceId();
+  const audioBox=card?.querySelector('.scene-audio');
+  const status=audioBox?.querySelector('.scene-audio-status');
+
   if(!text){
     if(!silent) showToast('Scene này chưa có lời đọc.');
     return false;
   }
-  if(voiceDailyQuotaBlocked){
-    status.textContent='Đã hết quota Gemini TTS Free Tier theo ngày.';
-    if(!silent) showToast('Gemini TTS đã hết quota theo ngày. Không gửi thêm request.');
+  if(!voiceAvailability[provider]){
+    if(status) status.textContent='Provider giọng chưa sẵn sàng.';
+    if(!silent) showToast('Voice provider '+provider+' chưa được cấu hình/sẵn sàng.');
+    return false;
+  }
+  if(provider==='gemini' && voiceDailyQuotaBlocked){
+    if(status) status.textContent='Đã hết quota Gemini TTS theo ngày.';
+    if(!silent) showToast('Gemini TTS đã hết quota theo ngày. Có thể chuyển sang ElevenLabs nếu đã cấu hình.');
     return false;
   }
 
-  button.disabled=true;
-  button.textContent='Đang tạo giọng...';
-  audioBox.classList.remove('hidden');
-  status.textContent='Gemini đang tạo giọng cho scene '+String(scene.order).padStart(2,'0')+'...';
+  if(button){
+    button.disabled=true;
+    button.textContent='Đang tạo giọng...';
+  }
+  if(audioBox) audioBox.classList.remove('hidden');
+  if(status) status.textContent=(provider==='gemini'?'Gemini':'ElevenLabs')+' đang tạo audio scene '+String(scene.order).padStart(2,'0')+'...';
+  scene.voice_job_status='running';
+  scene.voice_job_error='';
 
   try{
     const data=await requestVoiceWithRetry({
-      provider:'gemini',
+      provider,
       text,
       voice,
       languageCode:'vi-VN',
-      sceneId:scene.id
+      sceneId:scene.id,
+      styleInstruction:voiceStyleInstruction(),
+      voiceSettings:voiceRequestSettings()
     },info=>{
+      if(!status) return;
       if(info.remaining){
-        status.textContent='Gemini giới hạn request · đợi '+info.remaining+' giây...';
+        status.textContent='Provider đang giới hạn request · đợi '+info.remaining+' giây...';
       }else{
-        status.textContent='Gemini đang bận · chuẩn bị thử lại...';
+        status.textContent='Provider đang bận · chuẩn bị thử lại...';
       }
     });
 
-    const oldAudio=audioBox.querySelector('audio');
-    if(oldAudio) oldAudio.remove();
+    if(audioBox){
+      const oldAudio=audioBox.querySelector('audio');
+      if(oldAudio) oldAudio.remove();
+      const audio=document.createElement('audio');
+      audio.controls=true;
+      audio.preload='metadata';
+      audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
+      audioBox.appendChild(audio);
+    }
 
-    const audio=document.createElement('audio');
-    audio.controls=true;
-    audio.preload='metadata';
-    audio.src='data:'+(data.mime_type||'audio/wav')+';base64,'+data.b64_audio;
     scene.audio_asset={
       b64_audio:data.b64_audio,
       mime_type:data.mime_type||'audio/wav',
-      provider:data.provider||'gemini',
-      providerLabel:data.providerLabel||'Gemini TTS',
+      provider:data.provider||provider,
+      providerLabel:data.providerLabel||(provider==='gemini'?'Gemini TTS':'ElevenLabs TTS'),
       model:data.model||'',
       voice:data.voice||voice,
-      duration_seconds:Number(data.duration_seconds)||null
+      duration_seconds:Number(data.duration_seconds)||null,
+      created_at:data.createdAt||new Date().toISOString()
     };
+    scene.audio_qa_approved=false;
+    scene.voice_job_status='pass';
+    scene.voice_job_error='';
+
     const actualDuration=Number(data.duration_seconds);
     if(Number.isFinite(actualDuration) && actualDuration>0){
       scene.audio_duration_seconds=actualDuration;
-      const durationBadge=card.querySelector('.scene-duration');
+      const durationBadge=card?.querySelector('.scene-duration');
       if(durationBadge) durationBadge.textContent=actualDuration.toFixed(1)+' giây · audio';
     }
-    status.textContent=(data.voice||voice)+' · '+(data.providerLabel||'Gemini TTS');
-    audioBox.appendChild(audio);
-    button.textContent='Tạo lại giọng';
+    if(status) status.textContent=(data.voice||voice)+' · '+(data.providerLabel||provider);
+    if(button) button.textContent='Tạo lại giọng';
+
     renderAssetLibrary();
     renderVoiceWorkspace();
     scheduleAutosave();
     if(!silent) showToast('Đã tạo giọng cho '+(scene.title||scene.id)+'.');
     return true;
   }catch(err){
-    audioBox.classList.remove('hidden');
-    status.textContent=err.message||'Không thể tạo giọng.';
-    button.textContent='Thử lại giọng';
-    if(!silent) showToast(err.message||'Không thể tạo giọng.');
+    scene.voice_job_status='fail';
+    scene.voice_job_error=String(err?.message||'Không thể tạo giọng.');
+    if(audioBox) audioBox.classList.remove('hidden');
+    if(status) status.textContent=scene.voice_job_error;
+    if(button) button.textContent='Thử lại giọng';
+    if(!silent) showToast(scene.voice_job_error);
     return false;
   }finally{
-    button.disabled=voiceDailyQuotaBlocked;
-    if(voiceDailyQuotaBlocked) button.textContent='Hết quota TTS';
+    const providerBlocked=provider==='gemini' && voiceDailyQuotaBlocked;
+    if(button){
+      button.disabled=providerBlocked || !voiceAvailability[provider];
+      if(providerBlocked) button.textContent='Hết quota TTS';
+    }
   }
 }
 
