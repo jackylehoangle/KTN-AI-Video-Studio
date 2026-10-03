@@ -85,12 +85,19 @@ function sceneSchema(){
           type:'object',
           properties:{
             title:{type:'string'},
+            purpose:{type:'string'},
             narration:{type:'string'},
             duration_seconds:{type:'integer'},
+            visual_intent:{type:'string'},
+            shot_type:{type:'string'},
+            continuity_notes:{type:'string'},
             visual_description:{type:'string'},
             image_prompt:{type:'string'}
           },
-          required:['title','narration','duration_seconds','visual_description','image_prompt']
+          required:[
+            'title','purpose','narration','duration_seconds','visual_intent',
+            'shot_type','continuity_notes','visual_description','image_prompt'
+          ]
         }
       }
     },
@@ -234,20 +241,36 @@ function estimateDuration(narration){
   return Math.max(3,Math.min(30,Math.round(words/2.4)));
 }
 
+const SCENE_PURPOSES=new Set([
+  'hook','context','tension','explanation','evidence','example',
+  'transition','payoff','cta','other'
+]);
+
+function normalizePurpose(value){
+  const key=String(value||'').trim().toLowerCase().replace(/[^a-z]+/g,'_').replace(/^_+|_+$/g,'');
+  return SCENE_PURPOSES.has(key)?key:'other';
+}
+
 function normalizeScenes(payload){
   const raw=Array.isArray(payload?.scenes)?payload.scenes:[];
-  return raw.slice(0,30).map((item,index)=>{
+  return raw.slice(0,120).map((item,index)=>{
     const narration=String(item?.narration||'').trim();
     return {
-      id:'scene_'+String(index+1).padStart(2,'0'),
+      id:'scene_'+String(index+1).padStart(3,'0'),
       order:index+1,
       title:String(item?.title||('Cảnh '+(index+1))).trim(),
+      purpose:normalizePurpose(item?.purpose),
       narration,
       duration_seconds:Number.isFinite(Number(item?.duration_seconds))
-        ? Math.max(2,Math.min(45,Math.round(Number(item.duration_seconds))))
+        ? Math.max(2,Math.min(60,Math.round(Number(item.duration_seconds))))
         : estimateDuration(narration),
+      visual_intent:String(item?.visual_intent||'').trim(),
+      shot_type:String(item?.shot_type||'').trim(),
+      continuity_notes:String(item?.continuity_notes||'').trim(),
       visual_description:String(item?.visual_description||'').trim(),
-      image_prompt:String(item?.image_prompt||'').trim()
+      image_prompt:String(item?.image_prompt||'').trim(),
+      locked:false,
+      qa_status:'pending'
     };
   }).filter(scene=>scene.narration && scene.visual_description && scene.image_prompt);
 }
@@ -264,16 +287,23 @@ function keywordPrompt({script,language,topic}){
   ].filter(Boolean).join('\n');
 }
 
-function scenePrompt({script,language,topic}){
+function scenePrompt({script,language,topic,platformMode}){
+  const longForm=platformMode==='youtube_long';
   return [
-    'Bạn là storyboard planner cho KTN AI Video Studio.',
-    'Hãy chia kịch bản thành các scene liên tiếp.',
-    'Mỗi scene phải đủ ngắn để dùng cho một hình hoặc một clip hình ảnh riêng.',
+    'Bạn là Senior Storyboard Director cho KTN AI Video Studio.',
+    'Hãy chia kịch bản thành các scene liên tiếp nhưng KHÔNG làm mất mạch kể.',
+    longForm
+      ? 'Đây là YouTube Long: scene nên đủ chi tiết để dựng dài hạn, thường 5-18 giây; tránh tạo quá nhiều scene vụn nếu một ý vẫn cần giữ liền mạch.'
+      : 'Đây là short-form: scene nên đổi nhịp nhanh, thường 2-8 giây khi hợp lý.',
     'Không bỏ sót ý quan trọng và không tự thêm dữ kiện mới.',
-    'narration phải giữ nguyên ý từ kịch bản và dùng '+(language==='en'?'English':'Tiếng Việt')+'.',
+    'Mỗi scene phải có purpose thuộc một trong: hook, context, tension, explanation, evidence, example, transition, payoff, cta, other.',
+    'narration phải giữ đúng ý kịch bản và dùng '+(language==='en'?'English':'Tiếng Việt')+'.',
+    'visual_intent mô tả người xem cần HIỂU hoặc CẢM NHẬN gì từ hình ảnh ở scene này.',
+    'shot_type mô tả loại shot ngắn gọn, ví dụ: archival wide, medium documentary, close-up detail, map/diagram, b-roll, textless infographic.',
+    'continuity_notes ghi nhân vật, địa điểm, thời gian, đạo cụ hoặc yếu tố phải giữ nhất quán với scene trước/sau; nếu không có thì trả chuỗi rỗng.',
     'visual_description mô tả hình cần thấy bằng '+(language==='en'?'English':'Tiếng Việt')+'.',
-    'image_prompt phải viết bằng English, giàu chi tiết thị giác, không chứa chữ cần hiển thị trong ảnh, dùng được trực tiếp cho Gemini/OpenAI image generation.',
-    'duration_seconds là thời lượng ước tính cho narration, số nguyên khoảng 3-20 giây khi có thể.',
+    'image_prompt phải viết bằng English, giàu chi tiết thị giác, không chứa chữ cần hiển thị trong ảnh, dùng trực tiếp cho image generation.',
+    'duration_seconds phải phù hợp với narration và nhịp dựng.',
     topic?'Chủ đề: '+topic:'',
     'Kịch bản:',
     script
@@ -303,6 +333,7 @@ export default async function handler(req,res){
   const requestedModel=String(body.model||'').trim().slice(0,120);
   const language=body.language==='en'?'en':'vi';
   const topic=String(body.topic||'').trim().slice(0,2000);
+  const platformMode=String(body.platformMode||'youtube_long').trim();
 
   if(!['keywords','scenes'].includes(action)) return send(res,400,{error:'Action không hợp lệ.'});
   if(!script) return send(res,400,{error:'Kịch bản không được để trống.'});
@@ -316,7 +347,7 @@ export default async function handler(req,res){
 
   const prompt=action==='keywords'
     ? keywordPrompt({script,language,topic})
-    : scenePrompt({script,language,topic});
+    : scenePrompt({script,language,topic,platformMode});
 
   try{
     const payload=await callProviderJson(provider,key,model,prompt,action);
