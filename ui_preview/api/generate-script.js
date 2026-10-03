@@ -27,12 +27,12 @@ const PROVIDERS = {
     label: 'Anthropic Claude',
     keyEnv: 'ANTHROPIC_API_KEY',
     modelEnv: 'ANTHROPIC_SCRIPT_MODEL',
-    defaultModel: 'claude-sonnet-5-5',
+    defaultModel: 'claude-sonnet-5',
     models:[
-      'claude-opus-5-5',
-      'claude-sonnet-5-5',
+      'claude-fable-5',
       'claude-opus-5',
       'claude-sonnet-5',
+      'claude-opus-4-8',
       'claude-sonnet-4-6'
     ]
   },
@@ -44,7 +44,7 @@ const PROVIDERS = {
     models:[
       'grok-4.7',
       'grok-4.6',
-      'grok-4.3'
+      'grok-4.5'
     ]
   }
 };
