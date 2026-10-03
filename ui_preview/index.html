@@ -18,19 +18,24 @@
         </div>
       </div>
 
-      <nav class="nav">
-        <button class="nav-item active" data-section="create"><span>✦</span>Tạo video</button>
+      <nav class="nav global-nav">
+        <div class="nav-label">Không gian làm việc</div>
+        <button class="nav-item active" data-workspace-link="brief"><span>✦</span>Tạo video</button>
         <button class="nav-item" id="newProjectBtn"><span>＋</span>Dự án mới</button>
-        <button class="nav-item" data-section="script"><span>▤</span>Kịch bản</button>
-        <button class="nav-item" data-section="scene"><span>▦</span>Cảnh & hình ảnh</button>
-        <button class="nav-item" data-section="voice"><span>◉</span>Giọng đọc</button>
-        <button class="nav-item" data-section="subtitle"><span>CC</span>Phụ đề</button>
-        <button class="nav-item" data-section="library"><span>▣</span>Thư viện</button>
-        <button class="nav-item" data-section="channels"><span>◫</span>Kênh nội dung</button>
+        <button class="nav-item" data-workspace-link="channels"><span>◫</span>Kênh nội dung</button>
+        <button class="nav-item" data-workspace-link="library"><span>▣</span>Thư viện</button>
+
+        <div class="nav-label project-nav-label">Trong dự án</div>
+        <button class="nav-item project-nav-item" data-workspace-link="brief"><span>01</span>Brief</button>
+        <button class="nav-item project-nav-item" data-workspace-link="script"><span>02</span>Kịch bản</button>
+        <button class="nav-item project-nav-item" data-workspace-link="scene"><span>03</span>Cảnh</button>
+        <button class="nav-item project-nav-item" data-workspace-link="voice"><span>04</span>Giọng đọc</button>
+        <button class="nav-item project-nav-item" data-workspace-link="subtitle"><span>05</span>Phụ đề</button>
+        <button class="nav-item project-nav-item" data-workspace-link="export"><span>06</span>Xuất video</button>
       </nav>
 
       <div class="sidebar-bottom">
-        <button class="nav-item" data-section="settings"><span>⚙</span>Cài đặt</button>
+        <button class="nav-item" data-workspace-link="settings"><span>⚙</span>Cài đặt</button>
         <div class="engine-card">
           <div class="dot"></div>
           <div>
@@ -45,7 +50,7 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">KTN AI VIDEO STUDIO</p>
-          <h1>Tạo video AI</h1>
+          <h1 id="workspacePageTitle">Tạo video AI</h1>
         </div>
         <div class="top-actions">
           <div class="project-state">
@@ -61,19 +66,41 @@
         </div>
       </header>
 
-      <section class="workflow">
-        <div class="step done"><span>1</span><div><strong>Chủ đề</strong><small>Nhập ý tưởng</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>2</span><div><strong>Kịch bản</strong><small>AI biên soạn</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>3</span><div><strong>Hình ảnh</strong><small>Gemini / OpenAI</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>4</span><div><strong>Giọng & phụ đề</strong><small>Tự động</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>5</span><div><strong>Xuất video</strong><small>MP4</small></div></div>
+      <section class="project-workspace-bar" id="projectWorkspaceBar">
+        <div class="workspace-breadcrumb">
+          <span>Dự án</span>
+          <strong id="workspaceProjectTitle">Dự án chưa đặt tên</strong>
+        </div>
+        <nav class="workspace-tabs" aria-label="Các bước trong dự án">
+          <button class="active" data-workspace-link="brief"><span>01</span>Brief</button>
+          <button data-workspace-link="script"><span>02</span>Kịch bản</button>
+          <button data-workspace-link="scene"><span>03</span>Cảnh</button>
+          <button data-workspace-link="voice"><span>04</span>Giọng đọc</button>
+          <button data-workspace-link="subtitle"><span>05</span>Phụ đề</button>
+          <button data-workspace-link="export"><span>06</span>Xuất</button>
+        </nav>
       </section>
 
-      <section class="content-grid">
+      <aside class="workspace-context-inspector hidden" id="workspaceContextInspector">
+        <div class="inspector-head">
+          <div>
+            <span>PROJECT CONTEXT</span>
+            <strong id="inspectorProjectName">Dự án chưa đặt tên</strong>
+          </div>
+          <button id="toggleInspectorBtn" type="button" aria-label="Ẩn thông tin dự án">×</button>
+        </div>
+        <dl>
+          <div><dt>Kênh</dt><dd id="inspectorChannel">Chưa chọn</dd></div>
+          <div><dt>Định dạng</dt><dd id="inspectorPlatform">YouTube Long</dd></div>
+          <div><dt>Thời lượng</dt><dd id="inspectorDuration">8–12 phút</dd></div>
+          <div><dt>Giọng</dt><dd id="inspectorVoice">Kore</dd></div>
+          <div><dt>Kịch bản</dt><dd id="inspectorScriptState">Chưa có</dd></div>
+          <div><dt>Scene</dt><dd id="inspectorSceneState">0</dd></div>
+        </dl>
+        <button class="secondary inspector-edit-brief" type="button" data-workspace-link="brief">Sửa Brief</button>
+      </aside>
+
+      <section class="content-grid workspace-view active" id="briefWorkspace" data-workspace-view="brief">
         <div class="panel main-panel">
           <div class="panel-head">
             <div>
@@ -274,7 +301,7 @@
         </aside>
       </section>
 
-      <section class="panel script-preview">
+      <section class="panel script-preview workspace-view" id="scriptWorkspace" data-workspace-view="script">
         <div class="panel-head">
           <div>
             <h2>Kịch bản</h2>
@@ -322,7 +349,7 @@
       </section>
 
 
-      <section class="panel voice-workspace-panel" id="voiceSection">
+      <section class="panel voice-workspace-panel workspace-view" id="voiceSection" data-workspace-view="voice">
         <div class="panel-head">
           <div>
             <h2>Giọng đọc</h2>
@@ -424,12 +451,12 @@
         </div>
       </section>
 
-      <section id="imageQuotaNotice" class="panel image-quota-notice hidden">
+      <section id="imageQuotaNotice" class="panel image-quota-notice hidden" data-workspace-aux="scene">
         <strong>Gemini Image không có quota Free Tier trên API key hiện tại</strong>
         <span>Hệ thống đã khóa tạo ảnh bằng Gemini trong phiên này để tránh gọi API vô ích. Có thể cấu hình nhà cung cấp ảnh khác sau.</span>
       </section>
 
-      <section class="panel scene-panel" id="sceneSection">
+      <section class="panel scene-panel workspace-view" id="sceneSection" data-workspace-view="scene">
         <div class="panel-head">
           <div>
             <h2>Chia cảnh</h2>
@@ -447,7 +474,7 @@
         <div id="sceneList" class="scene-list hidden"></div>
       </section>
 
-      <section class="panel subtitle-panel" id="subtitleSection">
+      <section class="panel subtitle-panel workspace-view" id="subtitleSection" data-workspace-view="subtitle">
         <div class="panel-head">
           <div>
             <h2>Phụ đề</h2>
@@ -487,7 +514,7 @@
         </div>
       </section>
 
-      <section class="panel asset-library-panel" id="librarySection">
+      <section class="panel asset-library-panel workspace-view global-workspace" id="librarySection" data-workspace-view="library">
         <div class="panel-head">
           <div>
             <h2>Thư viện tài nguyên</h2>
@@ -518,7 +545,7 @@
         <div id="assetLibraryGrid" class="asset-library-grid hidden"></div>
       </section>
 
-      <section class="panel render-panel" id="renderSection">
+      <section class="panel render-panel workspace-view" id="renderSection" data-workspace-view="export">
         <div class="panel-head">
           <div>
             <h2>Xuất video</h2>
@@ -570,7 +597,7 @@
         </div>
       </section>
 
-      <section class="panel channel-library-panel" id="channelProfilesSection">
+      <section class="panel channel-library-panel workspace-view global-workspace" id="channelProfilesSection" data-workspace-view="channels">
         <div class="panel-head">
           <div>
             <h2>Kênh nội dung</h2>
@@ -723,7 +750,7 @@
         </div>
       </section>
 
-      <section class="panel settings-panel" id="settingsSection">
+      <section class="panel settings-panel workspace-view global-workspace" id="settingsSection" data-workspace-view="settings">
         <div class="panel-head">
           <div>
             <h2>Cài đặt hệ thống</h2>

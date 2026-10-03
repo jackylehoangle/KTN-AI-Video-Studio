@@ -449,9 +449,123 @@ function openChannelManager(profileId=''){
   const profile=getChannelProfileById(profileId);
   if(profile) resetChannelEditor(profile);
   renderChannelProfileLibrary();
-  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
-  document.querySelector('.nav-item[data-section="channels"]')?.classList.add('active');
-  document.getElementById('channelProfilesSection')?.scrollIntoView({behavior:'smooth',block:'start'});
+  setWorkspace('channels');
+}
+
+
+const WORKSPACE_META={
+  brief:{title:'Tạo video',project:true},
+  script:{title:'Kịch bản',project:true},
+  scene:{title:'Cảnh & hình ảnh',project:true},
+  voice:{title:'Giọng đọc',project:true},
+  subtitle:{title:'Phụ đề',project:true},
+  export:{title:'Xuất video',project:true},
+  channels:{title:'Kênh nội dung',project:false},
+  library:{title:'Thư viện tài nguyên',project:false},
+  settings:{title:'Cài đặt hệ thống',project:false}
+};
+
+function updateWorkspaceContext(){
+  const projectName=document.getElementById('projectName')?.value?.trim()||'Dự án chưa đặt tên';
+  const profile=getSelectedChannelProfile?.();
+  const platformMode=document.getElementById('platformMode')?.value||'youtube_long';
+  const duration=document.getElementById('targetDuration');
+  const voice=document.getElementById('voiceName')?.value||'Kore';
+  const scriptText=document.getElementById('scriptResult')?.value?.trim()||'';
+  const sceneCount=Array.isArray(currentScenes)?currentScenes.length:0;
+
+  const assign=(id,value)=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=value;
+  };
+  assign('workspaceProjectTitle',projectName);
+  assign('inspectorProjectName',projectName);
+  assign('inspectorChannel',profile?.name||'Chưa chọn');
+  assign('inspectorPlatform',PLATFORM_PRESETS[platformMode]?.label||platformMode);
+  assign('inspectorDuration',duration?.selectedOptions?.[0]?.textContent||duration?.value||'—');
+  assign('inspectorVoice',voice);
+  assign('inspectorScriptState',scriptText?(scriptText.split(/\s+/).filter(Boolean).length+' từ'):'Chưa có');
+  assign('inspectorSceneState',String(sceneCount));
+}
+
+function setWorkspace(name,{updateHash=true}={}){
+  const target=WORKSPACE_META[name]?name:'brief';
+  const meta=WORKSPACE_META[target];
+
+  document.body.dataset.activeWorkspace=target;
+  document.querySelectorAll('[data-workspace-view]').forEach(view=>{
+    view.classList.toggle('active',view.dataset.workspaceView===target);
+  });
+  document.querySelectorAll('[data-workspace-link]').forEach(link=>{
+    link.classList.toggle('active',link.dataset.workspaceLink===target);
+  });
+
+  const pageTitle=document.getElementById('workspacePageTitle');
+  if(pageTitle) pageTitle.textContent=meta.title;
+
+  const inspector=document.getElementById('workspaceContextInspector');
+  const main=document.querySelector('.main');
+  const showInspector=Boolean(meta.project && target!=='brief');
+  if(inspector){
+    inspector.classList.toggle('hidden',!showInspector);
+    if(!showInspector) inspector.classList.remove('collapsed');
+  }
+  if(main){
+    main.classList.toggle('inspector-open',showInspector);
+    if(!showInspector) main.classList.remove('inspector-compact');
+  }
+
+  if(target==='voice') renderVoiceWorkspace();
+  if(target==='library') renderAssetLibrary();
+  if(target==='channels') renderChannelProfileLibrary();
+  if(target==='settings') refreshSystemStatus();
+  if(target==='scene') activateScriptTools();
+
+  updateWorkspaceContext();
+
+  if(updateHash){
+    const next='#'+target;
+    if(location.hash!==next) history.pushState({workspace:target},'',next);
+  }
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+function workspaceFromLocation(){
+  const raw=String(location.hash||'').replace(/^#/,'').trim();
+  return WORKSPACE_META[raw]?raw:'brief';
+}
+
+function bindWorkspaceNavigation(){
+  document.querySelectorAll('[data-workspace-link]').forEach(link=>{
+    link.addEventListener('click',event=>{
+      event.preventDefault();
+      setWorkspace(link.dataset.workspaceLink||'brief');
+    });
+  });
+
+  window.addEventListener('popstate',()=>setWorkspace(workspaceFromLocation(),{updateHash:false}));
+  window.addEventListener('hashchange',()=>setWorkspace(workspaceFromLocation(),{updateHash:false}));
+
+  const inspectorToggle=document.getElementById('toggleInspectorBtn');
+  inspectorToggle?.addEventListener('click',()=>{
+    const inspector=document.getElementById('workspaceContextInspector');
+    const main=document.querySelector('.main');
+    const collapsed=inspector?.classList.toggle('collapsed');
+    main?.classList.toggle('inspector-compact',Boolean(collapsed));
+    if(inspectorToggle) inspectorToggle.textContent=collapsed?'i':'×';
+  });
+
+  ['projectName','platformMode','targetDuration','voiceName','channelProfileSelect'].forEach(id=>{
+    const el=document.getElementById(id);
+    el?.addEventListener('input',updateWorkspaceContext);
+    el?.addEventListener('change',updateWorkspaceContext);
+  });
+
+  const sceneList=document.getElementById('sceneList');
+  if(sceneList){
+    new MutationObserver(()=>updateWorkspaceContext()).observe(sceneList,{childList:true,subtree:false});
+  }
+  document.getElementById('scriptResult')?.addEventListener('input',updateWorkspaceContext);
 }
 
 function wait(ms){
@@ -2268,6 +2382,7 @@ generateBtn.addEventListener('click',async()=>{
     selectScriptTab('script');
     activateScriptTools();
     scheduleAutosave();
+    updateWorkspaceContext();
     showToast('Đã tạo kịch bản thật bằng '+(data.providerLabel||provider)+'.');
   }catch(err){
     backendStatus.textContent='Cần kiểm tra cấu hình AI';
@@ -2606,6 +2721,7 @@ document.getElementById('platformMode').addEventListener('change',e=>{
 document.getElementById('channelProfileSelect').addEventListener('change',e=>{
   selectChannelProfile(e.target.value,{applyDefaults:true,autosave:true});
   renderChannelProfileLibrary();
+  updateWorkspaceContext();
 });
 document.getElementById('openChannelManagerBtn').addEventListener('click',()=>openChannelManager(document.getElementById('channelProfileSelect').value));
 document.getElementById('newChannelProfileBtn').addEventListener('click',()=>{
@@ -2640,6 +2756,7 @@ loadChannelProfiles();
 refreshChannelProfileSelect();
 renderChannelProfileLibrary();
 resetChannelEditor();
+bindWorkspaceNavigation();
 configurePlatformMode(document.getElementById('platformMode')?.value||'youtube_long',document.getElementById('targetDuration')?.value||'8-12m',false);
 activateScriptTools();
 updateImageProviderState();
@@ -2652,3 +2769,5 @@ refreshBackendStatus();
 refreshRenderWorker();
 refreshSystemStatus();
 loadAutosavedProject();
+setWorkspace(workspaceFromLocation(),{updateHash:false});
+updateWorkspaceContext();
