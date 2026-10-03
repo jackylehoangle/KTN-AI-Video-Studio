@@ -20,10 +20,10 @@
 
       <nav class="nav global-nav">
         <div class="nav-label">Không gian làm việc</div>
-        <button class="nav-item active" data-workspace-link="brief"><span>✦</span>Tạo video</button>
+        <button class="nav-item active" data-workspace-link="projects"><span>▣</span>Dự án</button>
         <button class="nav-item" id="newProjectBtn"><span>＋</span>Dự án mới</button>
         <button class="nav-item" data-workspace-link="channels"><span>◫</span>Kênh nội dung</button>
-        <button class="nav-item" data-workspace-link="library"><span>▣</span>Thư viện</button>
+        <button class="nav-item" data-workspace-link="library"><span>◇</span>Thư viện tài nguyên</button>
 
         <div class="nav-label project-nav-label">Trong dự án</div>
         <button class="nav-item project-nav-item" data-workspace-link="brief"><span>01</span>Brief</button>
@@ -66,21 +66,6 @@
         </div>
       </header>
 
-      <section class="project-workspace-bar" id="projectWorkspaceBar">
-        <div class="workspace-breadcrumb">
-          <span>Dự án</span>
-          <strong id="workspaceProjectTitle">Dự án chưa đặt tên</strong>
-        </div>
-        <nav class="workspace-tabs" aria-label="Các bước trong dự án">
-          <button class="active" data-workspace-link="brief"><span>01</span>Brief</button>
-          <button data-workspace-link="script"><span>02</span>Kịch bản</button>
-          <button data-workspace-link="scene"><span>03</span>Cảnh</button>
-          <button data-workspace-link="voice"><span>04</span>Giọng đọc</button>
-          <button data-workspace-link="subtitle"><span>05</span>Phụ đề</button>
-          <button data-workspace-link="export"><span>06</span>Xuất</button>
-        </nav>
-      </section>
-
       <aside class="workspace-context-inspector hidden" id="workspaceContextInspector">
         <div class="inspector-head">
           <div>
@@ -101,13 +86,14 @@
       </aside>
 
       <section class="content-grid workspace-view active" id="briefWorkspace" data-workspace-view="brief">
-        <div class="panel main-panel">
+        <div class="panel main-panel brief-main-panel">
           <div class="panel-head">
             <div>
-              <h2>Nội dung video</h2>
-              <p>Nhập chủ đề, chọn ngôn ngữ và AI để bắt đầu tạo kịch bản.</p>
+              <span class="workspace-kicker">01 · BRIEF</span>
+              <h2>Ý tưởng video</h2>
+              <p>Chọn kênh, định dạng và mô tả chủ đề. Cấu hình biên kịch nằm ở panel bên phải.</p>
             </div>
-            <span class="status-pill">Bước 1/5</span>
+            <span class="status-pill">Bước đầu tiên</span>
           </div>
 
           <div class="channel-selector-block">
@@ -137,30 +123,60 @@
             <p class="field-note" id="platformHint">Video dài có cấu trúc, ưu tiên chiều sâu và khả năng giữ chân người xem.</p>
           </div>
 
-          <label>Chủ đề video</label>
-          <textarea id="topic" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
+          <label>Chủ đề video *</label>
+          <textarea id="topic" class="topic-editor" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
 
-          <div class="two-col">
+          <div class="brief-readiness">
+            <div><span>1</span><strong>Chọn Channel Profile</strong></div>
+            <div><span>2</span><strong>Nhập chủ đề</strong></div>
+            <div><span>3</span><strong>Kiểm tra cấu hình biên kịch</strong></div>
+          </div>
+
+          <div class="actions brief-actions">
+            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
+          </div>
+        </div>
+
+        <aside class="panel side-panel brief-config-panel">
+          <div class="panel-head compact">
             <div>
-              <label>Ngôn ngữ kịch bản</label>
-              <select id="scriptLanguage">
-                <option value="vi">Tiếng Việt</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-            <div>
-              <label>Nhà cung cấp AI</label>
-              <select id="scriptProvider">
-                <option value="gemini">Gemini</option>
-                <option value="openai">OpenAI</option>
-              </select>
+              <span class="workspace-kicker">CẤU HÌNH THEO TAB</span>
+              <h2>Cấu hình Brief</h2>
+              <p>Chỉ chứa những thiết lập ảnh hưởng tới kịch bản.</p>
             </div>
           </div>
 
-          <details class="quality-details" open>
+          <div class="context-setting-group">
+            <div class="context-setting-title">AI biên kịch</div>
+            <div class="two-col compact-fields">
+              <div>
+                <label>Ngôn ngữ</label>
+                <select id="scriptLanguage">
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <div>
+                <label>Nhà cung cấp AI</label>
+                <select id="scriptProvider">
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="xai">xAI Grok</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>Model</label>
+              <select id="scriptModel"></select>
+              <p class="field-note" id="scriptModelHint">Chọn model phù hợp giữa chất lượng, tốc độ và chi phí.</p>
+            </div>
+          </div>
+
+          <details class="quality-details contextual-details" open>
             <summary>Content Brief · AI cần hiểu video trước khi viết</summary>
             <div class="brief-grid">
-              <div>
+              <div class="full">
                 <label>Người xem riêng của video</label>
                 <input id="targetAudience" placeholder="Để trống để dùng người xem mặc định của Channel Profile" />
               </div>
@@ -186,43 +202,43 @@
                 </select>
               </div>
               <div>
-                <label>Mức độ chuyên môn</label>
+                <label>Mức chuyên môn</label>
                 <select id="expertiseLevel">
-                  <option value="general">Phổ thông, dễ hiểu</option>
+                  <option value="general">Phổ thông</option>
                   <option value="intermediate">Trung cấp</option>
                   <option value="advanced">Chuyên sâu</option>
                 </select>
               </div>
-              <div class="full">
-                <label>Góc tiếp cận mong muốn</label>
-                <input id="anglePreference" placeholder="Ví dụ: Không coi trì hoãn là lười biếng; giải thích từ tâm lý hành vi" />
-              </div>
               <div>
-                <label>CTA cuối video</label>
+                <label>CTA</label>
                 <select id="ctaStyle">
-                  <option value="soft">Nhẹ nhàng, tự nhiên</option>
+                  <option value="soft">Nhẹ nhàng</option>
                   <option value="none">Không CTA</option>
                   <option value="comment">Gợi mở bình luận</option>
                   <option value="follow">Theo dõi / đăng ký</option>
-                  <option value="action">Kêu gọi hành động cụ thể</option>
+                  <option value="action">Hành động cụ thể</option>
                 </select>
               </div>
-              <div>
-                <label>Dữ kiện / nguồn do người dùng cung cấp</label>
-                <input id="sourceNotes" placeholder="Số liệu, luận điểm hoặc nguồn bắt buộc phải bám theo" />
+              <div class="full">
+                <label>Góc tiếp cận</label>
+                <input id="anglePreference" placeholder="Góc nhìn mong muốn của video..." />
+              </div>
+              <div class="full">
+                <label>Dữ kiện / nguồn bắt buộc</label>
+                <input id="sourceNotes" placeholder="Số liệu, luận điểm hoặc nguồn cần bám theo..." />
               </div>
               <div class="full">
                 <label>Điều không được làm</label>
-                <input id="forbiddenContent" placeholder="Ví dụ: Không sáo rỗng, không giật tít, không tự bịa số liệu" />
+                <input id="forbiddenContent" placeholder="Không sáo rỗng, không bịa số liệu..." />
               </div>
             </div>
           </details>
 
-          <details>
+          <details class="contextual-details">
             <summary>Cài đặt kịch bản nâng cao</summary>
             <div class="advanced">
               <div>
-                <label>Số phần / đoạn mục tiêu</label>
+                <label>Số phần / đoạn</label>
                 <input id="paragraphCount" type="number" min="1" max="40" value="10" />
               </div>
               <div>
@@ -239,65 +255,6 @@
               </div>
             </div>
           </details>
-
-          <div class="actions">
-            <button class="secondary" id="keywordBtn" disabled>Tạo từ khóa từ kịch bản</button>
-            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
-          </div>
-        </div>
-
-        <aside class="panel side-panel">
-          <div class="panel-head compact">
-            <div>
-              <h2>Cấu hình nhanh</h2>
-              <p>Dùng cho bản video hiện tại.</p>
-            </div>
-          </div>
-
-          <div class="quick-row voice-provider-row">
-            <div class="quick-icon">🎙</div>
-            <div>
-              <strong>Giọng đọc</strong>
-              <select id="voiceName" class="inline-select">
-                <option value="Kore">Kore · Rõ, chắc</option>
-                <option value="Achernar">Achernar · Nhẹ nhàng</option>
-                <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
-                <option value="Charon">Charon · Thuyết minh</option>
-                <option value="Sulafat">Sulafat · Ấm</option>
-                <option value="Puck">Puck · Năng lượng</option>
-              </select>
-              <span>Gemini TTS · vi-VN</span>
-            </div>
-            <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
-          </div>
-          <div class="quick-row">
-            <div class="quick-icon">CC</div>
-            <div><strong>Phụ đề</strong><span>Bật · Dưới màn hình</span></div>
-            <button>Đổi</button>
-          </div>
-          <div class="quick-row">
-            <div class="quick-icon">▭</div>
-            <div><strong>Tỷ lệ video</strong><span>16:9 · 1920×1080</span></div>
-            <button>Đổi</button>
-          </div>
-          <div class="quick-row image-provider-row">
-            <div class="quick-icon">◈</div>
-            <div>
-              <strong>Nguồn hình ảnh</strong>
-              <select id="imageProvider" class="inline-select">
-                <option value="ktn">KTN FLUX · Colab/VPS</option>
-                <option value="gemini">Gemini</option>
-                <option value="openai">OpenAI</option>
-              </select>
-              <span>KTN FLUX tự host · Gemini/OpenAI dự phòng</span>
-            </div>
-            <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
-          </div>
-
-          <div class="info-box">
-            <strong>Hướng phát triển hiện tại</strong>
-            <p>KTN Image Gateway là lớp ảnh chính: Colab để thử nghiệm, GPU VPS cho production. Gemini/OpenAI chỉ là provider dự phòng.</p>
-          </div>
         </aside>
       </section>
 
@@ -314,6 +271,7 @@
               <button id="keywordTabBtn">Từ khóa</button>
               <button id="historyTabBtn">Lịch sử</button>
             </div>
+            <button class="secondary compact-btn" id="keywordBtn" disabled type="button">Tạo từ khóa</button>
             <button class="primary compact-btn" id="goToSceneFromScriptBtn" type="button">Tiếp tục → Cảnh</button>
           </div>
         </div>
@@ -382,6 +340,21 @@
             <p>Chọn giọng, nghe thử và quản lý audio theo scene trong một màn hình.</p>
           </div>
           <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Gemini TTS</span>
+        </div>
+
+        <div class="tab-context-bar">
+          <div>
+            <label>Giọng mặc định của dự án</label>
+            <select id="voiceName">
+              <option value="Kore">Kore · Rõ, chắc</option>
+              <option value="Achernar">Achernar · Nhẹ nhàng</option>
+              <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+              <option value="Charon">Charon · Thuyết minh</option>
+              <option value="Sulafat">Sulafat · Ấm</option>
+              <option value="Puck">Puck · Năng lượng</option>
+            </select>
+          </div>
+          <p>Thiết lập giọng chỉ xuất hiện trong workspace Giọng đọc.</p>
         </div>
 
         <div id="voiceDailyQuotaNotice" class="voice-daily-quota-notice hidden">
@@ -496,6 +469,19 @@
             </button>
           </div>
         </div>
+        <div class="tab-context-bar scene-context-bar">
+          <div>
+            <label>Nguồn hình ảnh</label>
+            <select id="imageProvider">
+              <option value="ktn">KTN FLUX · Colab/VPS</option>
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
+          <p>Chỉ cấu hình hình ảnh tại workspace Cảnh.</p>
+        </div>
+
         <div id="sceneEmpty" class="empty-state">
           <div class="empty-icon">▦</div>
           <strong>Chưa có cảnh</strong>
@@ -542,6 +528,32 @@
           </div>
           <pre id="subtitlePreview"></pre>
         </div>
+      </section>
+
+      <section class="panel project-library-panel workspace-view global-workspace" id="projectsSection" data-workspace-view="projects">
+        <div class="workspace-section-head">
+          <div>
+            <span class="workspace-kicker">PROJECT LIBRARY</span>
+            <h2>Dự án</h2>
+            <p>Mỗi dự án được lưu riêng trong IndexedDB của trình duyệt. Có thể mở lại, đổi tên, xuất hoặc xóa.</p>
+          </div>
+          <button class="primary compact-btn" id="newProjectFromLibraryBtn" type="button">＋ Dự án mới</button>
+        </div>
+
+        <div class="project-storage-summary">
+          <div><strong id="projectLibraryCount">0</strong><span>Dự án</span></div>
+          <div><strong id="projectLibraryStorage">—</strong><span>Dung lượng cục bộ</span></div>
+          <div><strong>IndexedDB</strong><span>Nơi lưu hiện tại</span></div>
+          <div><strong>Cloud</strong><span>Chưa bật · phase sau</span></div>
+        </div>
+
+        <div id="projectLibraryEmpty" class="empty-state pro-empty">
+          <div class="empty-icon">▣</div>
+          <strong>Chưa có dự án</strong>
+          <p>Tạo dự án đầu tiên. Hệ thống sẽ lưu độc lập thay vì chỉ có một “current draft”.</p>
+          <button class="primary compact-btn" id="newProjectEmptyBtn" type="button">＋ Tạo dự án</button>
+        </div>
+        <div id="projectLibraryGrid" class="project-library-grid hidden"></div>
       </section>
 
       <section class="panel asset-library-panel workspace-view global-workspace" id="librarySection" data-workspace-view="library">
@@ -811,6 +823,24 @@
             </dl>
           </article>
 
+          <article class="system-card" data-system="anthropic">
+            <div class="system-card-head"><strong>Anthropic Claude</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · biên tập · long-form reasoning</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>ANTHROPIC_API_KEY</dd></div>
+              <div><dt>Model mặc định</dt><dd data-field="scriptModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="xai">
+            <div class="system-card-head"><strong>xAI Grok</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · phân tích · creative drafting</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>XAI_API_KEY</dd></div>
+              <div><dt>Model mặc định</dt><dd data-field="scriptModel">—</dd></div>
+            </dl>
+          </article>
+
           <article class="system-card" data-system="ktnImage">
             <div class="system-card-head"><strong>KTN FLUX Image Engine</strong><span class="system-badge">Đang kiểm tra</span></div>
             <p>ComfyUI · FLUX.1-schnell FP8 · KTN Image Gateway</p>
@@ -846,6 +876,41 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="newProjectModal" role="dialog" aria-modal="true" aria-labelledby="newProjectModalTitle">
+    <div class="modal-card project-create-modal">
+      <div class="modal-head">
+        <div>
+          <span class="workspace-kicker">NEW PROJECT</span>
+          <h2 id="newProjectModalTitle">Tạo dự án mới</h2>
+          <p>Đặt tên trước khi bắt đầu. Dự án sẽ có vùng dữ liệu riêng trong IndexedDB.</p>
+        </div>
+        <button class="icon-btn" id="closeNewProjectModalBtn" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <label>Tên dự án *</label>
+        <input id="newProjectNameInput" placeholder="Ví dụ: Hidden Mind · Trì hoãn · YouTube Long" maxlength="120" />
+        <div class="two-col">
+          <div>
+            <label>Kênh nội dung</label>
+            <select id="newProjectChannelSelect"><option value="">— Chọn sau —</option></select>
+          </div>
+          <div>
+            <label>Định dạng</label>
+            <select id="newProjectPlatformSelect">
+              <option value="youtube_long">YouTube Long</option>
+              <option value="youtube_short">YouTube Short</option>
+              <option value="facebook_short">Facebook Short / Reels</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="cancelNewProjectBtn" type="button">Hủy</button>
+        <button class="primary" id="confirmNewProjectBtn" type="button">Tạo dự án</button>
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast">KTN AI Video Studio đã sẵn sàng. Hệ thống sẽ kiểm tra các dịch vụ AI và render trước khi chạy.</div>
