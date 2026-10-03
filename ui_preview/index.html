@@ -26,6 +26,7 @@
         <button class="nav-item" data-section="voice"><span>◉</span>Giọng đọc</button>
         <button class="nav-item" data-section="subtitle"><span>CC</span>Phụ đề</button>
         <button class="nav-item" data-section="library"><span>▣</span>Thư viện</button>
+        <button class="nav-item" data-section="channels"><span>◫</span>Kênh nội dung</button>
       </nav>
 
       <div class="sidebar-bottom">
@@ -80,6 +81,20 @@
               <p>Nhập chủ đề, chọn ngôn ngữ và AI để bắt đầu tạo kịch bản.</p>
             </div>
             <span class="status-pill">Bước 1/5</span>
+          </div>
+
+          <div class="channel-selector-block">
+            <div class="field-title-row">
+              <label for="channelProfileSelect">Kênh nội dung *</label>
+              <button class="text-button" id="openChannelManagerBtn" type="button">Quản lý kênh</button>
+            </div>
+            <select id="channelProfileSelect">
+              <option value="">— Chọn kênh trước khi viết —</option>
+            </select>
+            <div class="channel-selected-summary" id="channelSelectedSummary">
+              <strong>Chưa chọn Channel Profile</strong>
+              <span>DNA kênh sẽ tự động được đưa vào AI khi tạo kịch bản.</span>
+            </div>
           </div>
 
           <div class="platform-block">
@@ -172,40 +187,6 @@
               <div class="full">
                 <label>Điều không được làm</label>
                 <input id="forbiddenContent" placeholder="Ví dụ: Không sáo rỗng, không giật tít, không tự bịa số liệu" />
-              </div>
-            </div>
-          </details>
-
-          <details class="quality-details">
-            <summary>Channel Bible · DNA cố định của kênh</summary>
-            <div class="brief-grid">
-              <div>
-                <label>Tên kênh</label>
-                <input id="channelName" placeholder="Ví dụ: The Hidden Mind" />
-              </div>
-              <div>
-                <label>Phong cách kênh</label>
-                <input id="channelStyle" placeholder="Ví dụ: Cinematic Psychology + documentary storytelling" />
-              </div>
-              <div class="full">
-                <label>Nhân vật người kể / narrator</label>
-                <input id="narratorPersona" placeholder="Ví dụ: Điềm tĩnh, quan sát tinh tế, không phán xét, nói như đang trò chuyện riêng với người xem" />
-              </div>
-              <div>
-                <label>Phong cách từ vựng</label>
-                <input id="vocabularyStyle" placeholder="Ví dụ: đời thường, chính xác, tránh thuật ngữ nếu chưa giải thích" />
-              </div>
-              <div>
-                <label>Kiểu mở đầu thường dùng</label>
-                <input id="openingStyle" placeholder="Ví dụ: một tình huống quen thuộc hoặc câu hỏi khiến người xem nhận ra chính mình" />
-              </div>
-              <div class="full">
-                <label>Phong cách kể chuyện</label>
-                <input id="storytellingStyle" placeholder="Ví dụ: mở bằng trải nghiệm → lý giải → ví dụ → chuyển góc nhìn → payoff" />
-              </div>
-              <div class="full">
-                <label>Cụm từ / kiểu viết cấm dùng</label>
-                <input id="forbiddenPhrases" placeholder="Ví dụ: Hãy cùng khám phá; Trong thế giới ngày nay; Điều quan trọng cần lưu ý là..." />
               </div>
             </div>
           </details>
@@ -586,6 +567,159 @@
           </div>
           <div class="render-progress-track"><div id="renderProgressBar"></div></div>
           <div id="renderResult" class="render-result"></div>
+        </div>
+      </section>
+
+      <section class="panel channel-library-panel" id="channelProfilesSection">
+        <div class="panel-head">
+          <div>
+            <h2>Kênh nội dung</h2>
+            <p>Tạo Channel Profile một lần, sau đó chọn lại ở mọi video. DNA kênh không cần nhập lặp lại.</p>
+          </div>
+          <button class="primary compact-btn" id="newChannelProfileBtn">＋ Tạo kênh</button>
+        </div>
+
+        <div class="channel-library-layout">
+          <div class="channel-list-pane">
+            <div class="channel-library-meta">
+              <strong id="channelProfileCount">0 kênh</strong>
+              <span>Lưu cục bộ trên trình duyệt trong giai đoạn V1.</span>
+            </div>
+            <div id="channelProfileEmpty" class="empty-state compact-empty">
+              <div class="empty-icon">◫</div>
+              <strong>Chưa có kênh nội dung</strong>
+              <p>Tạo profile đầu tiên để lưu DNA thương hiệu, người xem và giọng kể.</p>
+            </div>
+            <div id="channelProfileGrid" class="channel-profile-grid hidden"></div>
+          </div>
+
+          <div class="channel-editor-pane" id="channelEditorPane">
+            <div class="channel-editor-head">
+              <div>
+                <span class="editor-kicker" id="channelEditorMode">Tạo Channel Profile</span>
+                <h3 id="channelEditorTitle">Kênh mới</h3>
+              </div>
+              <button class="text-button" id="cancelChannelEditBtn" type="button">Làm mới form</button>
+            </div>
+
+            <input id="channelProfileId" type="hidden" />
+
+            <div class="channel-form-grid">
+              <div>
+                <label>Tên kênh *</label>
+                <input id="channelProfileName" placeholder="Ví dụ: The Hidden Mind" />
+              </div>
+              <div>
+                <label>Nền tảng chính</label>
+                <select id="channelPrimaryPlatform">
+                  <option value="youtube">YouTube</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="multi">Đa nền tảng</option>
+                </select>
+              </div>
+              <div>
+                <label>Chủ đề / niche *</label>
+                <input id="channelNiche" placeholder="Ví dụ: Tâm lý học, hành vi, phát triển bản thân" />
+              </div>
+              <div>
+                <label>Người xem mặc định *</label>
+                <input id="channelTargetAudience" placeholder="Ví dụ: Người đi làm 25–40 tuổi" />
+              </div>
+
+              <div>
+                <label>Tông giọng mặc định</label>
+                <select id="channelDefaultTone">
+                  <option value="natural">Tự nhiên, gần gũi</option>
+                  <option value="cinematic">Cinematic, chiêm nghiệm</option>
+                  <option value="documentary">Tài liệu, điềm tĩnh</option>
+                  <option value="energetic">Nhanh, năng lượng</option>
+                  <option value="expert">Chuyên gia, rõ ràng</option>
+                  <option value="witty">Thông minh, dí dỏm</option>
+                </select>
+              </div>
+              <div>
+                <label>Mục tiêu mặc định</label>
+                <select id="channelDefaultGoal">
+                  <option value="educate">Giải thích / giáo dục</option>
+                  <option value="storytelling">Kể chuyện / tạo cảm xúc</option>
+                  <option value="retention">Giữ chân / khám phá chủ đề</option>
+                  <option value="persuade">Thuyết phục / thay đổi góc nhìn</option>
+                  <option value="entertain">Giải trí</option>
+                </select>
+              </div>
+              <div>
+                <label>Mức chuyên môn mặc định</label>
+                <select id="channelDefaultExpertise">
+                  <option value="general">Phổ thông, dễ hiểu</option>
+                  <option value="intermediate">Trung cấp</option>
+                  <option value="advanced">Chuyên sâu</option>
+                </select>
+              </div>
+              <div>
+                <label>CTA mặc định</label>
+                <select id="channelDefaultCta">
+                  <option value="soft">Nhẹ nhàng, tự nhiên</option>
+                  <option value="none">Không CTA</option>
+                  <option value="comment">Gợi mở bình luận</option>
+                  <option value="follow">Theo dõi / đăng ký</option>
+                  <option value="action">Kêu gọi hành động cụ thể</option>
+                </select>
+              </div>
+
+              <div class="full">
+                <label>Phong cách kênh</label>
+                <input id="channelProfileStyle" placeholder="Ví dụ: Cinematic Psychology + documentary storytelling" />
+              </div>
+              <div class="full">
+                <label>Nhân vật người kể / narrator</label>
+                <input id="channelNarratorPersona" placeholder="Ví dụ: Điềm tĩnh, tinh tế, không phán xét, nói như đang trò chuyện riêng" />
+              </div>
+              <div>
+                <label>Phong cách từ vựng</label>
+                <input id="channelVocabularyStyle" placeholder="Đời thường, chính xác, dễ hiểu" />
+              </div>
+              <div>
+                <label>Kiểu mở đầu</label>
+                <input id="channelOpeningStyle" placeholder="Tình huống quen thuộc hoặc câu hỏi cụ thể" />
+              </div>
+              <div class="full">
+                <label>Phong cách kể chuyện</label>
+                <input id="channelStorytellingStyle" placeholder="Tình huống → câu hỏi → lý giải → ví dụ → đổi góc nhìn → payoff" />
+              </div>
+              <div class="full">
+                <label>Cụm từ / kiểu viết cấm dùng</label>
+                <input id="channelForbiddenPhrases" placeholder="Hãy cùng khám phá; Trong thế giới ngày nay; ..." />
+              </div>
+              <div class="full">
+                <label>Nguyên tắc nội dung cố định</label>
+                <input id="channelForbiddenContent" placeholder="Không giật tít sai, không bịa số liệu, không phán xét..." />
+              </div>
+
+              <div>
+                <label>Giọng đọc mặc định</label>
+                <select id="channelDefaultVoice">
+                  <option value="Kore">Kore · Rõ, chắc</option>
+                  <option value="Achernar">Achernar · Nhẹ nhàng</option>
+                  <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+                  <option value="Charon">Charon · Thuyết minh</option>
+                  <option value="Sulafat">Sulafat · Ấm</option>
+                  <option value="Puck">Puck · Năng lượng</option>
+                </select>
+              </div>
+              <div>
+                <label>Quy tắc phát âm / ghi chú giọng</label>
+                <input id="channelPronunciationNotes" placeholder="Ví dụ: AI = ây-ai; KTN = ca-tê-en" />
+              </div>
+            </div>
+
+            <div class="channel-editor-actions">
+              <button class="secondary" id="deleteChannelProfileBtn" type="button" disabled>Xóa</button>
+              <div>
+                <button class="secondary" id="duplicateChannelProfileBtn" type="button" disabled>Nhân bản</button>
+                <button class="primary" id="saveChannelProfileBtn" type="button">Lưu Channel Profile</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
