@@ -625,11 +625,11 @@ body[data-active-workspace="settings"] .project-nav-item{opacity:.82}
 
 /* Compact list view for long-form videos */
 .scene-list.scene-list-mode{grid-template-columns:1fr!important;gap:8px!important}
-.scene-list-mode .storyboard-card{display:grid;grid-template-columns:160px minmax(0,1fr) auto;grid-template-areas:
-  "media head actions"
-  "media intent actions"
-  "media narration actions"
-  "media details actions";
+.scene-list-mode .storyboard-card{display:grid;grid-template-columns:160px minmax(0,1fr) 170px;grid-template-areas:
+  "media head edit"
+  "media intent edit"
+  "media narration edit"
+  "media details asset";
   align-items:start;min-height:132px}
 .scene-list-mode .storyboard-media{grid-area:media;aspect-ratio:16/9;height:100%;min-height:132px;border-bottom:0!important;border-right:1px solid #e7ebf1!important}
 .scene-list-mode .storyboard-head{grid-area:head;padding:10px 12px 0}
@@ -637,8 +637,8 @@ body[data-active-workspace="settings"] .project-nav-item{opacity:.82}
 .scene-list-mode .scene-narration-preview{grid-area:narration;margin:6px 12px 0;min-height:auto;-webkit-line-clamp:2}
 .scene-list-mode .scene-details{grid-area:details;margin:6px 12px 9px!important}
 .scene-list-mode .scene-audio{grid-area:details;margin:6px 12px 9px}
-.scene-list-mode .scene-edit-actions{grid-area:actions;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-self:stretch;border-top:0;border-left:1px solid #edf0f4;min-width:150px;padding:9px}
-.scene-list-mode .storyboard-actions{grid-area:actions;align-self:end;border-top:1px solid #edf0f4;border-left:1px solid #edf0f4;margin-top:0}
+.scene-list-mode .scene-edit-actions{grid-area:edit;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-self:stretch;border-top:0;border-left:1px solid #edf0f4;min-width:150px;padding:9px}
+.scene-list-mode .storyboard-actions{grid-area:asset;align-self:end;border-top:1px solid #edf0f4;border-left:1px solid #edf0f4;margin-top:0}
 .scene-list-mode .scene-card-meta{justify-content:flex-start}
 .scene-list-mode .storyboard-head h3{max-width:none}
 
@@ -658,10 +658,11 @@ body[data-active-workspace="settings"] .project-nav-item{opacity:.82}
     "media intent"
     "media narration"
     "details details"
-    "actions actions"}
+    "edit edit"
+    "asset asset"}
   .scene-list-mode .scene-details{grid-area:details}
-  .scene-list-mode .scene-edit-actions{grid-area:actions;border-left:0;border-top:1px solid #edf0f4;display:flex}
-  .scene-list-mode .storyboard-actions{grid-area:actions;position:static;border-left:0}
+  .scene-list-mode .scene-edit-actions{grid-area:edit;border-left:0;border-top:1px solid #edf0f4;display:flex}
+  .scene-list-mode .storyboard-actions{grid-area:asset;position:static;border-left:0}
 }
 @media(max-width:720px){
   .scene-list-mode .storyboard-card{display:flex}
