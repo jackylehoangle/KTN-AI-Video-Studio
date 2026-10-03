@@ -2186,7 +2186,9 @@ function clearRenderTask(){
 
 let currentScriptProvider='gemini';
 let currentScenes=[];
+let sceneViewMode='board';
 let providerAvailability={gemini:false,openai:false,ktn:false};
+let providerConfiguredState={gemini:false,openai:false,ktn:false};
 let imageProviderBlocked={gemini:false,openai:false,ktn:false};
 let imageProviderBlockMessage={gemini:'',openai:'',ktn:''};
 let voiceAvailability={gemini:false};
@@ -2197,21 +2199,28 @@ const showToast=(msg)=>{toast.textContent=msg;toast.classList.add('show');setTim
 
 async function refreshBackendStatus(){
   try{
-    const [scriptRes,imageRes]=await Promise.all([
+    const [scriptRes,imageRes,statusRes]=await Promise.all([
       fetch('/api/generate-script',{headers:{accept:'application/json'}}),
-      fetch('/api/generate-image',{headers:{accept:'application/json'}})
+      fetch('/api/generate-image',{headers:{accept:'application/json'}}),
+      fetch('/api/system-status',{headers:{accept:'application/json'}})
     ]);
     const scriptData=await scriptRes.json().catch(()=>({}));
     const imageData=await imageRes.json().catch(()=>({}));
+    const statusData=await statusRes.json().catch(()=>({}));
     const providerConfigured=(value)=>Boolean(
       typeof value==='object' ? value?.configured : value
     );
-    providerAvailability={
+    providerConfiguredState={
       gemini:Boolean(providerConfigured(scriptData.providers?.gemini) || imageData.providers?.gemini),
       openai:Boolean(providerConfigured(scriptData.providers?.openai) || imageData.providers?.openai),
+      ktn:Boolean(statusData.providers?.ktnImage?.configured || imageData.providers?.ktn)
+    };
+    providerAvailability={
+      gemini:providerConfiguredState.gemini,
+      openai:providerConfiguredState.openai,
       anthropic:providerConfigured(scriptData.providers?.anthropic),
       xai:providerConfigured(scriptData.providers?.xai),
-      ktn:Boolean(imageData.providers?.ktn)
+      ktn:Boolean(statusData.providers?.ktnImage?.ready)
     };
     const configured=[];
     if(providerAvailability.gemini) configured.push('Gemini');
@@ -2328,10 +2337,12 @@ function resetImageProviderButtons(){
       btn.textContent='Hết quota ảnh';
     }else if(unavailable){
       btn.disabled=true;
-      btn.textContent=provider==='ktn'?'Chưa nối worker':'Thiếu API key';
+      btn.textContent=provider==='ktn'
+        ? (providerConfiguredState.ktn?'Runtime offline':'Chưa cấu hình')
+        : 'Thiếu API key';
     }else{
       btn.disabled=false;
-      if(['Hết quota ảnh','Chưa nối worker','Thiếu API key'].includes(btn.textContent)){
+      if(['Hết quota ảnh','Chưa nối worker','Runtime offline','Chưa cấu hình','Thiếu API key'].includes(btn.textContent)){
         btn.textContent='Tạo ảnh';
       }
     }
@@ -2349,7 +2360,9 @@ function updateImageProviderState(){
     }else{
       state.textContent=providerAvailability[provider]
         ? 'Sẵn sàng'
-        : (provider==='ktn'?'Chưa nối worker':'Thiếu API key');
+        : (provider==='ktn'
+          ? (providerConfiguredState.ktn?'Đã cấu hình · runtime offline':'Chưa cấu hình')
+          : 'Thiếu API key');
       state.style.color=providerAvailability[provider]?'#198754':'#9b6b16';
     }
   }
@@ -2517,12 +2530,200 @@ async function generateSceneImage(scene,card,button){
   }
 }
 
+
+const SCENE_PURPOSE_LABELS={
+  hook:'Hook',context:'Context',tension:'Tension',explanation:'Explanation',
+  evidence:'Evidence',example:'Example',transition:'Transition',
+  payoff:'Payoff',cta:'CTA',other:'Other'
+};
+
+function normalizeSceneClient(scene,index=0){
+  return {
+    ...scene,
+    id:String(scene?.id||('scene_'+String(index+1).padStart(3,'0'))),
+    order:Number(scene?.order)||index+1,
+    title:String(scene?.title||('Cảnh '+(index+1))).trim(),
+    purpose:String(scene?.purpose||'other').trim().toLowerCase(),
+    narration:String(scene?.narration||'').trim(),
+    duration_seconds:Math.max(2,Math.min(60,Number(scene?.duration_seconds)||5)),
+    visual_intent:String(scene?.visual_intent||scene?.visual_description||'').trim(),
+    shot_type:String(scene?.shot_type||'').trim(),
+    continuity_notes:String(scene?.continuity_notes||'').trim(),
+    visual_description:String(scene?.visual_description||'').trim(),
+    image_prompt:String(scene?.image_prompt||'').trim(),
+    locked:Boolean(scene?.locked),
+    qa_status:String(scene?.qa_status||'pending')
+  };
+}
+
+function normalizeCurrentSceneOrder(){
+  currentScenes=currentScenes.map((scene,index)=>({...normalizeSceneClient(scene,index),order:index+1}));
+}
+
+function sceneQa(scene){
+  const checks=[
+    ['Narration',Boolean(String(scene.narration||'').trim())],
+    ['Duration',Number(scene.duration_seconds)>=2 && Number(scene.duration_seconds)<=60],
+    ['Purpose',Boolean(scene.purpose && scene.purpose!=='other')],
+    ['Visual intent',Boolean(String(scene.visual_intent||'').trim())],
+    ['Shot',Boolean(String(scene.shot_type||'').trim())],
+    ['Visual prompt',Boolean(String(scene.visual_description||'').trim() && String(scene.image_prompt||'').trim())]
+  ];
+  const pass=checks.filter(([,ok])=>ok).length;
+  return {
+    pass,
+    total:checks.length,
+    score:Math.round(pass/checks.length*100),
+    ready:pass===checks.length,
+    checks
+  };
+}
+
+function updateSceneQaSummary(){
+  const chip=document.getElementById('sceneQaChip');
+  const count=document.getElementById('sceneCountChip');
+  const ready=currentScenes.filter(scene=>sceneQa(scene).ready).length;
+  if(chip) chip.textContent='QA '+ready+'/'+currentScenes.length;
+  if(count) count.textContent=currentScenes.length+' cảnh';
+}
+
+function setSceneView(mode){
+  sceneViewMode=mode==='list'?'list':'board';
+  sceneList.classList.toggle('scene-list-mode',sceneViewMode==='list');
+  document.getElementById('sceneBoardViewBtn')?.classList.toggle('active',sceneViewMode==='board');
+  document.getElementById('sceneListViewBtn')?.classList.toggle('active',sceneViewMode==='list');
+  try{localStorage.setItem('ktn-scene-view-mode',sceneViewMode);}catch(_error){}
+}
+
+function sceneById(id){
+  return currentScenes.find(scene=>scene.id===String(id||''))||null;
+}
+
+function openSceneEditor(scene){
+  if(!scene) return;
+  const set=(id,value)=>{const el=document.getElementById(id);if(el) el.value=value??'';};
+  set('sceneEditorId',scene.id);
+  set('sceneEditorSceneTitle',scene.title);
+  set('sceneEditorPurpose',scene.purpose||'other');
+  set('sceneEditorNarration',scene.narration);
+  set('sceneEditorDuration',scene.duration_seconds);
+  set('sceneEditorShotType',scene.shot_type);
+  set('sceneEditorVisualIntent',scene.visual_intent);
+  set('sceneEditorContinuity',scene.continuity_notes);
+  set('sceneEditorVisualDescription',scene.visual_description);
+  set('sceneEditorImagePrompt',scene.image_prompt);
+  const locked=document.getElementById('sceneEditorLocked');
+  if(locked) locked.checked=Boolean(scene.locked);
+  document.getElementById('sceneEditorModal')?.classList.remove('hidden');
+}
+
+function closeSceneEditor(){
+  document.getElementById('sceneEditorModal')?.classList.add('hidden');
+}
+
+function saveSceneEditor(){
+  const id=document.getElementById('sceneEditorId')?.value;
+  const index=currentScenes.findIndex(scene=>scene.id===id);
+  if(index<0) return closeSceneEditor();
+  const value=id=>String(document.getElementById(id)?.value||'').trim();
+  const scene=currentScenes[index];
+  currentScenes[index]={
+    ...scene,
+    title:value('sceneEditorSceneTitle')||scene.title,
+    purpose:value('sceneEditorPurpose')||'other',
+    narration:value('sceneEditorNarration'),
+    duration_seconds:Math.max(2,Math.min(60,Number(value('sceneEditorDuration'))||scene.duration_seconds||5)),
+    shot_type:value('sceneEditorShotType'),
+    visual_intent:value('sceneEditorVisualIntent'),
+    continuity_notes:value('sceneEditorContinuity'),
+    visual_description:value('sceneEditorVisualDescription'),
+    image_prompt:value('sceneEditorImagePrompt'),
+    locked:Boolean(document.getElementById('sceneEditorLocked')?.checked),
+    qa_status:'reviewed'
+  };
+  renderScenes(currentScenes,{providerLabel:'Đã chỉnh sửa'});
+  closeSceneEditor();
+  scheduleAutosave();
+  showToast('Đã cập nhật scene.');
+}
+
+function moveScene(id,direction){
+  const index=currentScenes.findIndex(scene=>scene.id===id);
+  const target=index+direction;
+  if(index<0 || target<0 || target>=currentScenes.length) return;
+  [currentScenes[index],currentScenes[target]]=[currentScenes[target],currentScenes[index]];
+  normalizeCurrentSceneOrder();
+  renderScenes(currentScenes,{providerLabel:'Đã sắp xếp'});
+  scheduleAutosave();
+}
+
+function splitScene(id){
+  const index=currentScenes.findIndex(scene=>scene.id===id);
+  if(index<0) return;
+  const scene=currentScenes[index];
+  const text=String(scene.narration||'').trim();
+  const sentences=text.match(/[^.!?…]+[.!?…]?/g)?.map(x=>x.trim()).filter(Boolean)||[];
+  if(sentences.length<2){
+    showToast('Scene cần ít nhất 2 câu để tách tự động.');
+    return;
+  }
+  const midpoint=Math.ceil(sentences.length/2);
+  const left=sentences.slice(0,midpoint).join(' ');
+  const right=sentences.slice(midpoint).join(' ');
+  const baseDuration=Math.max(4,Number(scene.duration_seconds)||8);
+  const first={...scene,narration:left,duration_seconds:Math.max(2,Math.round(baseDuration/2)),title:scene.title+' · A',image_asset:null,audio_asset:null,material_key:'',locked:false,qa_status:'pending'};
+  const second={...scene,id:'scene_'+Date.now().toString(36),narration:right,duration_seconds:Math.max(2,baseDuration-Math.round(baseDuration/2)),title:scene.title+' · B',image_asset:null,audio_asset:null,material_key:'',locked:false,qa_status:'pending'};
+  currentScenes.splice(index,1,first,second);
+  normalizeCurrentSceneOrder();
+  renderScenes(currentScenes,{providerLabel:'Đã tách scene'});
+  scheduleAutosave();
+}
+
+function mergeSceneWithNext(id){
+  const index=currentScenes.findIndex(scene=>scene.id===id);
+  if(index<0 || index>=currentScenes.length-1){
+    showToast('Không có scene kế tiếp để gộp.');
+    return;
+  }
+  const a=currentScenes[index], b=currentScenes[index+1];
+  if((a.locked||b.locked) && !confirm('Một trong hai scene đang khóa. Vẫn gộp scene?')) return;
+  const merged={
+    ...a,
+    title:a.title+' + '+b.title,
+    narration:[a.narration,b.narration].filter(Boolean).join(' '),
+    duration_seconds:Math.min(60,Number(a.duration_seconds||0)+Number(b.duration_seconds||0)),
+    visual_intent:[a.visual_intent,b.visual_intent].filter(Boolean).join(' · '),
+    continuity_notes:[a.continuity_notes,b.continuity_notes].filter(Boolean).join(' · '),
+    visual_description:[a.visual_description,b.visual_description].filter(Boolean).join(' '),
+    image_prompt:[a.image_prompt,b.image_prompt].filter(Boolean).join(', '),
+    image_asset:null,audio_asset:null,material_key:'',locked:false,qa_status:'pending'
+  };
+  currentScenes.splice(index,2,merged);
+  normalizeCurrentSceneOrder();
+  renderScenes(currentScenes,{providerLabel:'Đã gộp scene'});
+  scheduleAutosave();
+}
+
+function toggleSceneLock(id){
+  const scene=sceneById(id);
+  if(!scene) return;
+  scene.locked=!scene.locked;
+  renderScenes(currentScenes,{providerLabel:scene.locked?'Đã khóa':'Đã mở khóa'});
+  scheduleAutosave();
+}
+
 function renderScenes(scenes,meta){
-  currentScenes=scenes;
+  currentScenes=(Array.isArray(scenes)?scenes:[]).map((scene,index)=>normalizeSceneClient(scene,index));
+  normalizeCurrentSceneOrder();
   sceneList.innerHTML='';
-  scenes.forEach((scene,index)=>{
+  sceneList.classList.toggle('scene-list-mode',sceneViewMode==='list');
+
+  currentScenes.forEach((scene,index)=>{
+    const qa=sceneQa(scene);
+    scene.qa_status=qa.ready?'pass':'needs_review';
+
     const card=document.createElement('article');
-    card.className='scene-card storyboard-card';
+    card.className='scene-card storyboard-card'+(scene.locked?' scene-locked':'')+(qa.ready?' scene-qa-pass':' scene-qa-warn');
     card.dataset.sceneId=scene.id;
 
     const imageBox=document.createElement('div');
@@ -2548,18 +2749,35 @@ function renderScenes(scenes,meta){
     const num=document.createElement('span');
     num.className='scene-number';
     num.textContent=String(scene.order||index+1).padStart(2,'0');
+
     const titleWrap=document.createElement('div');
     const title=document.createElement('h3');
     title.textContent=escapeText(scene.title||('Cảnh '+(index+1)));
     const sub=document.createElement('small');
-    sub.textContent=escapeText(scene.id||('scene_'+String(index+1).padStart(2,'0')));
+    sub.textContent=escapeText(scene.id);
     titleWrap.append(title,sub);
     idx.append(num,titleWrap);
 
+    const metaWrap=document.createElement('div');
+    metaWrap.className='scene-card-meta';
+    const purpose=document.createElement('span');
+    purpose.className='scene-purpose-chip';
+    purpose.textContent=SCENE_PURPOSE_LABELS[scene.purpose]||'Other';
+    const qaChip=document.createElement('span');
+    qaChip.className='scene-card-qa '+(qa.ready?'ready':'warn');
+    qaChip.textContent='QA '+qa.score+'%';
+    const lockChip=document.createElement('span');
+    lockChip.className='scene-lock-chip'+(scene.locked?' locked':'');
+    lockChip.textContent=scene.locked?'🔒':'';
     const duration=document.createElement('span');
     duration.className='scene-duration';
-    duration.textContent=(scene.audio_duration_seconds||scene.duration_seconds||scene.duration_estimate_seconds||0)+' giây';
-    head.append(idx,duration);
+    duration.textContent=(scene.audio_duration_seconds||scene.duration_seconds||0)+' giây';
+    metaWrap.append(purpose,qaChip,lockChip,duration);
+    head.append(idx,metaWrap);
+
+    const intent=document.createElement('p');
+    intent.className='scene-visual-intent-preview';
+    intent.textContent=scene.visual_intent?('Visual intent: '+scene.visual_intent):'Visual intent chưa được xác định.';
 
     const narration=document.createElement('p');
     narration.className='scene-narration-preview';
@@ -2568,14 +2786,18 @@ function renderScenes(scenes,meta){
     const details=document.createElement('details');
     details.className='scene-details';
     const summary=document.createElement('summary');
-    summary.textContent='Chi tiết cảnh';
+    summary.textContent='Chi tiết & QA';
     const grid=document.createElement('div');
     grid.className='scene-grid';
 
     const fields=[
+      ['Mục đích',SCENE_PURPOSE_LABELS[scene.purpose]||scene.purpose,'',false],
+      ['Shot type',scene.shot_type,'',false],
       ['Lời đọc',scene.narration,'full',false],
-      ['Mô tả hình ảnh',scene.visual_description,'',false],
-      ['Image prompt',scene.image_prompt,'',true]
+      ['Visual intent',scene.visual_intent,'full',false],
+      ['Continuity',scene.continuity_notes||'Không có yêu cầu continuity riêng.','full',false],
+      ['Mô tả hình ảnh',scene.visual_description,'full',false],
+      ['Image prompt',scene.image_prompt,'full',true]
     ];
     fields.forEach(([label,value,extra,isCode])=>{
       const field=document.createElement('div');
@@ -2587,6 +2809,16 @@ function renderScenes(scenes,meta){
       field.append(lab,body);
       grid.appendChild(field);
     });
+
+    const qaBox=document.createElement('div');
+    qaBox.className='scene-qa-checklist full';
+    qa.checks.forEach(([label,ok])=>{
+      const item=document.createElement('span');
+      item.className=ok?'pass':'fail';
+      item.textContent=(ok?'✓ ':'○ ')+label;
+      qaBox.appendChild(item);
+    });
+    grid.appendChild(qaBox);
     details.append(summary,grid);
 
     const audioBox=document.createElement('div');
@@ -2606,17 +2838,42 @@ function renderScenes(scenes,meta){
       audioBox.classList.remove('hidden');
     }
 
-    const actions=document.createElement('div');
-    actions.className='scene-actions storyboard-actions';
+    const editActions=document.createElement('div');
+    editActions.className='scene-edit-actions';
+    const makeAction=(label,action,disabled=false)=>{
+      const button=document.createElement('button');
+      button.type='button';
+      button.textContent=label;
+      button.disabled=disabled;
+      button.dataset.sceneEditAction=action;
+      return button;
+    };
+    const editBtn=makeAction('Sửa','edit');
+    const lockBtn=makeAction(scene.locked?'Mở khóa':'Khóa','lock');
+    const upBtn=makeAction('↑','up',index===0);
+    const downBtn=makeAction('↓','down',index===currentScenes.length-1);
+    const splitBtn=makeAction('Tách','split');
+    const mergeBtn=makeAction('Gộp tiếp','merge',index===currentScenes.length-1);
+    editActions.append(editBtn,lockBtn,upBtn,downBtn,splitBtn,mergeBtn);
+
+    editBtn.addEventListener('click',()=>openSceneEditor(scene));
+    lockBtn.addEventListener('click',()=>toggleSceneLock(scene.id));
+    upBtn.addEventListener('click',()=>moveScene(scene.id,-1));
+    downBtn.addEventListener('click',()=>moveScene(scene.id,1));
+    splitBtn.addEventListener('click',()=>splitScene(scene.id));
+    mergeBtn.addEventListener('click',()=>mergeSceneWithNext(scene.id));
+
+    const assetActions=document.createElement('div');
+    assetActions.className='scene-actions storyboard-actions';
     const voiceBtn=document.createElement('button');
     voiceBtn.className='scene-voice-btn';
     voiceBtn.textContent=scene.audio_asset?.b64_audio?'Tạo lại giọng':'Tạo giọng';
     const imageBtn=document.createElement('button');
     imageBtn.className='scene-image-btn';
     imageBtn.textContent=scene.image_asset?.b64_json?'Tạo lại ảnh':'Tạo ảnh';
-    actions.append(voiceBtn,imageBtn);
+    assetActions.append(voiceBtn,imageBtn);
 
-    card.append(imageBox,head,narration,details,audioBox,actions);
+    card.append(imageBox,head,intent,narration,details,audioBox,editActions,assetActions);
 
     voiceBtn.addEventListener('click',()=>generateSceneVoice(scene,card,voiceBtn));
     imageBtn.addEventListener('click',()=>generateSceneImage(scene,card,imageBtn));
@@ -2627,24 +2884,29 @@ function renderScenes(scenes,meta){
       imageBtn.textContent='Hết quota ảnh';
     }else if(!providerAvailability[activeImageProvider]){
       imageBtn.disabled=true;
-      imageBtn.textContent=activeImageProvider==='ktn'?'Chưa nối worker':'Thiếu API key';
+      imageBtn.textContent=activeImageProvider==='ktn'
+        ? (providerConfiguredState.ktn?'Runtime offline':'Chưa cấu hình')
+        : 'Thiếu API key';
     }
 
     sceneList.appendChild(card);
   });
-  sceneEmpty.classList.add('hidden');
-  sceneList.classList.remove('hidden');
-  subtitleBtn.disabled=scenes.length===0;
-  subtitleEmpty.classList.remove('hidden');
-  subtitleOutput.classList.add('hidden');
-  currentSrt='';
-  const sceneCountChip=document.getElementById('sceneCountChip');
-  if(sceneCountChip) sceneCountChip.textContent=scenes.length+' cảnh';
+
+  sceneEmpty.classList.toggle('hidden',currentScenes.length>0);
+  sceneList.classList.toggle('hidden',currentScenes.length===0);
+  subtitleBtn.disabled=currentScenes.length===0;
+  if(currentScenes.length){
+    subtitleEmpty.classList.remove('hidden');
+    subtitleOutput.classList.add('hidden');
+    currentSrt='';
+  }
+  setSceneView(sceneViewMode);
+  updateSceneQaSummary();
   renderAssetLibrary();
   renderVoiceWorkspace();
   updateWorkspaceContext();
   scheduleAutosave();
-  showToast('Đã chia '+scenes.length+' cảnh bằng '+(meta?.providerLabel||'AI')+'.');
+  if(meta?.providerLabel) showToast('Storyboard cập nhật · '+currentScenes.length+' cảnh · '+meta.providerLabel+'.');
 }
 
 async function analyzeScript(action){
@@ -2664,7 +2926,11 @@ async function analyzeScript(action){
     const res=await fetch('/api/analyze-script',{
       method:'POST',
       headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({action,script,provider,model,language,topic:document.getElementById('topic').value.trim()})
+      body:JSON.stringify({
+        action,script,provider,model,language,
+        platformMode:document.getElementById('platformMode')?.value||'youtube_long',
+        topic:document.getElementById('topic').value.trim()
+      })
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
@@ -2672,7 +2938,15 @@ async function analyzeScript(action){
     if(action==='keywords'){
       renderKeywords(data.keywords||[],data);
     }else{
-      renderScenes(data.scenes||[],data);
+      const incoming=(data.scenes||[]).map((scene,index)=>normalizeSceneClient(scene,index));
+      const lockedByOrder=new Map(
+        currentScenes.filter(scene=>scene.locked).map(scene=>[Number(scene.order),scene])
+      );
+      const merged=incoming.map((scene,index)=>lockedByOrder.get(index+1)||scene);
+      for(const [order,locked] of lockedByOrder.entries()){
+        if(order>merged.length) merged.push(locked);
+      }
+      renderScenes(merged,data);
     }
   }catch(err){
     showToast(err.message||'AI không thể phân tích kịch bản.');
@@ -2838,6 +3112,14 @@ document.getElementById('editScriptBtn').addEventListener('click',(e)=>{
 
 keywordBtn.addEventListener('click',()=>analyzeScript('keywords'));
 sceneBtn.addEventListener('click',()=>analyzeScript('scenes'));
+document.getElementById('sceneBoardViewBtn').addEventListener('click',()=>setSceneView('board'));
+document.getElementById('sceneListViewBtn').addEventListener('click',()=>setSceneView('list'));
+document.getElementById('closeSceneEditorBtn').addEventListener('click',closeSceneEditor);
+document.getElementById('sceneEditorCancelBtn').addEventListener('click',closeSceneEditor);
+document.getElementById('sceneEditorSaveBtn').addEventListener('click',saveSceneEditor);
+document.getElementById('sceneEditorModal').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) closeSceneEditor();
+});
 document.getElementById('scriptTabBtn').addEventListener('click',()=>selectScriptTab('script'));
 document.getElementById('keywordTabBtn').addEventListener('click',()=>selectScriptTab('keywords'));
 document.getElementById('historyTabBtn').addEventListener('click',()=>selectScriptTab('history'));
@@ -3189,6 +3471,7 @@ document.getElementById('voiceBatchConfirm').addEventListener('change',updateVoi
 document.getElementById('voiceBatchScope').addEventListener('change',updateVoiceBatchButton);
 document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch);
 document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
+try{sceneViewMode=localStorage.getItem('ktn-scene-view-mode')||'board';}catch(_error){}
 loadChannelProfiles();
 refreshChannelProfileSelect();
 renderChannelProfileLibrary();

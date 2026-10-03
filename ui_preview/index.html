@@ -464,6 +464,11 @@
             <p>Mỗi card là một cảnh gồm lời đọc, thời lượng, hình ảnh và audio.</p>
           </div>
           <div class="workspace-head-actions">
+            <div class="segmented scene-view-toggle">
+              <button class="active" id="sceneBoardViewBtn" type="button">Board</button>
+              <button id="sceneListViewBtn" type="button">List</button>
+            </div>
+            <span class="scene-qa-chip" id="sceneQaChip">QA 0/0</span>
             <span class="scene-count-chip" id="sceneCountChip">0 cảnh</span>
             <button class="primary compact-btn" id="sceneBtn" disabled>
               <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
@@ -877,6 +882,68 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="sceneEditorModal" role="dialog" aria-modal="true" aria-labelledby="sceneEditorTitle">
+    <div class="modal-card scene-editor-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="workspace-kicker">SCENE EDITOR</span>
+          <h2 id="sceneEditorTitle">Chỉnh sửa cảnh</h2>
+          <p>Điều chỉnh mục đích, narration, visual intent và continuity mà không cần tạo lại toàn bộ storyboard.</p>
+        </div>
+        <button class="icon-btn" id="closeSceneEditorBtn" type="button">×</button>
+      </div>
+      <div class="modal-body scene-editor-form">
+        <input id="sceneEditorId" type="hidden" />
+        <div class="two-col">
+          <div>
+            <label>Tiêu đề</label>
+            <input id="sceneEditorSceneTitle" />
+          </div>
+          <div>
+            <label>Mục đích scene</label>
+            <select id="sceneEditorPurpose">
+              <option value="hook">Hook</option>
+              <option value="context">Context</option>
+              <option value="tension">Tension</option>
+              <option value="explanation">Explanation</option>
+              <option value="evidence">Evidence</option>
+              <option value="example">Example</option>
+              <option value="transition">Transition</option>
+              <option value="payoff">Payoff</option>
+              <option value="cta">CTA</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <label>Lời đọc / narration</label>
+        <textarea id="sceneEditorNarration" rows="6"></textarea>
+        <div class="two-col">
+          <div>
+            <label>Thời lượng mục tiêu (giây)</label>
+            <input id="sceneEditorDuration" type="number" min="2" max="60" />
+          </div>
+          <div>
+            <label>Shot type</label>
+            <input id="sceneEditorShotType" placeholder="Ví dụ: archival wide, close-up detail..." />
+          </div>
+        </div>
+        <label>Visual intent</label>
+        <textarea id="sceneEditorVisualIntent" rows="3"></textarea>
+        <label>Continuity notes</label>
+        <textarea id="sceneEditorContinuity" rows="3"></textarea>
+        <label>Mô tả hình ảnh</label>
+        <textarea id="sceneEditorVisualDescription" rows="4"></textarea>
+        <label>Image prompt</label>
+        <textarea id="sceneEditorImagePrompt" rows="5"></textarea>
+        <label class="scene-lock-row"><input id="sceneEditorLocked" type="checkbox" /> Khóa scene này để không bị AI ghi đè khi chia cảnh lại.</label>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="sceneEditorCancelBtn" type="button">Hủy</button>
+        <button class="primary" id="sceneEditorSaveBtn" type="button">Lưu scene</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal-backdrop hidden" id="newProjectModal" role="dialog" aria-modal="true" aria-labelledby="newProjectModalTitle">
