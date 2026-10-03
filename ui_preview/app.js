@@ -63,10 +63,10 @@ const SCRIPT_MODEL_REGISTRY={
     label:'Anthropic Claude',
     hint:'Claude phù hợp long-form, biên tập giọng văn và các bài cần mạch lập luận dài.',
     models:[
-      ['claude-opus-5-5','Claude Opus 5.5 · Cao cấp'],
-      ['claude-sonnet-5-5','Claude Sonnet 5.5 · Khuyến nghị'],
-      ['claude-opus-5','Claude Opus 5'],
-      ['claude-sonnet-5','Claude Sonnet 5'],
+      ['claude-fable-5','Claude Fable 5 · Cao cấp'],
+      ['claude-opus-5','Claude Opus 5 · Reasoning'],
+      ['claude-sonnet-5','Claude Sonnet 5 · Khuyến nghị'],
+      ['claude-opus-4-8','Claude Opus 4.8'],
       ['claude-sonnet-4-6','Claude Sonnet 4.6']
     ]
   },
@@ -76,7 +76,7 @@ const SCRIPT_MODEL_REGISTRY={
     models:[
       ['grok-4.7','Grok 4.7 · Khuyến nghị'],
       ['grok-4.6','Grok 4.6'],
-      ['grok-4.3','Grok 4.3']
+      ['grok-4.5','Grok 4.5']
     ]
   }
 };
