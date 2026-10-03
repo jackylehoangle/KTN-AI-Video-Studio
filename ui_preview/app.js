@@ -1,4 +1,70 @@
 
+const PLATFORM_PRESETS={
+  youtube_long:{
+    label:'YouTube Long',
+    hint:'Video dài có cấu trúc, ưu tiên chiều sâu và khả năng giữ chân người xem.',
+    defaultDuration:'8-12m',
+    paragraphCount:10,
+    durations:[
+      ['3-5m','3–5 phút · Mid-form'],
+      ['8-12m','8–12 phút'],
+      ['12-20m','12–20 phút'],
+      ['20-30m','20–30 phút']
+    ]
+  },
+  youtube_short:{
+    label:'YouTube Short',
+    hint:'Video dọc ngắn, hook rất sớm, một ý chính và payoff rõ trong tối đa khoảng 3 phút.',
+    defaultDuration:'60-90s',
+    paragraphCount:5,
+    durations:[
+      ['15-30s','15–30 giây'],
+      ['30-60s','30–60 giây'],
+      ['60-90s','60–90 giây'],
+      ['90-180s','90–180 giây']
+    ]
+  },
+  facebook_short:{
+    label:'Facebook Short / Reels',
+    hint:'Video ngắn dễ xem trên feed, ngôn ngữ trực tiếp, gần gũi và vào vấn đề nhanh.',
+    defaultDuration:'30-60s',
+    paragraphCount:4,
+    durations:[
+      ['15-30s','15–30 giây'],
+      ['30-60s','30–60 giây'],
+      ['60-90s','60–90 giây']
+    ]
+  }
+};
+
+function inferPlatformFromDuration(duration){
+  return ['15-30s','30-60s','60-90s','90-180s'].includes(String(duration||''))
+    ? 'youtube_short'
+    : 'youtube_long';
+}
+
+function configurePlatformMode(mode,preferredDuration='',updateParagraphCount=false){
+  const preset=PLATFORM_PRESETS[mode]||PLATFORM_PRESETS.youtube_long;
+  const durationSelect=document.getElementById('targetDuration');
+  const hint=document.getElementById('platformHint');
+  if(durationSelect){
+    durationSelect.innerHTML='';
+    preset.durations.forEach(([value,label])=>{
+      const option=document.createElement('option');
+      option.value=value;
+      option.textContent=label;
+      durationSelect.appendChild(option);
+    });
+    const allowed=preset.durations.some(([value])=>value===preferredDuration);
+    durationSelect.value=allowed?preferredDuration:preset.defaultDuration;
+  }
+  if(hint) hint.textContent=preset.hint;
+  if(updateParagraphCount){
+    const paragraphCount=document.getElementById('paragraphCount');
+    if(paragraphCount) paragraphCount.value=String(preset.paragraphCount);
+  }
+}
+
 function wait(ms){
   return new Promise(resolve=>setTimeout(resolve,ms));
 }
@@ -861,11 +927,31 @@ function serializeProjectState({includeMaterialKeys=false}={}){
     updated_at:new Date().toISOString(),
     inputs:{
       topic:document.getElementById('topic').value,
+      platformMode:document.getElementById('platformMode').value,
       scriptLanguage:document.getElementById('scriptLanguage').value,
       scriptProvider:document.getElementById('scriptProvider').value,
       paragraphCount:Number(document.getElementById('paragraphCount').value||6),
       targetDuration:document.getElementById('targetDuration').value,
-      extraInstruction:document.getElementById('extraInstruction').value
+      extraInstruction:document.getElementById('extraInstruction').value,
+      contentBrief:{
+        targetAudience:document.getElementById('targetAudience').value,
+        contentGoal:document.getElementById('contentGoal').value,
+        contentTone:document.getElementById('contentTone').value,
+        expertiseLevel:document.getElementById('expertiseLevel').value,
+        anglePreference:document.getElementById('anglePreference').value,
+        ctaStyle:document.getElementById('ctaStyle').value,
+        sourceNotes:document.getElementById('sourceNotes').value,
+        forbiddenContent:document.getElementById('forbiddenContent').value
+      },
+      channelBible:{
+        channelName:document.getElementById('channelName').value,
+        channelStyle:document.getElementById('channelStyle').value,
+        narratorPersona:document.getElementById('narratorPersona').value,
+        vocabularyStyle:document.getElementById('vocabularyStyle').value,
+        openingStyle:document.getElementById('openingStyle').value,
+        storytellingStyle:document.getElementById('storytellingStyle').value,
+        forbiddenPhrases:document.getElementById('forbiddenPhrases').value
+      }
     },
     script:{
       title:scriptTitle.textContent||'Kịch bản AI',
@@ -964,11 +1050,29 @@ async function restoreProject(project){
   try{
     restoreInput('projectName',project.name||'Dự án chưa đặt tên');
     restoreInput('topic',project.inputs?.topic||'');
+    const restoredDuration=project.inputs?.targetDuration||'60-90s';
+    const restoredPlatform=project.inputs?.platformMode||inferPlatformFromDuration(restoredDuration);
+    restoreInput('platformMode',restoredPlatform);
+    configurePlatformMode(restoredPlatform,restoredDuration,false);
     restoreInput('scriptLanguage',project.inputs?.scriptLanguage||'vi');
     restoreInput('scriptProvider',project.inputs?.scriptProvider||'gemini');
-    restoreInput('paragraphCount',project.inputs?.paragraphCount||6);
-    restoreInput('targetDuration',project.inputs?.targetDuration||'60-90s');
+    restoreInput('paragraphCount',project.inputs?.paragraphCount||PLATFORM_PRESETS[restoredPlatform]?.paragraphCount||6);
     restoreInput('extraInstruction',project.inputs?.extraInstruction||'');
+    restoreInput('targetAudience',project.inputs?.contentBrief?.targetAudience||'');
+    restoreInput('contentGoal',project.inputs?.contentBrief?.contentGoal||'educate');
+    restoreInput('contentTone',project.inputs?.contentBrief?.contentTone||'natural');
+    restoreInput('expertiseLevel',project.inputs?.contentBrief?.expertiseLevel||'general');
+    restoreInput('anglePreference',project.inputs?.contentBrief?.anglePreference||'');
+    restoreInput('ctaStyle',project.inputs?.contentBrief?.ctaStyle||'soft');
+    restoreInput('sourceNotes',project.inputs?.contentBrief?.sourceNotes||'');
+    restoreInput('forbiddenContent',project.inputs?.contentBrief?.forbiddenContent||'');
+    restoreInput('channelName',project.inputs?.channelBible?.channelName||'');
+    restoreInput('channelStyle',project.inputs?.channelBible?.channelStyle||'');
+    restoreInput('narratorPersona',project.inputs?.channelBible?.narratorPersona||'');
+    restoreInput('vocabularyStyle',project.inputs?.channelBible?.vocabularyStyle||'');
+    restoreInput('openingStyle',project.inputs?.channelBible?.openingStyle||'');
+    restoreInput('storytellingStyle',project.inputs?.channelBible?.storytellingStyle||'');
+    restoreInput('forbiddenPhrases',project.inputs?.channelBible?.forbiddenPhrases||'');
 
     scriptTitle.textContent=project.script?.title||'Kịch bản AI';
     scriptResult.value=project.script?.text||'';
@@ -1052,11 +1156,26 @@ async function startNewProject(){
   try{
     document.getElementById('projectName').value='Dự án chưa đặt tên';
     document.getElementById('topic').value='';
+    document.getElementById('platformMode').value='youtube_long';
+    configurePlatformMode('youtube_long','8-12m',true);
     document.getElementById('scriptLanguage').value='vi';
     document.getElementById('scriptProvider').value='gemini';
-    document.getElementById('paragraphCount').value='6';
-    document.getElementById('targetDuration').value='60-90s';
     document.getElementById('extraInstruction').value='';
+    document.getElementById('targetAudience').value='';
+    document.getElementById('contentGoal').value='educate';
+    document.getElementById('contentTone').value='natural';
+    document.getElementById('expertiseLevel').value='general';
+    document.getElementById('anglePreference').value='';
+    document.getElementById('ctaStyle').value='soft';
+    document.getElementById('sourceNotes').value='';
+    document.getElementById('forbiddenContent').value='';
+    document.getElementById('channelName').value='';
+    document.getElementById('channelStyle').value='';
+    document.getElementById('narratorPersona').value='';
+    document.getElementById('vocabularyStyle').value='';
+    document.getElementById('openingStyle').value='';
+    document.getElementById('storytellingStyle').value='';
+    document.getElementById('forbiddenPhrases').value='';
     document.getElementById('imageProvider').value='ktn';
     scriptResult.value='';
     scriptTitle.textContent='Kịch bản AI';
@@ -1144,8 +1263,11 @@ async function checkPersistenceHealth(){
 
 function bindAutosave(){
   [
-    'projectName','topic','scriptLanguage','scriptProvider','paragraphCount',
-    'targetDuration','extraInstruction','voiceName','imageProvider',
+    'projectName','topic','platformMode','scriptLanguage','scriptProvider','paragraphCount',
+    'targetDuration','extraInstruction','targetAudience','contentGoal','contentTone',
+    'expertiseLevel','anglePreference','ctaStyle','sourceNotes','forbiddenContent',
+    'channelName','channelStyle','narratorPersona','vocabularyStyle','openingStyle',
+    'storytellingStyle','forbiddenPhrases','voiceName','imageProvider',
     'subtitleMaxChars','subtitleGap','renderAspect','renderTransition'
   ].forEach(id=>{
     const el=document.getElementById(id);
@@ -1696,13 +1818,38 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
 
 generateBtn.addEventListener('click',async()=>{
   const topic=document.getElementById('topic').value.trim();
+  const platformMode=document.getElementById('platformMode').value;
   const provider=document.getElementById('scriptProvider').value;
   const language=document.getElementById('scriptLanguage').value;
   const paragraphs=Number(document.getElementById('paragraphCount').value||6);
   const duration=document.getElementById('targetDuration').value;
   const extraInstruction=document.getElementById('extraInstruction').value.trim();
+  const contentBrief={
+    targetAudience:document.getElementById('targetAudience').value.trim(),
+    contentGoal:document.getElementById('contentGoal').value,
+    contentTone:document.getElementById('contentTone').value,
+    expertiseLevel:document.getElementById('expertiseLevel').value,
+    anglePreference:document.getElementById('anglePreference').value.trim(),
+    ctaStyle:document.getElementById('ctaStyle').value,
+    sourceNotes:document.getElementById('sourceNotes').value.trim(),
+    forbiddenContent:document.getElementById('forbiddenContent').value.trim()
+  };
+  const channelBible={
+    channelName:document.getElementById('channelName').value.trim(),
+    channelStyle:document.getElementById('channelStyle').value.trim(),
+    narratorPersona:document.getElementById('narratorPersona').value.trim(),
+    vocabularyStyle:document.getElementById('vocabularyStyle').value.trim(),
+    openingStyle:document.getElementById('openingStyle').value.trim(),
+    storytellingStyle:document.getElementById('storytellingStyle').value.trim(),
+    forbiddenPhrases:document.getElementById('forbiddenPhrases').value.trim()
+  };
 
   if(!topic){showToast('Hãy nhập chủ đề video trước.');document.getElementById('topic').focus();return;}
+  if(!contentBrief.targetAudience){
+    showToast('Hãy mô tả người xem mục tiêu trước khi AI viết kịch bản.');
+    document.getElementById('targetAudience').focus();
+    return;
+  }
 
   generateBtn.disabled=true;
   generateBtnText.innerHTML='<span class="loading-dot"></span>Đang tạo kịch bản...';
@@ -1713,7 +1860,10 @@ generateBtn.addEventListener('click',async()=>{
     const res=await fetch('/api/generate-script',{
       method:'POST',
       headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({topic,provider,language,paragraphs,duration,extraInstruction})
+      body:JSON.stringify({
+        topic,platformMode,provider,language,paragraphs,duration,extraInstruction,
+        contentBrief,channelBible
+      })
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
@@ -1723,7 +1873,7 @@ generateBtn.addEventListener('click',async()=>{
     scriptDemo.classList.remove('hidden');
     scriptTitle.textContent=topic;
     scriptResult.value=data.script||'';
-    scriptMeta.textContent='Đã tạo · '+(data.providerLabel||provider)+' · '+(data.model||'AI')+' · bản nháp';
+    scriptMeta.textContent='Đã tạo · '+(PLATFORM_PRESETS[platformMode]?.label||platformMode)+' · '+(data.providerLabel||provider)+' · '+(data.model||'AI')+' · bản nháp';
     backendStatus.textContent='AI sẵn sàng · '+(data.providerLabel||provider);
     backendStatus.className='preview-badge ready';
     keywordList.innerHTML='';
@@ -2069,6 +2219,11 @@ document.querySelectorAll('[data-asset-filter]').forEach(button=>{
     renderAssetLibrary();
   });
 });
+document.getElementById('platformMode').addEventListener('change',e=>{
+  configurePlatformMode(e.target.value,'',true);
+  scheduleAutosave();
+});
+
 document.getElementById('imageProvider').addEventListener('change',async()=>{
   updateImageProviderState();
   await saveProjectNow({silent:true});
@@ -2082,6 +2237,7 @@ document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch)
 document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
 
+configurePlatformMode(document.getElementById('platformMode')?.value||'youtube_long',document.getElementById('targetDuration')?.value||'8-12m',false);
 activateScriptTools();
 updateImageProviderState();
 updateVoiceProviderState();
