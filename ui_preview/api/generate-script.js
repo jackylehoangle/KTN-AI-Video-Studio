@@ -137,12 +137,16 @@ function buildPrompt({
 
   const bibleLines=[
     bible.channelName ? '- Tên kênh: '+bible.channelName+'.' : '',
+    bible.primaryPlatform ? '- Nền tảng chính của kênh: '+bible.primaryPlatform+'.' : '',
+    bible.niche ? '- Chủ đề/niche cốt lõi: '+bible.niche+'.' : '',
     bible.channelStyle ? '- Phong cách kênh: '+bible.channelStyle+'.' : '',
     bible.narratorPersona ? '- Nhân vật người kể: '+bible.narratorPersona+'.' : '',
     bible.vocabularyStyle ? '- Phong cách từ vựng: '+bible.vocabularyStyle+'.' : '',
     bible.openingStyle ? '- Kiểu mở đầu ưu tiên: '+bible.openingStyle+'.' : '',
     bible.storytellingStyle ? '- Cấu trúc kể chuyện quen thuộc: '+bible.storytellingStyle+'.' : '',
-    bible.forbiddenPhrases ? '- Cụm từ/kiểu viết tuyệt đối tránh: '+bible.forbiddenPhrases+'.' : ''
+    bible.forbiddenPhrases ? '- Cụm từ/kiểu viết tuyệt đối tránh: '+bible.forbiddenPhrases+'.' : '',
+    bible.fixedRules ? '- Nguyên tắc nội dung cố định của kênh: '+bible.fixedRules+'.' : '',
+    bible.pronunciationNotes ? '- Ghi chú phát âm để ưu tiên cách viết dễ đọc thành lời: '+bible.pronunciationNotes+'.' : ''
   ].filter(Boolean);
 
   return [
@@ -295,15 +299,23 @@ export default async function handler(req,res){
   };
   const channelBible={
     channelName:clean(sourceBible.channelName,300),
+    primaryPlatform:clean(sourceBible.primaryPlatform,80),
+    niche:clean(sourceBible.niche,500),
     channelStyle:clean(sourceBible.channelStyle,1200),
     narratorPersona:clean(sourceBible.narratorPersona,1200),
     vocabularyStyle:clean(sourceBible.vocabularyStyle,1200),
     openingStyle:clean(sourceBible.openingStyle,1200),
     storytellingStyle:clean(sourceBible.storytellingStyle,1500),
-    forbiddenPhrases:clean(sourceBible.forbiddenPhrases,1500)
+    forbiddenPhrases:clean(sourceBible.forbiddenPhrases,1500),
+    fixedRules:clean(sourceBible.fixedRules,1800),
+    defaultVoice:clean(sourceBible.defaultVoice,100),
+    pronunciationNotes:clean(sourceBible.pronunciationNotes,1200)
   };
 
   if(!topic) return send(res,400,{error:'Chủ đề video không được để trống.'});
+  if(!channelBible.channelName){
+    return send(res,400,{error:'Hãy chọn Channel Profile trước khi AI viết kịch bản.'});
+  }
   if(!contentBrief.targetAudience){
     return send(res,400,{error:'Content Brief cần có người xem mục tiêu trước khi AI viết kịch bản.'});
   }

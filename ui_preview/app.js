@@ -65,6 +65,395 @@ function configurePlatformMode(mode,preferredDuration='',updateParagraphCount=fa
   }
 }
 
+
+const CHANNEL_PROFILE_STORAGE_KEY='ktn-ai-video-channel-profiles-v1';
+let channelProfiles=[];
+
+function makeChannelProfileId(){
+  try{
+    if(globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  }catch(_error){}
+  return 'channel_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
+}
+
+function normalizeChannelProfile(profile={}){
+  const now=new Date().toISOString();
+  return {
+    id:String(profile.id||makeChannelProfileId()),
+    name:String(profile.name||'').trim(),
+    primaryPlatform:['youtube','facebook','multi'].includes(profile.primaryPlatform)?profile.primaryPlatform:'youtube',
+    niche:String(profile.niche||'').trim(),
+    targetAudience:String(profile.targetAudience||'').trim(),
+    defaultTone:String(profile.defaultTone||'natural'),
+    defaultGoal:String(profile.defaultGoal||'educate'),
+    defaultExpertise:String(profile.defaultExpertise||'general'),
+    defaultCta:String(profile.defaultCta||'soft'),
+    channelStyle:String(profile.channelStyle||'').trim(),
+    narratorPersona:String(profile.narratorPersona||'').trim(),
+    vocabularyStyle:String(profile.vocabularyStyle||'').trim(),
+    openingStyle:String(profile.openingStyle||'').trim(),
+    storytellingStyle:String(profile.storytellingStyle||'').trim(),
+    forbiddenPhrases:String(profile.forbiddenPhrases||'').trim(),
+    forbiddenContent:String(profile.forbiddenContent||'').trim(),
+    defaultVoice:String(profile.defaultVoice||'Kore').trim()||'Kore',
+    pronunciationNotes:String(profile.pronunciationNotes||'').trim(),
+    createdAt:String(profile.createdAt||now),
+    updatedAt:String(profile.updatedAt||now)
+  };
+}
+
+function loadChannelProfiles(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(CHANNEL_PROFILE_STORAGE_KEY)||'[]');
+    channelProfiles=Array.isArray(raw)
+      ? raw.map(normalizeChannelProfile).filter(item=>item.name)
+      : [];
+  }catch(_error){
+    channelProfiles=[];
+  }
+}
+
+function persistChannelProfiles(){
+  localStorage.setItem(CHANNEL_PROFILE_STORAGE_KEY,JSON.stringify(channelProfiles));
+}
+
+function escapeChannelHtml(value){
+  return String(value||'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
+}
+
+function channelPlatformLabel(value){
+  if(value==='facebook') return 'Facebook';
+  if(value==='multi') return 'Đa nền tảng';
+  return 'YouTube';
+}
+
+function getChannelProfileById(id){
+  return channelProfiles.find(item=>item.id===String(id||''))||null;
+}
+
+function getSelectedChannelProfile(){
+  return getChannelProfileById(document.getElementById('channelProfileSelect')?.value);
+}
+
+function channelProfileToBible(profile){
+  if(!profile) return {};
+  return {
+    channelName:profile.name,
+    primaryPlatform:profile.primaryPlatform,
+    niche:profile.niche,
+    channelStyle:profile.channelStyle,
+    narratorPersona:profile.narratorPersona,
+    vocabularyStyle:profile.vocabularyStyle,
+    openingStyle:profile.openingStyle,
+    storytellingStyle:profile.storytellingStyle,
+    forbiddenPhrases:profile.forbiddenPhrases,
+    fixedRules:profile.forbiddenContent,
+    defaultVoice:profile.defaultVoice,
+    pronunciationNotes:profile.pronunciationNotes
+  };
+}
+
+function refreshChannelProfileSelect(preferredId=''){
+  const select=document.getElementById('channelProfileSelect');
+  if(!select) return;
+  const current=String(preferredId||select.value||'');
+  select.innerHTML='<option value="">— Chọn kênh trước khi viết —</option>';
+  channelProfiles
+    .slice()
+    .sort((a,b)=>a.name.localeCompare(b.name,'vi'))
+    .forEach(profile=>{
+      const option=document.createElement('option');
+      option.value=profile.id;
+      option.textContent=profile.name+(profile.niche?' · '+profile.niche:'');
+      select.appendChild(option);
+    });
+  if(getChannelProfileById(current)) select.value=current;
+  else select.value='';
+  renderSelectedChannelSummary();
+}
+
+function renderSelectedChannelSummary(){
+  const box=document.getElementById('channelSelectedSummary');
+  if(!box) return;
+  const profile=getSelectedChannelProfile();
+  if(!profile){
+    box.innerHTML='<strong>Chưa chọn Channel Profile</strong><span>DNA kênh sẽ tự động được đưa vào AI khi tạo kịch bản.</span>';
+    return;
+  }
+  box.innerHTML=
+    '<strong>'+escapeChannelHtml(profile.name)+'</strong>'+
+    '<span>'+escapeChannelHtml(channelPlatformLabel(profile.primaryPlatform))+
+    (profile.niche?' · '+escapeChannelHtml(profile.niche):'')+
+    (profile.targetAudience?' · Người xem: '+escapeChannelHtml(profile.targetAudience):'')+'</span>';
+}
+
+function applyChannelDefaults(profile){
+  if(!profile) return;
+  const mappings=[
+    ['contentGoal',profile.defaultGoal],
+    ['contentTone',profile.defaultTone],
+    ['expertiseLevel',profile.defaultExpertise],
+    ['ctaStyle',profile.defaultCta]
+  ];
+  mappings.forEach(([id,value])=>{
+    const el=document.getElementById(id);
+    if(el && value) el.value=value;
+  });
+  const voice=document.getElementById('voiceName');
+  const workspace=document.getElementById('voiceWorkspaceVoice');
+  if(profile.defaultVoice){
+    if(voice) voice.value=profile.defaultVoice;
+    if(workspace) workspace.value=profile.defaultVoice;
+  }
+}
+
+function selectChannelProfile(id,{applyDefaults=true,autosave=true}={}){
+  const select=document.getElementById('channelProfileSelect');
+  const profile=getChannelProfileById(id);
+  if(select) select.value=profile?.id||'';
+  if(profile && applyDefaults) applyChannelDefaults(profile);
+  renderSelectedChannelSummary();
+  if(profile) renderVoiceWorkspace();
+  if(autosave) scheduleAutosave();
+  return profile;
+}
+
+function resetChannelEditor(profile=null){
+  const item=profile?normalizeChannelProfile(profile):normalizeChannelProfile({id:'',name:''});
+  const set=(id,value)=>{
+    const el=document.getElementById(id);
+    if(el) el.value=value??'';
+  };
+  set('channelProfileId',profile?.id||'');
+  set('channelProfileName',profile?.name||'');
+  set('channelPrimaryPlatform',profile?.primaryPlatform||'youtube');
+  set('channelNiche',profile?.niche||'');
+  set('channelTargetAudience',profile?.targetAudience||'');
+  set('channelDefaultTone',profile?.defaultTone||'natural');
+  set('channelDefaultGoal',profile?.defaultGoal||'educate');
+  set('channelDefaultExpertise',profile?.defaultExpertise||'general');
+  set('channelDefaultCta',profile?.defaultCta||'soft');
+  set('channelProfileStyle',profile?.channelStyle||'');
+  set('channelNarratorPersona',profile?.narratorPersona||'');
+  set('channelVocabularyStyle',profile?.vocabularyStyle||'');
+  set('channelOpeningStyle',profile?.openingStyle||'');
+  set('channelStorytellingStyle',profile?.storytellingStyle||'');
+  set('channelForbiddenPhrases',profile?.forbiddenPhrases||'');
+  set('channelForbiddenContent',profile?.forbiddenContent||'');
+  set('channelDefaultVoice',profile?.defaultVoice||'Kore');
+  set('channelPronunciationNotes',profile?.pronunciationNotes||'');
+  const mode=document.getElementById('channelEditorMode');
+  const title=document.getElementById('channelEditorTitle');
+  if(mode) mode.textContent=profile?'Chỉnh sửa Channel Profile':'Tạo Channel Profile';
+  if(title) title.textContent=profile?.name||'Kênh mới';
+  const duplicate=document.getElementById('duplicateChannelProfileBtn');
+  const remove=document.getElementById('deleteChannelProfileBtn');
+  if(duplicate) duplicate.disabled=!profile;
+  if(remove) remove.disabled=!profile;
+  return item;
+}
+
+function readChannelEditor(){
+  const value=id=>String(document.getElementById(id)?.value||'').trim();
+  const existing=getChannelProfileById(value('channelProfileId'));
+  return normalizeChannelProfile({
+    id:existing?.id||makeChannelProfileId(),
+    createdAt:existing?.createdAt,
+    name:value('channelProfileName'),
+    primaryPlatform:value('channelPrimaryPlatform'),
+    niche:value('channelNiche'),
+    targetAudience:value('channelTargetAudience'),
+    defaultTone:value('channelDefaultTone'),
+    defaultGoal:value('channelDefaultGoal'),
+    defaultExpertise:value('channelDefaultExpertise'),
+    defaultCta:value('channelDefaultCta'),
+    channelStyle:value('channelProfileStyle'),
+    narratorPersona:value('channelNarratorPersona'),
+    vocabularyStyle:value('channelVocabularyStyle'),
+    openingStyle:value('channelOpeningStyle'),
+    storytellingStyle:value('channelStorytellingStyle'),
+    forbiddenPhrases:value('channelForbiddenPhrases'),
+    forbiddenContent:value('channelForbiddenContent'),
+    defaultVoice:value('channelDefaultVoice'),
+    pronunciationNotes:value('channelPronunciationNotes'),
+    updatedAt:new Date().toISOString()
+  });
+}
+
+function renderChannelProfileLibrary(){
+  const count=document.getElementById('channelProfileCount');
+  const empty=document.getElementById('channelProfileEmpty');
+  const grid=document.getElementById('channelProfileGrid');
+  if(count) count.textContent=channelProfiles.length+' kênh';
+  if(!grid || !empty) return;
+  if(!channelProfiles.length){
+    grid.innerHTML='';
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.classList.remove('hidden');
+  const selectedId=document.getElementById('channelProfileSelect')?.value||'';
+  grid.innerHTML=channelProfiles
+    .slice()
+    .sort((a,b)=>a.name.localeCompare(b.name,'vi'))
+    .map(profile=>{
+      const selected=profile.id===selectedId?' selected':'';
+      return '<article class="channel-profile-card'+selected+'" data-channel-id="'+escapeChannelHtml(profile.id)+'">'+
+        '<div class="channel-profile-card-head"><h4>'+escapeChannelHtml(profile.name)+'</h4>'+
+        '<span class="channel-platform-pill">'+escapeChannelHtml(channelPlatformLabel(profile.primaryPlatform))+'</span></div>'+
+        '<p>'+escapeChannelHtml(profile.niche||'Chưa khai báo niche')+'</p>'+
+        '<small>'+escapeChannelHtml(profile.targetAudience||'Chưa khai báo người xem')+'</small>'+
+        '<div class="asset-actions">'+
+          '<button data-channel-action="use" data-channel-id="'+escapeChannelHtml(profile.id)+'">Dùng kênh</button>'+
+          '<button data-channel-action="edit" data-channel-id="'+escapeChannelHtml(profile.id)+'">Sửa</button>'+
+          '<button data-channel-action="duplicate" data-channel-id="'+escapeChannelHtml(profile.id)+'">Nhân bản</button>'+
+        '</div>'+
+      '</article>';
+    }).join('');
+
+  grid.querySelectorAll('[data-channel-action]').forEach(button=>{
+    button.addEventListener('click',event=>{
+      event.stopPropagation();
+      const id=button.dataset.channelId||'';
+      if(button.dataset.channelAction==='use'){
+        selectChannelProfile(id,{applyDefaults:true,autosave:true});
+        renderChannelProfileLibrary();
+        document.querySelector('.content-grid')?.scrollIntoView({behavior:'smooth',block:'start'});
+      }else if(button.dataset.channelAction==='edit'){
+        resetChannelEditor(getChannelProfileById(id));
+      }else if(button.dataset.channelAction==='duplicate'){
+        duplicateChannelProfile(id);
+      }
+    });
+  });
+  grid.querySelectorAll('.channel-profile-card').forEach(card=>{
+    card.addEventListener('click',()=>resetChannelEditor(getChannelProfileById(card.dataset.channelId)));
+  });
+}
+
+function saveChannelProfileFromEditor(){
+  const profile=readChannelEditor();
+  if(!profile.name){
+    showToast('Hãy nhập tên kênh.');
+    document.getElementById('channelProfileName')?.focus();
+    return null;
+  }
+  if(!profile.niche){
+    showToast('Hãy nhập chủ đề / niche của kênh.');
+    document.getElementById('channelNiche')?.focus();
+    return null;
+  }
+  if(!profile.targetAudience){
+    showToast('Hãy nhập người xem mặc định của kênh.');
+    document.getElementById('channelTargetAudience')?.focus();
+    return null;
+  }
+  const index=channelProfiles.findIndex(item=>item.id===profile.id);
+  if(index>=0) channelProfiles[index]=profile;
+  else channelProfiles.push(profile);
+  persistChannelProfiles();
+  refreshChannelProfileSelect(profile.id);
+  selectChannelProfile(profile.id,{applyDefaults:true,autosave:true});
+  resetChannelEditor(profile);
+  renderChannelProfileLibrary();
+  showToast('Đã lưu Channel Profile: '+profile.name);
+  return profile;
+}
+
+function duplicateChannelProfile(id){
+  const source=getChannelProfileById(id);
+  if(!source) return null;
+  const copy=normalizeChannelProfile({
+    ...source,
+    id:makeChannelProfileId(),
+    name:source.name+' · Bản sao',
+    createdAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  });
+  channelProfiles.push(copy);
+  persistChannelProfiles();
+  refreshChannelProfileSelect(copy.id);
+  selectChannelProfile(copy.id,{applyDefaults:true,autosave:true});
+  resetChannelEditor(copy);
+  renderChannelProfileLibrary();
+  showToast('Đã nhân bản kênh '+source.name+'.');
+  return copy;
+}
+
+function deleteChannelProfile(id){
+  const profile=getChannelProfileById(id);
+  if(!profile) return;
+  if(!confirm('Xóa Channel Profile “'+profile.name+'”? Các Project đang tham chiếu kênh này sẽ cần chọn lại kênh.')) return;
+  channelProfiles=channelProfiles.filter(item=>item.id!==id);
+  persistChannelProfiles();
+  const selected=document.getElementById('channelProfileSelect')?.value;
+  refreshChannelProfileSelect(selected===id?'':selected);
+  resetChannelEditor();
+  renderChannelProfileLibrary();
+  scheduleAutosave();
+  showToast('Đã xóa Channel Profile.');
+}
+
+function migrateLegacyChannelBible(project){
+  const legacy=project?.inputs?.channelBible;
+  if(!legacy?.channelName) return null;
+  const existing=channelProfiles.find(item=>item.name.toLowerCase()===String(legacy.channelName).trim().toLowerCase());
+  if(existing) return existing;
+  const profile=normalizeChannelProfile({
+    name:legacy.channelName,
+    primaryPlatform:'youtube',
+    niche:'Migrated profile',
+    targetAudience:project?.inputs?.contentBrief?.targetAudience||'Người xem của kênh',
+    defaultTone:project?.inputs?.contentBrief?.contentTone||'natural',
+    defaultGoal:project?.inputs?.contentBrief?.contentGoal||'educate',
+    defaultExpertise:project?.inputs?.contentBrief?.expertiseLevel||'general',
+    defaultCta:project?.inputs?.contentBrief?.ctaStyle||'soft',
+    channelStyle:legacy.channelStyle,
+    narratorPersona:legacy.narratorPersona,
+    vocabularyStyle:legacy.vocabularyStyle,
+    openingStyle:legacy.openingStyle,
+    storytellingStyle:legacy.storytellingStyle,
+    forbiddenPhrases:legacy.forbiddenPhrases,
+    forbiddenContent:project?.inputs?.contentBrief?.forbiddenContent||'',
+    defaultVoice:project?.settings?.voiceName||'Kore'
+  });
+  channelProfiles.push(profile);
+  persistChannelProfiles();
+  return profile;
+}
+
+function ensureProjectChannelProfile(project){
+  const requestedId=String(project?.inputs?.channelProfileId||'');
+  let profile=getChannelProfileById(requestedId);
+  if(!profile && project?.inputs?.channelProfileSnapshot){
+    const snapshot=normalizeChannelProfile(project.inputs.channelProfileSnapshot);
+    const sameName=channelProfiles.find(item=>item.name.toLowerCase()===snapshot.name.toLowerCase());
+    profile=sameName||snapshot;
+    if(!sameName){
+      channelProfiles.push(profile);
+      persistChannelProfiles();
+    }
+  }
+  if(!profile) profile=migrateLegacyChannelBible(project);
+  return profile;
+}
+
+function openChannelManager(profileId=''){
+  const profile=getChannelProfileById(profileId);
+  if(profile) resetChannelEditor(profile);
+  renderChannelProfileLibrary();
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.nav-item[data-section="channels"]')?.classList.add('active');
+  document.getElementById('channelProfilesSection')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 function wait(ms){
   return new Promise(resolve=>setTimeout(resolve,ms));
 }
@@ -943,15 +1332,8 @@ function serializeProjectState({includeMaterialKeys=false}={}){
         sourceNotes:document.getElementById('sourceNotes').value,
         forbiddenContent:document.getElementById('forbiddenContent').value
       },
-      channelBible:{
-        channelName:document.getElementById('channelName').value,
-        channelStyle:document.getElementById('channelStyle').value,
-        narratorPersona:document.getElementById('narratorPersona').value,
-        vocabularyStyle:document.getElementById('vocabularyStyle').value,
-        openingStyle:document.getElementById('openingStyle').value,
-        storytellingStyle:document.getElementById('storytellingStyle').value,
-        forbiddenPhrases:document.getElementById('forbiddenPhrases').value
-      }
+      channelProfileId:document.getElementById('channelProfileSelect').value,
+      channelProfileSnapshot:getSelectedChannelProfile()
     },
     script:{
       title:scriptTitle.textContent||'Kịch bản AI',
@@ -1066,13 +1448,11 @@ async function restoreProject(project){
     restoreInput('ctaStyle',project.inputs?.contentBrief?.ctaStyle||'soft');
     restoreInput('sourceNotes',project.inputs?.contentBrief?.sourceNotes||'');
     restoreInput('forbiddenContent',project.inputs?.contentBrief?.forbiddenContent||'');
-    restoreInput('channelName',project.inputs?.channelBible?.channelName||'');
-    restoreInput('channelStyle',project.inputs?.channelBible?.channelStyle||'');
-    restoreInput('narratorPersona',project.inputs?.channelBible?.narratorPersona||'');
-    restoreInput('vocabularyStyle',project.inputs?.channelBible?.vocabularyStyle||'');
-    restoreInput('openingStyle',project.inputs?.channelBible?.openingStyle||'');
-    restoreInput('storytellingStyle',project.inputs?.channelBible?.storytellingStyle||'');
-    restoreInput('forbiddenPhrases',project.inputs?.channelBible?.forbiddenPhrases||'');
+    const restoredChannel=ensureProjectChannelProfile(project);
+    refreshChannelProfileSelect(restoredChannel?.id||'');
+    if(restoredChannel){
+      selectChannelProfile(restoredChannel.id,{applyDefaults:false,autosave:false});
+    }
 
     scriptTitle.textContent=project.script?.title||'Kịch bản AI';
     scriptResult.value=project.script?.text||'';
@@ -1169,13 +1549,8 @@ async function startNewProject(){
     document.getElementById('ctaStyle').value='soft';
     document.getElementById('sourceNotes').value='';
     document.getElementById('forbiddenContent').value='';
-    document.getElementById('channelName').value='';
-    document.getElementById('channelStyle').value='';
-    document.getElementById('narratorPersona').value='';
-    document.getElementById('vocabularyStyle').value='';
-    document.getElementById('openingStyle').value='';
-    document.getElementById('storytellingStyle').value='';
-    document.getElementById('forbiddenPhrases').value='';
+    document.getElementById('channelProfileSelect').value='';
+    renderSelectedChannelSummary();
     document.getElementById('imageProvider').value='ktn';
     scriptResult.value='';
     scriptTitle.textContent='Kịch bản AI';
@@ -1266,8 +1641,7 @@ function bindAutosave(){
     'projectName','topic','platformMode','scriptLanguage','scriptProvider','paragraphCount',
     'targetDuration','extraInstruction','targetAudience','contentGoal','contentTone',
     'expertiseLevel','anglePreference','ctaStyle','sourceNotes','forbiddenContent',
-    'channelName','channelStyle','narratorPersona','vocabularyStyle','openingStyle',
-    'storytellingStyle','forbiddenPhrases','voiceName','imageProvider',
+    'channelProfileSelect','voiceName','imageProvider',
     'subtitleMaxChars','subtitleGap','renderAspect','renderTransition'
   ].forEach(id=>{
     const el=document.getElementById(id);
@@ -1791,6 +2165,11 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
       document.getElementById('voiceSection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
     }
+    if(btn.dataset.section==='channels'){
+      renderChannelProfileLibrary();
+      document.getElementById('channelProfilesSection').scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
     if(btn.dataset.section==='settings'){
       document.getElementById('settingsSection').scrollIntoView({behavior:'smooth',block:'start'});
       return;
@@ -1834,22 +2213,22 @@ generateBtn.addEventListener('click',async()=>{
     sourceNotes:document.getElementById('sourceNotes').value.trim(),
     forbiddenContent:document.getElementById('forbiddenContent').value.trim()
   };
-  const channelBible={
-    channelName:document.getElementById('channelName').value.trim(),
-    channelStyle:document.getElementById('channelStyle').value.trim(),
-    narratorPersona:document.getElementById('narratorPersona').value.trim(),
-    vocabularyStyle:document.getElementById('vocabularyStyle').value.trim(),
-    openingStyle:document.getElementById('openingStyle').value.trim(),
-    storytellingStyle:document.getElementById('storytellingStyle').value.trim(),
-    forbiddenPhrases:document.getElementById('forbiddenPhrases').value.trim()
-  };
+  const channelProfile=getSelectedChannelProfile();
+  const channelBible=channelProfileToBible(channelProfile);
 
   if(!topic){showToast('Hãy nhập chủ đề video trước.');document.getElementById('topic').focus();return;}
-  if(!contentBrief.targetAudience){
-    showToast('Hãy mô tả người xem mục tiêu trước khi AI viết kịch bản.');
-    document.getElementById('targetAudience').focus();
+  if(!channelProfile){
+    showToast('Hãy chọn Channel Profile trước khi AI viết kịch bản.');
+    document.getElementById('channelProfileSelect').focus();
     return;
   }
+  contentBrief.targetAudience=contentBrief.targetAudience||channelProfile.targetAudience;
+  contentBrief.contentGoal=contentBrief.contentGoal||channelProfile.defaultGoal;
+  contentBrief.contentTone=contentBrief.contentTone||channelProfile.defaultTone;
+  contentBrief.expertiseLevel=contentBrief.expertiseLevel||channelProfile.defaultExpertise;
+  contentBrief.ctaStyle=contentBrief.ctaStyle||channelProfile.defaultCta;
+  contentBrief.forbiddenContent=[channelProfile.forbiddenContent,contentBrief.forbiddenContent]
+    .filter(Boolean).join('; ');
 
   generateBtn.disabled=true;
   generateBtnText.innerHTML='<span class="loading-dot"></span>Đang tạo kịch bản...';
@@ -2224,6 +2603,26 @@ document.getElementById('platformMode').addEventListener('change',e=>{
   scheduleAutosave();
 });
 
+document.getElementById('channelProfileSelect').addEventListener('change',e=>{
+  selectChannelProfile(e.target.value,{applyDefaults:true,autosave:true});
+  renderChannelProfileLibrary();
+});
+document.getElementById('openChannelManagerBtn').addEventListener('click',()=>openChannelManager(document.getElementById('channelProfileSelect').value));
+document.getElementById('newChannelProfileBtn').addEventListener('click',()=>{
+  resetChannelEditor();
+  document.getElementById('channelProfileName')?.focus();
+});
+document.getElementById('cancelChannelEditBtn').addEventListener('click',()=>resetChannelEditor());
+document.getElementById('saveChannelProfileBtn').addEventListener('click',saveChannelProfileFromEditor);
+document.getElementById('duplicateChannelProfileBtn').addEventListener('click',()=>{
+  const id=document.getElementById('channelProfileId').value;
+  if(id) duplicateChannelProfile(id);
+});
+document.getElementById('deleteChannelProfileBtn').addEventListener('click',()=>{
+  const id=document.getElementById('channelProfileId').value;
+  if(id) deleteChannelProfile(id);
+});
+
 document.getElementById('imageProvider').addEventListener('change',async()=>{
   updateImageProviderState();
   await saveProjectNow({silent:true});
@@ -2237,6 +2636,10 @@ document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch)
 document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
 document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
 
+loadChannelProfiles();
+refreshChannelProfileSelect();
+renderChannelProfileLibrary();
+resetChannelEditor();
 configurePlatformMode(document.getElementById('platformMode')?.value||'youtube_long',document.getElementById('targetDuration')?.value||'8-12m',false);
 activateScriptTools();
 updateImageProviderState();
