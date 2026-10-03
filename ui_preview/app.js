@@ -4035,19 +4035,49 @@ document.getElementById('imageProvider').addEventListener('change',async()=>{
   updateImageProviderState();
   await saveProjectNow({silent:true});
 });
+document.getElementById('voiceProvider').addEventListener('change',async e=>{
+  const provider=e.target.value||'gemini';
+  populateVoiceSelectors(provider,'');
+  renderVoiceLibrary();
+  updateVoiceProviderState();
+  renderVoiceWorkspace();
+  scheduleAutosave();
+});
 document.getElementById('voiceName').addEventListener('change',e=>syncVoiceSelectors(e.target));
 document.getElementById('voiceWorkspaceVoice').addEventListener('change',e=>syncVoiceSelectors(e.target));
+document.getElementById('voiceStylePreset').addEventListener('change',scheduleAutosave);
+document.getElementById('voiceSpeed').addEventListener('change',scheduleAutosave);
+document.getElementById('voiceStyleInstruction').addEventListener('input',scheduleAutosave);
+
 document.getElementById('voicePreviewBtn').addEventListener('click',previewVoice);
 document.getElementById('voiceBatchConfirm').addEventListener('change',updateVoiceBatchButton);
 document.getElementById('voiceBatchScope').addEventListener('change',updateVoiceBatchButton);
 document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch);
-document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
+document.getElementById('voiceBatchPauseBtn').addEventListener('click',pauseVoiceBatch);
+document.getElementById('voiceBatchResumeBtn').addEventListener('click',resumeVoiceBatch);
+document.getElementById('voiceBatchRetryBtn').addEventListener('click',retryFailedVoiceBatch);
+document.getElementById('voiceBatchCancelBtn').addEventListener('click',cancelVoiceBatch);
+
+document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',async()=>{
+  await refreshVoiceLibrary({preserveSelection:true,silent:true});
+  renderVoiceWorkspace();
+});
+document.getElementById('refreshVoiceLibraryBtn').addEventListener('click',()=>refreshVoiceLibrary({preserveSelection:true}));
+document.getElementById('openVoiceCloneBtn').addEventListener('click',openVoiceCloneModal);
+document.getElementById('closeVoiceCloneBtn').addEventListener('click',closeVoiceCloneModal);
+document.getElementById('cancelVoiceCloneBtn').addEventListener('click',closeVoiceCloneModal);
+document.getElementById('createVoiceCloneBtn').addEventListener('click',createVoiceClone);
+document.getElementById('voiceCloneProvider').addEventListener('change',updateVoiceCloneProviderUi);
+document.getElementById('voiceCloneModal').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) closeVoiceCloneModal();
+});
 try{sceneViewMode=localStorage.getItem('ktn-scene-view-mode')||'board';}catch(_error){}
 loadChannelProfiles();
 refreshChannelProfileSelect();
 renderChannelProfileLibrary();
 resetChannelEditor();
 populateScriptModels(document.getElementById('scriptProvider')?.value||'gemini','');
+populateVoiceSelectors(document.getElementById('voiceProvider')?.value||'gemini','Kore');
 bindWorkspaceNavigation();
 updateProjectNavigationState();
 configurePlatformMode(document.getElementById('platformMode')?.value||'youtube_long',document.getElementById('targetDuration')?.value||'8-12m',false);
@@ -4060,6 +4090,7 @@ renderAssetLibrary();
 renderProjectLibrary();
 bindAutosave();
 refreshBackendStatus();
+refreshVoiceLibrary({preserveSelection:true,silent:true});
 refreshRenderWorker();
 refreshSystemStatus();
 loadAutosavedProject();
