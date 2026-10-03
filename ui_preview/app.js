@@ -1574,6 +1574,9 @@ function clearSceneAsset(scene,type){
   }else{
     scene.audio_asset=null;
     scene.audio_duration_seconds=null;
+    scene.audio_qa_approved=false;
+    scene.voice_job_status='';
+    scene.voice_job_error='';
   }
   renderScenes(currentScenes,{providerLabel:'Đã cập nhật'});
   renderAssetLibrary();
@@ -2062,11 +2065,20 @@ function serializeProjectState({includeMaterialKeys=false}={}){
       id:scene.id,
       order:scene.order,
       title:scene.title,
+      purpose:scene.purpose||'other',
       narration:scene.narration,
       duration_seconds:scene.duration_seconds,
       audio_duration_seconds:scene.audio_duration_seconds||null,
+      visual_intent:scene.visual_intent||'',
+      shot_type:scene.shot_type||'',
+      continuity_notes:scene.continuity_notes||'',
       visual_description:scene.visual_description,
       image_prompt:scene.image_prompt,
+      locked:Boolean(scene.locked),
+      qa_status:scene.qa_status||'pending',
+      voice_job_status:scene.voice_job_status||'',
+      voice_job_error:scene.voice_job_error||'',
+      audio_qa_approved:Boolean(scene.audio_qa_approved),
       image_asset:scene.image_asset||null,
       audio_asset:scene.audio_asset||null,
       material_key:includeMaterialKeys?(scene.material_key||null):null
@@ -2077,7 +2089,11 @@ function serializeProjectState({includeMaterialKeys=false}={}){
       gap:Number(document.getElementById('subtitleGap').value||0.15)
     },
     settings:{
-      voiceName:document.getElementById('voiceName').value,
+      voiceProvider:selectedVoiceProvider(),
+      voiceName:selectedVoiceId(),
+      voiceStylePreset:document.getElementById('voiceStylePreset')?.value||'documentary',
+      voiceSpeed:Number(document.getElementById('voiceSpeed')?.value||1),
+      voiceStyleInstruction:document.getElementById('voiceStyleInstruction')?.value||'',
       imageProvider:document.getElementById('imageProvider').value,
       renderAspect:document.getElementById('renderAspect').value,
       renderTransition:document.getElementById('renderTransition').value
@@ -2188,8 +2204,15 @@ async function restoreProject(project){
 
     restoreInput('subtitleMaxChars',project.subtitles?.maxChars||42);
     restoreInput('subtitleGap',project.subtitles?.gap??0.15);
-    restoreInput('voiceName',project.settings?.voiceName||'Kore');
-    restoreInput('voiceWorkspaceVoice',project.settings?.voiceName||'Kore');
+    const restoredVoiceProvider=project.settings?.voiceProvider||'gemini';
+    const restoredVoiceId=project.settings?.voiceName||'Kore';
+    restoreInput('voiceProvider',restoredVoiceProvider);
+    restoreInput('voiceStylePreset',project.settings?.voiceStylePreset||'documentary');
+    restoreInput('voiceSpeed',project.settings?.voiceSpeed||1);
+    restoreInput('voiceStyleInstruction',project.settings?.voiceStyleInstruction||'');
+    await refreshVoiceLibrary({preserveSelection:false,silent:true});
+    populateVoiceSelectors(restoredVoiceProvider,restoredVoiceId);
+    selectVoiceById(restoredVoiceId);
     restoreInput('imageProvider',project.settings?.imageProvider||'gemini');
     restoreInput('renderAspect',project.settings?.renderAspect||'16:9');
     restoreInput('renderTransition',project.settings?.renderTransition||'');
@@ -2329,8 +2352,12 @@ function resetProjectForm({name='Dự án mới',channelId='',platformMode='yout
     document.getElementById('ctaStyle').value='soft';
     document.getElementById('sourceNotes').value='';
     document.getElementById('forbiddenContent').value='';
-    document.getElementById('voiceName').value='Kore';
-    document.getElementById('voiceWorkspaceVoice').value='Kore';
+    document.getElementById('voiceProvider').value='gemini';
+    document.getElementById('voiceStylePreset').value='documentary';
+    document.getElementById('voiceSpeed').value='1';
+    document.getElementById('voiceStyleInstruction').value='';
+    populateVoiceSelectors('gemini','Kore');
+    selectVoiceById('Kore');
     refreshChannelProfileSelect(channelId);
     if(channelId) selectChannelProfile(channelId,{applyDefaults:true,autosave:false});
     else{
@@ -2600,7 +2627,8 @@ function bindAutosave(){
     'projectName','topic','platformMode','scriptLanguage','scriptProvider','scriptModel','paragraphCount',
     'targetDuration','extraInstruction','targetAudience','contentGoal','contentTone',
     'expertiseLevel','anglePreference','ctaStyle','sourceNotes','forbiddenContent',
-    'channelProfileSelect','voiceName','imageProvider',
+    'channelProfileSelect','voiceProvider','voiceName','voiceWorkspaceVoice',
+    'voiceStylePreset','voiceSpeed','voiceStyleInstruction','imageProvider',
     'subtitleMaxChars','subtitleGap','renderAspect','renderTransition'
   ].forEach(id=>{
     const el=document.getElementById(id);
@@ -2792,15 +2820,6 @@ function renderKeywords(items,meta){
 
 function escapeText(value){
   return String(value??'');
-}
-
-function updateVoiceProviderState(){
-  const state=document.getElementById('voiceProviderState');
-  if(state){
-    state.textContent=voiceAvailability.gemini?'Sẵn sàng':'Thiếu API key';
-    state.style.color=voiceAvailability.gemini?'#198754':'#9b6b16';
-  }
-  renderVoiceWorkspace();
 }
 
 function markImageProviderBlocked(provider,message){
@@ -3788,9 +3807,11 @@ function buildRenderManifest(){
     topic:document.getElementById('topic').value.trim(),
     script:scriptResult.value.trim(),
     voice:{
-      provider:'gemini',
-      voice:document.getElementById('voiceName').value||'Kore',
-      languageCode:'vi-VN'
+      provider:selectedVoiceProvider(),
+      voice:selectedVoiceId(),
+      languageCode:'vi-VN',
+      stylePreset:document.getElementById('voiceStylePreset')?.value||'documentary',
+      speed:Number(document.getElementById('voiceSpeed')?.value||1)
     },
     video:{
       aspect:document.getElementById('renderAspect').value,
