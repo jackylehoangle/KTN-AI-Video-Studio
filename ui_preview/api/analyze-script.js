@@ -1,7 +1,7 @@
 const PROVIDERS={
   gemini:{label:'Google Gemini',keyEnv:'GEMINI_API_KEY',modelEnv:'GEMINI_SCRIPT_MODEL',defaultModel:'gemini-3.8-flash'},
   openai:{label:'OpenAI',keyEnv:'OPENAI_API_KEY',modelEnv:'OPENAI_SCRIPT_MODEL',defaultModel:'gpt-6.1-sol'},
-  anthropic:{label:'Anthropic Claude',keyEnv:'ANTHROPIC_API_KEY',modelEnv:'ANTHROPIC_SCRIPT_MODEL',defaultModel:'claude-sonnet-5-5'},
+  anthropic:{label:'Anthropic Claude',keyEnv:'ANTHROPIC_API_KEY',modelEnv:'ANTHROPIC_SCRIPT_MODEL',defaultModel:'claude-sonnet-5'},
   xai:{label:'xAI Grok',keyEnv:'XAI_API_KEY',modelEnv:'XAI_SCRIPT_MODEL',defaultModel:'grok-4.7'}
 };
 
