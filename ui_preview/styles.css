@@ -306,3 +306,10 @@ body[data-active-workspace="library"] .topbar{margin-bottom:18px}
   #briefWorkspace .side-panel{position:static;margin-top:14px}
   .workspace-view.active.panel{min-height:auto}
 }
+
+.workspace-context-inspector.collapsed{width:48px;padding:9px}
+.workspace-context-inspector.collapsed .inspector-head>div,
+.workspace-context-inspector.collapsed dl,
+.workspace-context-inspector.collapsed .inspector-edit-brief{display:none}
+.workspace-context-inspector.collapsed .inspector-head{border:0;padding:0;justify-content:center}
+.main.inspector-open.inspector-compact .workspace-view.active:not(.global-workspace):not(#briefWorkspace){margin-right:70px!important}
