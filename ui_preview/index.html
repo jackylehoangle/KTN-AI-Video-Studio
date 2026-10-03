@@ -302,32 +302,57 @@
       </section>
 
       <section class="panel script-preview workspace-view" id="scriptWorkspace" data-workspace-view="script">
-        <div class="panel-head">
+        <div class="workspace-section-head">
           <div>
+            <span class="workspace-kicker">02 · SCRIPT WORKSPACE</span>
             <h2>Kịch bản</h2>
-            <p>Kết quả AI sẽ hiển thị tại đây để chỉnh sửa trước khi chia cảnh.</p>
+            <p>Đọc, biên tập và chuẩn bị kịch bản trước khi chuyển sang storyboard.</p>
           </div>
-          <div class="segmented">
-            <button class="active" id="scriptTabBtn">Kịch bản</button>
-            <button id="keywordTabBtn">Từ khóa</button>
-            <button id="historyTabBtn">Lịch sử</button>
+          <div class="workspace-head-actions">
+            <div class="segmented">
+              <button class="active" id="scriptTabBtn">Kịch bản</button>
+              <button id="keywordTabBtn">Từ khóa</button>
+              <button id="historyTabBtn">Lịch sử</button>
+            </div>
+            <button class="primary compact-btn" id="goToSceneFromScriptBtn" type="button">Tiếp tục → Cảnh</button>
           </div>
         </div>
-        <div id="scriptEmpty" class="empty-state">
+
+        <div id="scriptEmpty" class="empty-state pro-empty">
           <div class="empty-icon">✦</div>
           <strong>Chưa có kịch bản</strong>
-          <p>Nhập chủ đề ở trên và chọn “Tạo kịch bản bằng AI”.</p>
+          <p>Quay lại Brief để tạo kịch bản đầu tiên cho dự án này.</p>
+          <button class="secondary compact-btn" type="button" data-workspace-link="brief">← Về Brief</button>
         </div>
-        <div id="scriptDemo" class="script-demo hidden">
-          <div class="script-toolbar">
-            <span id="scriptMeta">Đã tạo · bản nháp</span>
+
+        <div id="scriptDemo" class="script-editor-shell hidden">
+          <div class="script-editor-header">
             <div>
+              <span class="draft-chip">BẢN NHÁP</span>
+              <h3 id="scriptTitle">Kịch bản AI</h3>
+              <span id="scriptMeta">Đã tạo · bản nháp</span>
+            </div>
+            <div class="script-editor-actions">
               <button id="copyScriptBtn">Sao chép</button>
-              <button id="editScriptBtn">Chỉnh sửa</button>
+              <button class="primary-lite" id="editScriptBtn">Chỉnh sửa</button>
             </div>
           </div>
-          <h3 id="scriptTitle">Kịch bản AI</h3>
-          <textarea id="scriptResult" readonly></textarea>
+
+          <div class="script-metrics" id="scriptMetrics">
+            <div><strong id="scriptWordCount">0</strong><span>Từ</span></div>
+            <div><strong id="scriptEstimatedDuration">0 phút</strong><span>Ước tính đọc</span></div>
+            <div><strong id="scriptCharacterCount">0</strong><span>Ký tự</span></div>
+            <div><strong id="scriptParagraphMetric">0</strong><span>Đoạn</span></div>
+          </div>
+
+          <div class="script-editor-canvas">
+            <textarea id="scriptResult" readonly></textarea>
+          </div>
+
+          <div class="script-editor-footer">
+            <span id="scriptEditorHint">Chỉnh sửa thủ công nếu cần; thay đổi được tự động lưu trong Project.</span>
+            <button class="secondary compact-btn" type="button" data-workspace-link="scene">Storyboard →</button>
+          </div>
         </div>
 
         <div id="keywordPanel" class="keyword-panel hidden">
@@ -350,10 +375,11 @@
 
 
       <section class="panel voice-workspace-panel workspace-view" id="voiceSection" data-workspace-view="voice">
-        <div class="panel-head">
+        <div class="workspace-section-head">
           <div>
+            <span class="workspace-kicker">04 · VOICE WORKSPACE</span>
             <h2>Giọng đọc</h2>
-            <p>Nghe thử giọng Gemini TTS và tạo audio cho từng scene hoặc nhiều scene có kiểm soát.</p>
+            <p>Chọn giọng, nghe thử và quản lý audio theo scene trong một màn hình.</p>
           </div>
           <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Gemini TTS</span>
         </div>
@@ -457,14 +483,18 @@
       </section>
 
       <section class="panel scene-panel workspace-view" id="sceneSection" data-workspace-view="scene">
-        <div class="panel-head">
+        <div class="workspace-section-head">
           <div>
-            <h2>Chia cảnh</h2>
-            <p>AI tách kịch bản thành các scene có lời đọc, thời lượng và prompt hình ảnh.</p>
+            <span class="workspace-kicker">03 · STORYBOARD</span>
+            <h2>Cảnh & storyboard</h2>
+            <p>Mỗi card là một cảnh gồm lời đọc, thời lượng, hình ảnh và audio.</p>
           </div>
-          <button class="primary compact-btn" id="sceneBtn" disabled>
-            <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
-          </button>
+          <div class="workspace-head-actions">
+            <span class="scene-count-chip" id="sceneCountChip">0 cảnh</span>
+            <button class="primary compact-btn" id="sceneBtn" disabled>
+              <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
+            </button>
+          </div>
         </div>
         <div id="sceneEmpty" class="empty-state">
           <div class="empty-icon">▦</div>
