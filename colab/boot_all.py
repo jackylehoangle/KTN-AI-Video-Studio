@@ -35,6 +35,7 @@ RENDER_ENV = Path("/content/mpt-render-uv311")
 IMAGE_PORT = 8189
 COMFY_PORT = 8188
 RENDER_PORT = 8090
+RUNTIME_REF = os.environ.get("KTN_RUNTIME_REF", "main").strip() or "main"
 
 
 def run(cmd, *, cwd=None, env=None, quiet=False, check=True):
@@ -85,7 +86,7 @@ def ensure_repo() -> None:
         raise RuntimeError(
             f"Không thấy repo tại {REPO}. Cell bootstrap phải clone repo trước khi chạy script này."
         )
-    run(["git", "-C", str(REPO), "checkout", "ui-vn-01-vietnamese-baseline"], quiet=True)
+    run(["git", "-C", str(REPO), "checkout", RUNTIME_REF], quiet=True)
     run(
         [
             "git",
@@ -94,11 +95,11 @@ def ensure_repo() -> None:
             "pull",
             "--ff-only",
             "origin",
-            "ui-vn-01-vietnamese-baseline",
+            RUNTIME_REF,
         ],
         quiet=True,
     )
-    print("✅ Repository ready")
+    print(f"✅ Repository ready: {RUNTIME_REF}")
 
 
 def ensure_base_tools() -> None:
@@ -189,6 +190,25 @@ def gateway_token() -> str:
     return token or secrets.token_urlsafe(32)
 
 
+def render_api_key() -> str:
+    """Return a stable render-worker API key when supplied, otherwise create one.
+
+    For repeatable production-like acceptance runs, store MPT_RENDER_API_KEY in
+    Colab Secrets and use the same value in Vercel. A generated fallback is
+    suitable only for the current temporary runtime and must be copied to Vercel.
+    """
+    key = os.environ.get("MPT_RENDER_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        from google.colab import userdata
+
+        key = str(userdata.get("MPT_RENDER_API_KEY") or "").strip()
+    except Exception:
+        key = ""
+    return key or secrets.token_urlsafe(32)
+
+
 def start_image_engine(token: str) -> None:
     print("\n[6/9] Image Engine")
     kill("main.py --listen 127.0.0.1 --port 8188")
@@ -258,7 +278,7 @@ def ensure_uv() -> str:
     raise RuntimeError("Không tìm thấy uv sau khi cài.")
 
 
-def patch_render_config() -> None:
+def patch_render_config(api_key: str) -> None:
     example = REPO / "config.example.toml"
     config = REPO / "config.toml"
     shutil.copyfile(example, config)
@@ -272,6 +292,176 @@ def patch_render_config() -> None:
     text = re.sub(
         r"(?m)^edge_tts_timeout\s*=\s*[0-9.]+\s*$",
         "edge_tts_timeout = 240",
+        text,
+        count=1,
+    )
+    # Protect /api/v1 and /tasks with the same key Vercel sends as x-api-key.
+    text = re.sub(
+        r'(?m)^api_key\s*=\s*""\s*
+
+
+def start_render_worker(api_key: str) -> None:
+    print("\n[7/9] MoneyPrinterTurbo Render Worker")
+    uv = ensure_uv()
+    run([uv, "python", "install", "3.11"], quiet=True)
+
+    python_bin = RENDER_ENV / "bin/python"
+    if not python_bin.exists():
+        shutil.rmtree(RENDER_ENV, ignore_errors=True)
+        run([uv, "venv", str(RENDER_ENV), "--python", "3.11"], quiet=True)
+
+    sync_env = os.environ.copy()
+    sync_env["UV_PROJECT_ENVIRONMENT"] = str(RENDER_ENV)
+    run(
+        [
+            uv,
+            "sync",
+            "--project",
+            str(REPO),
+            "--frozen",
+            "--no-dev",
+            "--python",
+            str(python_bin),
+        ],
+        env=sync_env,
+        quiet=True,
+    )
+
+    patch_render_config(api_key)
+    kill("/content/mpt-render-uv311/bin/python.*main.py")
+    time.sleep(1)
+
+    render_log = open("/content/mpt_render_worker.log", "w", encoding="utf-8")
+    subprocess.Popen(
+        [str(python_bin), "main.py"],
+        cwd=str(REPO),
+        stdout=render_log,
+        stderr=subprocess.STDOUT,
+    )
+    wait_http(f"http://127.0.0.1:{RENDER_PORT}/docs", seconds=120)
+    print("✅ MPT Render Worker ready on port", RENDER_PORT)
+
+
+def quick_tunnel(local_url: str, log_path: str) -> tuple[subprocess.Popen, str]:
+    log_handle = open(log_path, "w", encoding="utf-8")
+    proc = subprocess.Popen(
+        [
+            str(CLOUDFLARED),
+            "tunnel",
+            "--url",
+            local_url,
+            "--no-autoupdate",
+        ],
+        stdout=log_handle,
+        stderr=subprocess.STDOUT,
+    )
+    deadline = time.time() + 120
+    pattern = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+    while time.time() < deadline:
+        time.sleep(1)
+        try:
+            content = Path(log_path).read_text(
+                encoding="utf-8",
+                errors="ignore",
+            )
+        except Exception:
+            content = ""
+        match = pattern.search(content)
+        if match:
+            return proc, match.group(0)
+    raise RuntimeError(f"Không lấy được Cloudflare URL. Xem {log_path}")
+
+
+def start_tunnels() -> tuple[str, str]:
+    print("\n[8/9] Cloudflare Quick Tunnels")
+    kill("cloudflared.*127.0.0.1:8189")
+    kill("cloudflared.*127.0.0.1:8090")
+    time.sleep(1)
+
+    _image_proc, image_url = quick_tunnel(
+        f"http://127.0.0.1:{IMAGE_PORT}",
+        "/content/ktn_image_tunnel.log",
+    )
+    _render_proc, render_url = quick_tunnel(
+        f"http://127.0.0.1:{RENDER_PORT}",
+        "/content/mpt_render_tunnel.log",
+    )
+
+    wait_http(image_url + "/health", seconds=60)
+    wait_http(render_url + "/docs", seconds=60)
+    print("✅ Image tunnel:", image_url)
+    print("✅ Render tunnel:", render_url)
+    return image_url, render_url
+
+
+def save_state(image_url: str, render_url: str, token: str, render_key: str) -> None:
+    import json
+
+    state = {
+        "image_gateway_url": image_url,
+        "render_base_url": render_url,
+        "image_gateway_token": token,
+        "render_api_key": render_key,
+        "comfyui": f"http://127.0.0.1:{COMFY_PORT}",
+        "image_gateway": f"http://127.0.0.1:{IMAGE_PORT}",
+        "render_worker": f"http://127.0.0.1:{RENDER_PORT}",
+        "edge_tts_timeout": 240,
+    }
+    Path("/content/ktn_colab_runtime.json").write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def main() -> None:
+    started = time.time()
+    print("=" * 78)
+    print("KTN AI VIDEO STUDIO — COLAB ONE-CLICK RESTORE")
+    print("=" * 78)
+
+    ensure_gpu()
+    ensure_repo()
+    ensure_base_tools()
+    ensure_comfy()
+    ensure_model()
+    token = gateway_token()
+    render_key = render_api_key()
+    start_image_engine(token)
+    start_render_worker(render_key)
+    image_url, render_url = start_tunnels()
+    save_state(image_url, render_url, token, render_key)
+
+    print("\n[9/9] READY")
+    print("=" * 78)
+    print("✅ KTN COLAB STACK READY")
+    print("=" * 78)
+    print(f"Elapsed: {(time.time() - started) / 60:.1f} minutes")
+    print()
+    print("COPY / UPDATE THESE VERCEL PREVIEW VARIABLES:")
+    print("KTN_IMAGE_GATEWAY_URL=" + image_url)
+    print("KTN_IMAGE_GATEWAY_TOKEN=" + token)
+    print("MPT_RENDER_BASE_URL=" + render_url)
+    print("MPT_RENDER_API_KEY=" + render_key)
+    print()
+    print("Local services:")
+    print(f"  ComfyUI            http://127.0.0.1:{COMFY_PORT}")
+    print(f"  KTN Image Gateway  http://127.0.0.1:{IMAGE_PORT}")
+    print(f"  MPT Render Worker  http://127.0.0.1:{RENDER_PORT}")
+    print()
+    print("Runtime state: /content/ktn_colab_runtime.json")
+    print("Logs:")
+    print("  /content/comfyui.log")
+    print("  /content/ktn_gateway.log")
+    print("  /content/mpt_render_worker.log")
+    print("  /content/ktn_image_tunnel.log")
+    print("  /content/mpt_render_tunnel.log")
+    print("=" * 78)
+
+
+if __name__ == "__main__":
+    main()
+,
+        f'api_key = "{api_key}"',
         text,
         count=1,
     )
