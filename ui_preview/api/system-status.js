@@ -5,8 +5,14 @@ const DEFAULTS={
     ttsModel:'gemini-3.8-flash-lite-tts'
   },
   openai:{
-    scriptModel:'gpt-4.1-mini',
+    scriptModel:'gpt-6.1-sol',
     imageModel:'gpt-image-2.5-flare'
+  },
+  anthropic:{
+    scriptModel:'claude-sonnet-5'
+  },
+  xai:{
+    scriptModel:'grok-4.7'
   }
 };
 
@@ -65,6 +71,14 @@ export default async function handler(req,res){
         configured:Boolean(process.env.OPENAI_API_KEY),
         scriptModel:process.env.OPENAI_SCRIPT_MODEL||DEFAULTS.openai.scriptModel,
         imageModel:process.env.OPENAI_IMAGE_MODEL||DEFAULTS.openai.imageModel
+      },
+      anthropic:{
+        configured:Boolean(process.env.ANTHROPIC_API_KEY),
+        scriptModel:process.env.ANTHROPIC_SCRIPT_MODEL||DEFAULTS.anthropic.scriptModel
+      },
+      xai:{
+        configured:Boolean(process.env.XAI_API_KEY),
+        scriptModel:process.env.XAI_SCRIPT_MODEL||DEFAULTS.xai.scriptModel
       },
       ktnImage:{
         configured:Boolean(ktnImageUrl),

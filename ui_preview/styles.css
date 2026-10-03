@@ -498,3 +498,107 @@ body{font-size:14px;background:#f4f6f9}
   .script-editor-footer{align-items:flex-start;flex-direction:column}
   .storyboard-head h3{max-width:190px}
 }
+
+
+/* UX PRO 01C — contextual settings, project library, modal, model registry */
+body[data-active-workspace="projects"] .project-nav-label,
+body[data-active-workspace="projects"] .project-nav-item,
+body[data-active-workspace="channels"] .project-nav-label,
+body[data-active-workspace="channels"] .project-nav-item,
+body[data-active-workspace="library"] .project-nav-label,
+body[data-active-workspace="library"] .project-nav-item,
+body[data-active-workspace="settings"] .project-nav-label,
+body[data-active-workspace="settings"] .project-nav-item{opacity:.82}
+
+.project-nav-item.disabled{opacity:.35;cursor:not-allowed}
+.project-nav-item:disabled:hover{background:transparent;color:inherit}
+#projectName:disabled{color:#8791a3;background:transparent}
+
+#briefWorkspace{grid-template-columns:minmax(0,1.35fr) minmax(360px,.8fr);align-items:start}
+.brief-main-panel{min-height:560px}
+.brief-main-panel .topic-editor{min-height:210px;font-size:15px;line-height:1.7;padding:15px}
+.brief-readiness{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.brief-readiness>div{display:flex;align-items:center;gap:8px;border:1px solid #e5e9f0;border-radius:9px;background:#fafbfd;padding:9px 10px}
+.brief-readiness span{width:22px;height:22px;border-radius:7px;background:#eef3ff;color:var(--brand);display:grid;place-items:center;font-size:8px;font-weight:850}
+.brief-readiness strong{font-size:9px;color:#5b677b;line-height:1.3}
+.brief-actions{justify-content:flex-end;border-top:1px solid #edf0f4;padding-top:14px}
+.brief-actions .primary{min-width:220px}
+
+.brief-config-panel{position:sticky!important;top:18px!important;max-height:calc(100vh - 36px);overflow:auto;scrollbar-width:thin}
+.brief-config-panel::-webkit-scrollbar{width:6px}.brief-config-panel::-webkit-scrollbar-thumb{background:#dce2ec;border-radius:99px}
+.context-setting-group{border:1px solid #e3e8f0;border-radius:11px;background:#fbfcfe;padding:11px;margin-bottom:10px}
+.context-setting-title{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:#4d5c76;margin-bottom:8px}
+.compact-fields{margin:0 0 8px!important}
+.compact-fields select,.context-setting-group>div>select{height:36px}
+.contextual-details{margin-top:9px!important}
+.contextual-details summary{padding:10px 11px!important;font-size:10px}
+.contextual-details .brief-grid{grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+.contextual-details .brief-grid input,.contextual-details .brief-grid select{height:36px}
+.contextual-details .advanced{gap:8px;padding:10px}
+.contextual-details .advanced input,.contextual-details .advanced select{height:36px}
+
+/* Context controls belong to their workspaces */
+.tab-context-bar{display:grid;grid-template-columns:minmax(240px,360px) 1fr;align-items:end;gap:12px;border:1px solid #e3e8ef;border-radius:11px;background:#fafbfd;padding:10px 12px;margin-bottom:12px}
+.tab-context-bar label{margin-bottom:5px}
+.tab-context-bar select{height:36px;width:100%}
+.tab-context-bar p{font-size:9px;color:var(--muted);margin:0 0 8px}
+.scene-context-bar{grid-template-columns:minmax(260px,420px) auto 1fr}
+.scene-context-bar .provider-state{align-self:center;margin-top:18px}
+
+/* Project library */
+.project-library-panel{padding:18px}
+.project-storage-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px}
+.project-storage-summary>div{border:1px solid #e4e8ef;border-radius:11px;background:#fafbfd;padding:11px}
+.project-storage-summary strong,.project-storage-summary span{display:block}
+.project-storage-summary strong{font-size:13px;color:#2f3d58}
+.project-storage-summary span{font-size:8px;color:#8791a1;margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.project-library-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.project-card{border:1px solid #e1e6ef;border-radius:13px;background:#fff;padding:14px;box-shadow:0 5px 16px rgba(26,38,65,.04);transition:.15s ease}
+.project-card:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(26,38,65,.07);border-color:#ccd7f7}
+.project-card.active{border-color:#9db2f3;background:#fbfcff}
+.project-card-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.project-card-state{font-size:7px;font-weight:850;letter-spacing:.08em;color:var(--brand)}
+.project-card h3{font-size:13px;margin:5px 0 0;color:#26334c}
+.project-card>p{font-size:10px;line-height:1.5;color:#68748a;min-height:30px;margin:10px 0}
+.project-card-meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+.project-card-meta span{font-size:8px;border:1px solid #e6eaf0;border-radius:999px;background:#f8fafc;color:#6a7588;padding:4px 6px}
+.project-card>small{font-size:8px;color:#9aa2af}
+.project-card-actions{display:flex;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid #edf0f4}
+.project-card-actions button{height:30px;border:1px solid #dde3ed;border-radius:7px;background:#fff;color:#56637a;font-size:9px;font-weight:750;padding:0 9px;cursor:pointer}
+.project-card-actions .primary-lite{color:var(--brand);background:#eef3ff;border-color:#ccd8fb}
+.project-card-actions .danger{color:#a23b3b;margin-left:auto}
+
+/* New Project modal */
+.modal-backdrop{position:fixed;inset:0;z-index:100;background:rgba(15,23,42,.42);display:grid;place-items:center;padding:20px;backdrop-filter:blur(5px)}
+.modal-backdrop.hidden{display:none}
+.modal-card{width:min(620px,100%);background:#fff;border-radius:16px;border:1px solid #e0e5ed;box-shadow:0 26px 80px rgba(15,23,42,.22);overflow:hidden}
+.modal-head{display:flex;justify-content:space-between;gap:18px;padding:18px 20px;border-bottom:1px solid #edf0f4}
+.modal-head h2{font-size:18px;margin:3px 0 5px}
+.modal-head p{font-size:10px;color:var(--muted);margin:0}
+.modal-body{padding:18px 20px}
+.modal-body>input{width:100%;height:42px;border:1px solid #dfe4ec;border-radius:9px;padding:0 11px;font-size:12px;margin-bottom:13px}
+.modal-body .two-col{margin-top:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;padding:13px 20px;border-top:1px solid #edf0f4;background:#fafbfd}
+.modal-actions button{min-height:36px;border-radius:8px;padding:0 14px;font-weight:750;cursor:pointer}
+
+/* Remove legacy horizontal project step bar entirely */
+.project-workspace-bar{display:none!important}
+
+@media(max-width:1320px){
+  #briefWorkspace{grid-template-columns:minmax(0,1fr) 380px}
+  .project-library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:1050px){
+  #briefWorkspace{grid-template-columns:1fr}
+  .brief-config-panel{position:static!important;max-height:none}
+  .project-storage-summary{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:720px){
+  .brief-readiness{grid-template-columns:1fr}
+  .contextual-details .brief-grid{grid-template-columns:1fr}
+  .contextual-details .brief-grid .full{grid-column:auto}
+  .tab-context-bar,.scene-context-bar{grid-template-columns:1fr}
+  .scene-context-bar .provider-state{margin-top:0}
+  .project-library-grid{grid-template-columns:1fr}
+  .project-storage-summary{grid-template-columns:1fr 1fr}
+}

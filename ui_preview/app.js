@@ -37,6 +37,73 @@ const PLATFORM_PRESETS={
   }
 };
 
+
+const SCRIPT_MODEL_REGISTRY={
+  gemini:{
+    label:'Google Gemini',
+    hint:'Gemini 3.8 Flash phù hợp mặc định cho tốc độ và chất lượng; Pro dùng khi cần reasoning sâu hơn.',
+    models:[
+      ['gemini-3.8-flash','Gemini 3.8 Flash · Khuyến nghị'],
+      ['gemini-3.7-flash','Gemini 3.7 Flash'],
+      ['gemini-3.1-pro-preview','Gemini 3.1 Pro · Preview'],
+      ['gemini-3.6-flash','Gemini 3.6 Flash']
+    ]
+  },
+  openai:{
+    label:'OpenAI',
+    hint:'Chọn giữa model mạnh, cân bằng và nhanh tùy độ dài/chất lượng kịch bản.',
+    models:[
+      ['gpt-6-astra','GPT-6 Astra · Chất lượng cao'],
+      ['gpt-6.1-sol','GPT-6.1 Sol · Cân bằng'],
+      ['gpt-6-luna','GPT-6 Luna · Nhanh / tiết kiệm'],
+      ['gpt-5.6-sol','GPT-5.6 Sol · Ổn định']
+    ]
+  },
+  anthropic:{
+    label:'Anthropic Claude',
+    hint:'Claude phù hợp long-form, biên tập giọng văn và các bài cần mạch lập luận dài.',
+    models:[
+      ['claude-fable-5','Claude Fable 5 · Cao cấp'],
+      ['claude-opus-5','Claude Opus 5 · Reasoning'],
+      ['claude-sonnet-5','Claude Sonnet 5 · Khuyến nghị'],
+      ['claude-opus-4-8','Claude Opus 4.8'],
+      ['claude-sonnet-4-6','Claude Sonnet 4.6']
+    ]
+  },
+  xai:{
+    label:'xAI Grok',
+    hint:'Grok là provider bổ sung cho drafting và phân tích; model khả dụng phụ thuộc API key xAI.',
+    models:[
+      ['grok-4.7','Grok 4.7 · Khuyến nghị'],
+      ['grok-4.6','Grok 4.6'],
+      ['grok-4.5','Grok 4.5']
+    ]
+  }
+};
+
+function populateScriptModels(provider,preferred=''){
+  const select=document.getElementById('scriptModel');
+  const hint=document.getElementById('scriptModelHint');
+  if(!select) return;
+  const cfg=SCRIPT_MODEL_REGISTRY[provider]||SCRIPT_MODEL_REGISTRY.gemini;
+  const current=String(preferred||select.value||'');
+  select.innerHTML='';
+  cfg.models.forEach(([value,label],index)=>{
+    const option=document.createElement('option');
+    option.value=value;
+    option.textContent=label;
+    select.appendChild(option);
+    if(index===0) option.dataset.recommended='true';
+  });
+  if(cfg.models.some(([value])=>value===current)) select.value=current;
+  else select.value=cfg.models[0]?.[0]||'';
+  if(hint) hint.textContent=cfg.hint;
+}
+
+function selectedScriptModel(){
+  return String(document.getElementById('scriptModel')?.value||'').trim();
+}
+
 function inferPlatformFromDuration(duration){
   return ['15-30s','30-60s','60-90s','90-180s'].includes(String(duration||''))
     ? 'youtube_short'
@@ -454,7 +521,8 @@ function openChannelManager(profileId=''){
 
 
 const WORKSPACE_META={
-  brief:{title:'Tạo video',project:true},
+  projects:{title:'Dự án',project:false},
+  brief:{title:'Brief',project:true},
   script:{title:'Kịch bản',project:true},
   scene:{title:'Cảnh & hình ảnh',project:true},
   voice:{title:'Giọng đọc',project:true},
@@ -489,8 +557,13 @@ function updateWorkspaceContext(){
 }
 
 function setWorkspace(name,{updateHash=true}={}){
-  const target=WORKSPACE_META[name]?name:'brief';
-  const meta=WORKSPACE_META[target];
+  let target=WORKSPACE_META[name]?name:'projects';
+  let meta=WORKSPACE_META[target];
+  if(meta.project && !activeProjectId){
+    target='projects';
+    meta=WORKSPACE_META.projects;
+    showToast('Hãy tạo hoặc mở một dự án trước.');
+  }
 
   document.body.dataset.activeWorkspace=target;
   document.querySelectorAll('[data-workspace-view]').forEach(view=>{
@@ -515,6 +588,7 @@ function setWorkspace(name,{updateHash=true}={}){
     if(!showInspector) main.classList.remove('inspector-compact');
   }
 
+  if(target==='projects') renderProjectLibrary();
   if(target==='voice') renderVoiceWorkspace();
   if(target==='library') renderAssetLibrary();
   if(target==='channels') renderChannelProfileLibrary();
@@ -532,7 +606,7 @@ function setWorkspace(name,{updateHash=true}={}){
 
 function workspaceFromLocation(){
   const raw=String(location.hash||'').replace(/^#/,'').trim();
-  return WORKSPACE_META[raw]?raw:'brief';
+  return WORKSPACE_META[raw]?raw:'projects';
 }
 
 function bindWorkspaceNavigation(){
@@ -1218,6 +1292,12 @@ async function refreshSystemStatus(){
       scriptModel:data.providers?.openai?.scriptModel,
       imageModel:data.providers?.openai?.imageModel
     });
+    setSystemCard('anthropic',Boolean(data.providers?.anthropic?.configured),{
+      scriptModel:data.providers?.anthropic?.scriptModel
+    });
+    setSystemCard('xai',Boolean(data.providers?.xai?.configured),{
+      scriptModel:data.providers?.xai?.scriptModel
+    });
     setSystemCard('ktnImage',Boolean(data.providers?.ktnImage?.ready),{
       model:data.providers?.ktnImage?.model,
       gateway:data.providers?.ktnImage?.ready?'LIVE / HEALTH OK':data.providers?.ktnImage?.configured?'Đã cấu hình · chưa kết nối':'Chưa cấu hình',
@@ -1225,7 +1305,7 @@ async function refreshSystemStatus(){
     });
     setSystemCard('render',Boolean(data.providers?.render?.ready));
   }catch(err){
-    ['gemini','openai','ktnImage','render'].forEach(name=>setSystemCard(name,false));
+    ['gemini','openai','anthropic','xai','ktnImage','render'].forEach(name=>setSystemCard(name,false));
     showToast('Không đọc được trạng thái hệ thống: '+(err?.message||'lỗi kết nối'));
   }finally{
     if(button){button.disabled=false;button.textContent='Kiểm tra lại';}
@@ -1236,9 +1316,43 @@ const PROJECT_DB_NAME='ktn-ai-video-studio';
 const PROJECT_DB_VERSION=2;
 const PROJECT_STORE='projects';
 const PROJECT_ASSET_STORE='assets';
-const CURRENT_PROJECT_ID='current-draft';
+const LEGACY_PROJECT_ID='current-draft';
+const ACTIVE_PROJECT_STORAGE_KEY='ktn-ai-video-active-project-v2';
+let activeProjectId='';
+let activeProjectCreatedAt='';
+try{activeProjectId=localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY)||'';}catch(_error){}
 let autosaveTimer=null;
 let restoringProject=false;
+
+function makeProjectId(){
+  try{
+    if(globalThis.crypto?.randomUUID) return 'project_'+globalThis.crypto.randomUUID();
+  }catch(_error){}
+  return 'project_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+}
+
+function rememberActiveProject(id){
+  activeProjectId=String(id||'').trim();
+  try{
+    if(activeProjectId) localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY,activeProjectId);
+    else localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY);
+  }catch(_error){}
+  updateProjectNavigationState();
+}
+
+function updateProjectNavigationState(){
+  const hasProject=Boolean(activeProjectId);
+  document.querySelectorAll('.project-nav-item').forEach(button=>{
+    button.disabled=!hasProject;
+    button.classList.toggle('disabled',!hasProject);
+  });
+  const projectName=document.getElementById('projectName');
+  if(projectName) projectName.disabled=!hasProject;
+  const saveButton=document.getElementById('saveProjectBtn');
+  const exportButton=document.getElementById('exportProjectBtn');
+  if(saveButton) saveButton.disabled=!hasProject;
+  if(exportButton) exportButton.disabled=!hasProject;
+}
 
 function openProjectDb(){
   return new Promise((resolve,reject)=>{
@@ -1257,8 +1371,9 @@ function openProjectDb(){
   });
 }
 
-function assetRecordId(sceneId,type){
-  return CURRENT_PROJECT_ID+':'+String(sceneId)+':'+type;
+function assetRecordId(sceneId,type,projectId=activeProjectId){
+  const id=String(projectId||'unsaved-project');
+  return id+':'+String(sceneId)+':'+type;
 }
 
 async function dbPutAsset(record){
@@ -1295,10 +1410,10 @@ async function dbDeleteAsset(id){
   });
 }
 
-function stripAssetPayload(asset,type,sceneId){
+function stripAssetPayload(asset,type,sceneId,projectId=activeProjectId){
   if(!asset) return null;
   const payloadKey=type==='image'?'b64_json':'b64_audio';
-  const assetRef=assetRecordId(sceneId,type);
+  const assetRef=assetRecordId(sceneId,type,projectId);
   const meta={...asset,asset_ref:assetRef};
   delete meta[payloadKey];
   return meta;
@@ -1309,19 +1424,19 @@ async function persistProjectBundle(project){
     ...project,
     scenes:project.scenes.map(scene=>({
       ...scene,
-      image_asset:stripAssetPayload(scene.image_asset,'image',scene.id),
-      audio_asset:stripAssetPayload(scene.audio_asset,'audio',scene.id)
+      image_asset:stripAssetPayload(scene.image_asset,'image',scene.id,project.id),
+      audio_asset:stripAssetPayload(scene.audio_asset,'audio',scene.id,project.id)
     }))
   };
 
   for(const scene of project.scenes){
-    const imageId=assetRecordId(scene.id,'image');
-    const audioId=assetRecordId(scene.id,'audio');
+    const imageId=assetRecordId(scene.id,'image',project.id);
+    const audioId=assetRecordId(scene.id,'audio',project.id);
 
     if(scene.image_asset?.b64_json){
       await dbPutAsset({
         id:imageId,
-        project_id:CURRENT_PROJECT_ID,
+        project_id:project.id,
         scene_id:scene.id,
         type:'image',
         payload:scene.image_asset,
@@ -1334,7 +1449,7 @@ async function persistProjectBundle(project){
     if(scene.audio_asset?.b64_audio){
       await dbPutAsset({
         id:audioId,
-        project_id:CURRENT_PROJECT_ID,
+        project_id:project.id,
         scene_id:scene.id,
         type:'audio',
         payload:scene.audio_asset,
@@ -1392,7 +1507,7 @@ async function dbPutProject(project){
   });
 }
 
-async function dbGetProject(id=CURRENT_PROJECT_ID){
+async function dbGetProject(id=activeProjectId){
   const db=await openProjectDb();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(PROJECT_STORE,'readonly');
@@ -1403,7 +1518,18 @@ async function dbGetProject(id=CURRENT_PROJECT_ID){
   });
 }
 
-async function dbDeleteProject(id=CURRENT_PROJECT_ID){
+async function dbGetAllProjects(){
+  const db=await openProjectDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PROJECT_STORE,'readonly');
+    const req=tx.objectStore(PROJECT_STORE).getAll();
+    req.onsuccess=()=>resolve(Array.isArray(req.result)?req.result:[]);
+    req.onerror=()=>reject(req.error);
+    tx.oncomplete=()=>db.close();
+  });
+}
+
+async function dbDeleteProject(id=activeProjectId){
   const db=await openProjectDb();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction([PROJECT_STORE,PROJECT_ASSET_STORE],'readwrite');
@@ -1425,14 +1551,16 @@ async function dbDeleteProject(id=CURRENT_PROJECT_ID){
 function serializeProjectState({includeMaterialKeys=false}={}){
   return {
     schema_version:'ktn-ai-video-project-v1',
-    id:CURRENT_PROJECT_ID,
+    id:activeProjectId||makeProjectId(),
     name:document.getElementById('projectName').value.trim()||'Dự án chưa đặt tên',
+    created_at:activeProjectCreatedAt||new Date().toISOString(),
     updated_at:new Date().toISOString(),
     inputs:{
       topic:document.getElementById('topic').value,
       platformMode:document.getElementById('platformMode').value,
       scriptLanguage:document.getElementById('scriptLanguage').value,
       scriptProvider:document.getElementById('scriptProvider').value,
+      scriptModel:selectedScriptModel(),
       paragraphCount:Number(document.getElementById('paragraphCount').value||6),
       targetDuration:document.getElementById('targetDuration').value,
       extraInstruction:document.getElementById('extraInstruction').value,
@@ -1489,13 +1617,14 @@ function setAutosaveStatus(text,state=''){
 
 async function saveProjectNow({silent=false}={}){
   if(restoringProject) return {ok:false,reason:'restoring'};
+  if(!activeProjectId) return {ok:false,reason:'no-active-project'};
   try{
     setAutosaveStatus('Đang lưu...','saving');
     const project=serializeProjectState();
     const expected=projectPersistenceStats(project);
     await persistProjectBundle(project);
 
-    const storedManifest=await dbGetProject();
+    const storedManifest=await dbGetProject(project.id);
     const stored=await hydrateProjectAssets(storedManifest);
     const actual=projectPersistenceStats(stored);
 
@@ -1528,7 +1657,7 @@ async function saveProjectNow({silent=false}={}){
 }
 
 function scheduleAutosave(){
-  if(restoringProject) return;
+  if(restoringProject || !activeProjectId) return;
   clearTimeout(autosaveTimer);
   setAutosaveStatus('Có thay đổi chưa lưu','dirty');
   autosaveTimer=setTimeout(()=>saveProjectNow({silent:true}),800);
@@ -1544,6 +1673,7 @@ async function restoreProject(project){
   if(!project || project.schema_version!=='ktn-ai-video-project-v1') return false;
   restoringProject=true;
   try{
+    activeProjectCreatedAt=String(project.created_at||project.updated_at||new Date().toISOString());
     restoreInput('projectName',project.name||'Dự án chưa đặt tên');
     restoreInput('topic',project.inputs?.topic||'');
     const restoredDuration=project.inputs?.targetDuration||'60-90s';
@@ -1551,7 +1681,9 @@ async function restoreProject(project){
     restoreInput('platformMode',restoredPlatform);
     configurePlatformMode(restoredPlatform,restoredDuration,false);
     restoreInput('scriptLanguage',project.inputs?.scriptLanguage||'vi');
-    restoreInput('scriptProvider',project.inputs?.scriptProvider||'gemini');
+    const restoredProvider=project.inputs?.scriptProvider||'gemini';
+    restoreInput('scriptProvider',restoredProvider);
+    populateScriptModels(restoredProvider,project.inputs?.scriptModel||'');
     restoreInput('paragraphCount',project.inputs?.paragraphCount||PLATFORM_PRESETS[restoredPlatform]?.paragraphCount||6);
     restoreInput('extraInstruction',project.inputs?.extraInstruction||'');
     restoreInput('targetAudience',project.inputs?.contentBrief?.targetAudience||'');
@@ -1626,35 +1758,92 @@ async function restoreProject(project){
   }
 }
 
+async function migrateLegacyProjectIfNeeded(){
+  if(activeProjectId) return null;
+  const legacy=await dbGetProject(LEGACY_PROJECT_ID).catch(()=>null);
+  if(!legacy) return null;
+  const hydrated=await hydrateProjectAssets(legacy);
+  const newId=makeProjectId();
+  rememberActiveProject(newId);
+  activeProjectCreatedAt=String(legacy.created_at||legacy.updated_at||new Date().toISOString());
+  const migrated={
+    ...hydrated,
+    id:newId,
+    name:legacy.name && legacy.name!=='Dự án chưa đặt tên' ? legacy.name : 'Dự án đã khôi phục',
+    created_at:activeProjectCreatedAt,
+    updated_at:new Date().toISOString()
+  };
+  await persistProjectBundle(migrated);
+  await dbDeleteProject(LEGACY_PROJECT_ID).catch(()=>{});
+  return migrated;
+}
+
 async function loadAutosavedProject(){
   try{
-    const manifest=await dbGetProject();
-    if(manifest){
-      const project=await hydrateProjectAssets(manifest);
-      await restoreProject(project);
-      showToast('Đã khôi phục bản nháp gần nhất.');
-    }else{
-      setAutosaveStatus('Chưa có bản nháp','');
+    let project=null;
+    if(activeProjectId){
+      const manifest=await dbGetProject(activeProjectId);
+      if(manifest) project=await hydrateProjectAssets(manifest);
+      else rememberActiveProject('');
     }
+    if(!project) project=await migrateLegacyProjectIfNeeded();
+
+    if(project){
+      rememberActiveProject(project.id);
+      await restoreProject(project);
+      setAutosaveStatus('Đã mở dự án','saved');
+      await renderProjectLibrary();
+      return true;
+    }
+
+    setNoActiveProjectState();
+    if(document.body.dataset.activeWorkspace!=='projects') setWorkspace('projects');
+    return false;
   }catch(err){
-    setAutosaveStatus('Không đọc được bản nháp','error');
+    setAutosaveStatus('Không đọc được dự án','error');
+    setNoActiveProjectState();
+    if(document.body.dataset.activeWorkspace!=='projects') setWorkspace('projects');
+    return false;
   }
 }
 
-async function startNewProject(){
-  const hasWork=Boolean(scriptResult.value.trim() || currentScenes.length || document.getElementById('topic').value.trim());
-  if(hasWork && !confirm('Tạo dự án mới? Bản nháp hiện tại sẽ bị xóa khỏi trình duyệt.')){
-    return;
-  }
-  await dbDeleteProject().catch(()=>{});
+
+function setNoActiveProjectState(){
+  rememberActiveProject('');
+  activeProjectCreatedAt='';
   restoringProject=true;
   try{
-    document.getElementById('projectName').value='Dự án chưa đặt tên';
+    document.getElementById('projectName').value='Chưa mở dự án';
     document.getElementById('topic').value='';
-    document.getElementById('platformMode').value='youtube_long';
-    configurePlatformMode('youtube_long','8-12m',true);
+    scriptResult.value='';
+    currentScenes=[];
+    currentSrt='';
+    sceneList.innerHTML='';
+    sceneList.classList.add('hidden');
+    sceneEmpty.classList.remove('hidden');
+    scriptDemo.classList.add('hidden');
+    scriptEmpty.classList.remove('hidden');
+    subtitleOutput.classList.add('hidden');
+    subtitleEmpty.classList.remove('hidden');
+    setAutosaveStatus('Chưa mở dự án','');
+    activateScriptTools();
+    updateScriptStats();
+    updateWorkspaceContext();
+  }finally{
+    restoringProject=false;
+  }
+}
+
+function resetProjectForm({name='Dự án mới',channelId='',platformMode='youtube_long'}={}){
+  restoringProject=true;
+  try{
+    document.getElementById('projectName').value=name;
+    document.getElementById('topic').value='';
+    document.getElementById('platformMode').value=platformMode;
+    configurePlatformMode(platformMode,'',true);
     document.getElementById('scriptLanguage').value='vi';
     document.getElementById('scriptProvider').value='gemini';
+    populateScriptModels('gemini','gemini-3.8-flash');
     document.getElementById('extraInstruction').value='';
     document.getElementById('targetAudience').value='';
     document.getElementById('contentGoal').value='educate';
@@ -1664,15 +1853,21 @@ async function startNewProject(){
     document.getElementById('ctaStyle').value='soft';
     document.getElementById('sourceNotes').value='';
     document.getElementById('forbiddenContent').value='';
-    document.getElementById('channelProfileSelect').value='';
-    renderSelectedChannelSummary();
+    document.getElementById('voiceName').value='Kore';
+    document.getElementById('voiceWorkspaceVoice').value='Kore';
+    refreshChannelProfileSelect(channelId);
+    if(channelId) selectChannelProfile(channelId,{applyDefaults:true,autosave:false});
+    else{
+      document.getElementById('channelProfileSelect').value='';
+      renderSelectedChannelSummary();
+    }
     document.getElementById('imageProvider').value='ktn';
+    document.getElementById('renderAspect').value=platformMode==='youtube_long'?'16:9':'9:16';
+    document.getElementById('renderTransition').value='';
     scriptResult.value='';
     scriptTitle.textContent='Kịch bản AI';
     scriptMeta.textContent='Đã tạo · bản nháp';
-    updateScriptStats();
     currentScenes=[];
-    currentSrt='';
     currentSrt='';
     keywordList.innerHTML='';
     sceneList.innerHTML='';
@@ -1688,15 +1883,106 @@ async function startNewProject(){
     updateRenderReadiness();
     renderAssetLibrary();
     renderVoiceWorkspace();
-    setAutosaveStatus('Dự án mới','');
+    updateImageProviderState();
+    updateWorkspaceContext();
   }finally{
     restoringProject=false;
   }
-  showToast('Đã tạo dự án mới.');
 }
 
-function exportProject(){
-  const project=serializeProjectState({includeMaterialKeys:false});
+function populateNewProjectChannelSelect(){
+  const select=document.getElementById('newProjectChannelSelect');
+  if(!select) return;
+  const current=select.value;
+  select.innerHTML='<option value="">— Chọn sau —</option>';
+  channelProfiles.slice().sort((a,b)=>a.name.localeCompare(b.name,'vi')).forEach(profile=>{
+    const option=document.createElement('option');
+    option.value=profile.id;
+    option.textContent=profile.name;
+    select.appendChild(option);
+  });
+  if(getChannelProfileById(current)) select.value=current;
+}
+
+function openNewProjectModal(){
+  populateNewProjectChannelSelect();
+  const modal=document.getElementById('newProjectModal');
+  const name=document.getElementById('newProjectNameInput');
+  const channel=document.getElementById('newProjectChannelSelect');
+  const platform=document.getElementById('newProjectPlatformSelect');
+  if(name) name.value='';
+  if(channel) channel.value='';
+  if(platform) platform.value='youtube_long';
+  modal?.classList.remove('hidden');
+  setTimeout(()=>name?.focus(),0);
+}
+
+function closeNewProjectModal(){
+  document.getElementById('newProjectModal')?.classList.add('hidden');
+}
+
+async function createProjectFromModal(){
+  const name=String(document.getElementById('newProjectNameInput')?.value||'').trim();
+  const channelId=String(document.getElementById('newProjectChannelSelect')?.value||'');
+  const platformMode=String(document.getElementById('newProjectPlatformSelect')?.value||'youtube_long');
+  if(!name){
+    showToast('Hãy đặt tên dự án trước khi tạo.');
+    document.getElementById('newProjectNameInput')?.focus();
+    return;
+  }
+
+  if(activeProjectId) await saveProjectNow({silent:true});
+
+  const id=makeProjectId();
+  rememberActiveProject(id);
+  activeProjectCreatedAt=new Date().toISOString();
+  resetProjectForm({name,channelId,platformMode});
+  const saved=await saveProjectNow({silent:true});
+  if(!saved?.ok){
+    showToast('Không thể tạo vùng lưu trữ cho dự án mới.');
+    return;
+  }
+  closeNewProjectModal();
+  await renderProjectLibrary();
+  setWorkspace('brief');
+  showToast('Đã tạo dự án “'+name+'”.');
+}
+
+async function openProjectById(id){
+  const target=String(id||'');
+  if(!target) return;
+  if(activeProjectId && activeProjectId!==target) await saveProjectNow({silent:true});
+  const manifest=await dbGetProject(target);
+  if(!manifest){
+    showToast('Không tìm thấy dự án trong bộ nhớ.');
+    await renderProjectLibrary();
+    return;
+  }
+  const project=await hydrateProjectAssets(manifest);
+  rememberActiveProject(target);
+  await restoreProject(project);
+  setWorkspace('brief');
+  showToast('Đã mở dự án “'+project.name+'”.');
+}
+
+async function deleteStoredProject(id){
+  const project=await dbGetProject(id).catch(()=>null);
+  if(!project) return;
+  if(!confirm('Xóa dự án “'+project.name+'” khỏi trình duyệt? Hành động này xóa cả asset cục bộ của dự án.')) return;
+  await dbDeleteProject(id);
+  if(activeProjectId===id) setNoActiveProjectState();
+  await renderProjectLibrary();
+  showToast('Đã xóa dự án.');
+}
+
+async function exportStoredProject(id){
+  const manifest=await dbGetProject(id).catch(()=>null);
+  if(!manifest){showToast('Không tìm thấy dự án để xuất.');return;}
+  const project=await hydrateProjectAssets(manifest);
+  downloadProjectJson(project);
+}
+
+function downloadProjectJson(project){
   const blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -1704,6 +1990,81 @@ function exportProject(){
   a.href=url;
   a.download=safe+'.json';
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+
+async function renderProjectLibrary(){
+  const grid=document.getElementById('projectLibraryGrid');
+  const empty=document.getElementById('projectLibraryEmpty');
+  const count=document.getElementById('projectLibraryCount');
+  const storage=document.getElementById('projectLibraryStorage');
+  if(!grid||!empty) return;
+
+  let projects=(await dbGetAllProjects()).filter(project=>project.id!==LEGACY_PROJECT_ID);
+  projects=projects.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')));
+  if(count) count.textContent=String(projects.length);
+
+  try{
+    const estimate=await navigator.storage?.estimate?.();
+    const used=Number(estimate?.usage||0);
+    if(storage) storage.textContent=used>=1048576?(used/1048576).toFixed(1)+' MB':Math.round(used/1024)+' KB';
+  }catch(_error){if(storage) storage.textContent='—';}
+
+  if(!projects.length){
+    grid.innerHTML='';
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  grid.classList.remove('hidden');
+  grid.innerHTML=projects.map(project=>{
+    const profile=getChannelProfileById(project.inputs?.channelProfileId);
+    const sceneCount=Array.isArray(project.scenes)?project.scenes.length:0;
+    const hasScript=Boolean(project.script?.text);
+    const updated=project.updated_at?new Date(project.updated_at).toLocaleString('vi-VN'):'—';
+    const active=project.id===activeProjectId?' active':'';
+    return '<article class="project-card'+active+'" data-project-id="'+escapeChannelHtml(project.id)+'">'+
+      '<div class="project-card-top">'+
+        '<div><span class="project-card-state">'+(active?'ĐANG MỞ':'PROJECT')+'</span>'+
+        '<h3>'+escapeChannelHtml(project.name||'Dự án chưa đặt tên')+'</h3></div>'+
+        '<span class="channel-platform-pill">'+escapeChannelHtml(PLATFORM_PRESETS[project.inputs?.platformMode]?.label||'Video')+'</span>'+
+      '</div>'+
+      '<p>'+escapeChannelHtml(project.inputs?.topic||'Chưa có chủ đề')+'</p>'+
+      '<div class="project-card-meta">'+
+        '<span>'+escapeChannelHtml(profile?.name||project.inputs?.channelProfileSnapshot?.name||'Chưa chọn kênh')+'</span>'+
+        '<span>'+(hasScript?'Có kịch bản':'Chưa có kịch bản')+'</span>'+
+        '<span>'+sceneCount+' scene</span>'+
+      '</div>'+
+      '<small>Cập nhật '+escapeChannelHtml(updated)+'</small>'+
+      '<div class="project-card-actions">'+
+        '<button class="primary-lite" data-project-action="open">Mở dự án</button>'+
+        '<button data-project-action="export">Xuất</button>'+
+        '<button class="danger" data-project-action="delete">Xóa</button>'+
+      '</div>'+
+    '</article>';
+  }).join('');
+
+  grid.querySelectorAll('[data-project-action]').forEach(button=>{
+    button.addEventListener('click',event=>{
+      event.stopPropagation();
+      const card=button.closest('[data-project-id]');
+      const id=card?.dataset.projectId||'';
+      if(button.dataset.projectAction==='open') openProjectById(id);
+      if(button.dataset.projectAction==='export') exportStoredProject(id);
+      if(button.dataset.projectAction==='delete') deleteStoredProject(id);
+    });
+  });
+}
+
+async function startNewProject(){
+  openNewProjectModal();
+}
+
+function exportProject(){
+  if(!activeProjectId){showToast('Chưa mở dự án để xuất.');return;}
+  const project=serializeProjectState({includeMaterialKeys:false});
+  downloadProjectJson(project);
   showToast('Đã xuất file dự án JSON.');
 }
 
@@ -1711,12 +2072,18 @@ async function importProjectFile(file){
   if(!file) return;
   try{
     const text=await file.text();
-    const project=JSON.parse(text);
-    if(project?.schema_version!=='ktn-ai-video-project-v1'){
+    const imported=JSON.parse(text);
+    if(imported?.schema_version!=='ktn-ai-video-project-v1'){
       throw new Error('File không đúng định dạng dự án KTN AI Video Studio V1.');
     }
+    if(activeProjectId) await saveProjectNow({silent:true});
+    const id=makeProjectId();
+    const project={...imported,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    rememberActiveProject(id);
+    activeProjectCreatedAt=project.created_at;
     await restoreProject(project);
     await saveProjectNow({silent:true});
+    await renderProjectLibrary();
     showToast('Đã nhập và khôi phục dự án.');
   }catch(err){
     showToast('Không thể nhập dự án: '+(err?.message||'file không hợp lệ'));
@@ -1754,7 +2121,7 @@ async function checkPersistenceHealth(){
 
 function bindAutosave(){
   [
-    'projectName','topic','platformMode','scriptLanguage','scriptProvider','paragraphCount',
+    'projectName','topic','platformMode','scriptLanguage','scriptProvider','scriptModel','paragraphCount',
     'targetDuration','extraInstruction','targetAudience','contentGoal','contentTone',
     'expertiseLevel','anglePreference','ctaStyle','sourceNotes','forbiddenContent',
     'channelProfileSelect','voiceName','imageProvider',
@@ -1836,14 +2203,21 @@ async function refreshBackendStatus(){
     ]);
     const scriptData=await scriptRes.json().catch(()=>({}));
     const imageData=await imageRes.json().catch(()=>({}));
+    const providerConfigured=(value)=>Boolean(
+      typeof value==='object' ? value?.configured : value
+    );
     providerAvailability={
-      gemini:Boolean(scriptData.providers?.gemini || imageData.providers?.gemini),
-      openai:Boolean(scriptData.providers?.openai || imageData.providers?.openai),
+      gemini:Boolean(providerConfigured(scriptData.providers?.gemini) || imageData.providers?.gemini),
+      openai:Boolean(providerConfigured(scriptData.providers?.openai) || imageData.providers?.openai),
+      anthropic:providerConfigured(scriptData.providers?.anthropic),
+      xai:providerConfigured(scriptData.providers?.xai),
       ktn:Boolean(imageData.providers?.ktn)
     };
     const configured=[];
     if(providerAvailability.gemini) configured.push('Gemini');
     if(providerAvailability.openai) configured.push('OpenAI');
+    if(providerAvailability.anthropic) configured.push('Claude');
+    if(providerAvailability.xai) configured.push('Grok');
     if(providerAvailability.ktn) configured.push('KTN FLUX');
 
     const imageProvider=document.getElementById('imageProvider');
@@ -1858,7 +2232,7 @@ async function refreshBackendStatus(){
       backendStatus.textContent='Chưa cấu hình provider';
       backendStatus.className='preview-badge warn';
     }
-    voiceAvailability.gemini=Boolean(scriptData.providers?.gemini);
+    voiceAvailability.gemini=providerConfigured(scriptData.providers?.gemini);
     updateVoiceProviderState();
   }catch(e){
     backendStatus.textContent='Không kết nối được AI';
@@ -2276,6 +2650,7 @@ function renderScenes(scenes,meta){
 async function analyzeScript(action){
   const script=scriptResult.value.trim();
   const provider=document.getElementById('scriptProvider').value||currentScriptProvider;
+  const model=selectedScriptModel();
   const language=document.getElementById('scriptLanguage').value;
   if(!script){showToast('Cần có kịch bản trước.');return;}
 
@@ -2289,7 +2664,7 @@ async function analyzeScript(action){
     const res=await fetch('/api/analyze-script',{
       method:'POST',
       headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({action,script,provider,language,topic:document.getElementById('topic').value.trim()})
+      body:JSON.stringify({action,script,provider,model,language,topic:document.getElementById('topic').value.trim()})
     });
     const data=await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
@@ -2351,6 +2726,7 @@ generateBtn.addEventListener('click',async()=>{
   const topic=document.getElementById('topic').value.trim();
   const platformMode=document.getElementById('platformMode').value;
   const provider=document.getElementById('scriptProvider').value;
+  const model=selectedScriptModel();
   const language=document.getElementById('scriptLanguage').value;
   const paragraphs=Number(document.getElementById('paragraphCount').value||6);
   const duration=document.getElementById('targetDuration').value;
@@ -2392,7 +2768,7 @@ generateBtn.addEventListener('click',async()=>{
       method:'POST',
       headers:{'content-type':'application/json','accept':'application/json'},
       body:JSON.stringify({
-        topic,platformMode,provider,language,paragraphs,duration,extraInstruction,
+        topic,platformMode,provider,model,language,paragraphs,duration,extraInstruction,
         contentBrief,channelBible
       })
     });
@@ -2742,10 +3118,24 @@ document.getElementById('downloadManifestBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('renderBtn').addEventListener('click',submitRender);
-document.getElementById('saveProjectBtn').addEventListener('click',()=>saveProjectNow());
+document.getElementById('saveProjectBtn').addEventListener('click',()=>{
+  if(!activeProjectId){openNewProjectModal();return;}
+  saveProjectNow();
+});
 document.getElementById('exportProjectBtn').addEventListener('click',exportProject);
 document.getElementById('importProjectInput').addEventListener('change',e=>importProjectFile(e.target.files?.[0]));
 document.getElementById('newProjectBtn').addEventListener('click',startNewProject);
+document.getElementById('newProjectFromLibraryBtn').addEventListener('click',openNewProjectModal);
+document.getElementById('newProjectEmptyBtn').addEventListener('click',openNewProjectModal);
+document.getElementById('closeNewProjectModalBtn').addEventListener('click',closeNewProjectModal);
+document.getElementById('cancelNewProjectBtn').addEventListener('click',closeNewProjectModal);
+document.getElementById('confirmNewProjectBtn').addEventListener('click',createProjectFromModal);
+document.getElementById('newProjectModal').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) closeNewProjectModal();
+});
+document.getElementById('newProjectNameInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter') createProjectFromModal();
+});
 document.getElementById('refreshSystemStatusBtn').addEventListener('click',refreshSystemStatus);
 document.getElementById('checkPersistenceBtn').addEventListener('click',checkPersistenceHealth);
 document.getElementById('refreshLibraryBtn').addEventListener('click',renderAssetLibrary);
@@ -2756,6 +3146,12 @@ document.querySelectorAll('[data-asset-filter]').forEach(button=>{
     renderAssetLibrary();
   });
 });
+document.getElementById('scriptProvider').addEventListener('change',e=>{
+  populateScriptModels(e.target.value,'');
+  scheduleAutosave();
+});
+document.getElementById('scriptModel').addEventListener('change',scheduleAutosave);
+
 document.getElementById('platformMode').addEventListener('change',e=>{
   configurePlatformMode(e.target.value,'',true);
   scheduleAutosave();
@@ -2793,13 +3189,13 @@ document.getElementById('voiceBatchConfirm').addEventListener('change',updateVoi
 document.getElementById('voiceBatchScope').addEventListener('change',updateVoiceBatchButton);
 document.getElementById('voiceBatchBtn').addEventListener('click',runVoiceBatch);
 document.getElementById('refreshVoiceWorkspaceBtn').addEventListener('click',renderVoiceWorkspace);
-document.querySelectorAll('.quick-row button,.ghost,.icon-btn').forEach(btn=>btn.addEventListener('click',()=>showToast('Chức năng này sẽ được nối ở bước tương ứng.')));
-
 loadChannelProfiles();
 refreshChannelProfileSelect();
 renderChannelProfileLibrary();
 resetChannelEditor();
+populateScriptModels(document.getElementById('scriptProvider')?.value||'gemini','');
 bindWorkspaceNavigation();
+updateProjectNavigationState();
 configurePlatformMode(document.getElementById('platformMode')?.value||'youtube_long',document.getElementById('targetDuration')?.value||'8-12m',false);
 activateScriptTools();
 updateImageProviderState();
@@ -2807,6 +3203,7 @@ updateVoiceProviderState();
 renderVoiceWorkspace();
 updateRenderReadiness();
 renderAssetLibrary();
+renderProjectLibrary();
 bindAutosave();
 refreshBackendStatus();
 refreshRenderWorker();
