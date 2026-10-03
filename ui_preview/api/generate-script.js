@@ -1,15 +1,51 @@
 const PROVIDERS = {
   gemini: {
-    label: 'Gemini',
+    label: 'Google Gemini',
     keyEnv: 'GEMINI_API_KEY',
     modelEnv: 'GEMINI_SCRIPT_MODEL',
-    defaultModel: 'gemini-3.8-flash'
+    defaultModel: 'gemini-3.8-flash',
+    models:[
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.1-pro-preview',
+      'gemini-3.6-flash'
+    ]
   },
   openai: {
     label: 'OpenAI',
     keyEnv: 'OPENAI_API_KEY',
     modelEnv: 'OPENAI_SCRIPT_MODEL',
-    defaultModel: 'gpt-4.1-mini'
+    defaultModel: 'gpt-6.1-sol',
+    models:[
+      'gpt-6-astra',
+      'gpt-6.1-sol',
+      'gpt-6-luna',
+      'gpt-5.6-sol'
+    ]
+  },
+  anthropic: {
+    label: 'Anthropic Claude',
+    keyEnv: 'ANTHROPIC_API_KEY',
+    modelEnv: 'ANTHROPIC_SCRIPT_MODEL',
+    defaultModel: 'claude-sonnet-5-5',
+    models:[
+      'claude-opus-5-5',
+      'claude-sonnet-5-5',
+      'claude-opus-5',
+      'claude-sonnet-5',
+      'claude-sonnet-4-6'
+    ]
+  },
+  xai: {
+    label: 'xAI Grok',
+    keyEnv: 'XAI_API_KEY',
+    modelEnv: 'XAI_SCRIPT_MODEL',
+    defaultModel: 'grok-4.7',
+    models:[
+      'grok-4.7',
+      'grok-4.6',
+      'grok-4.3'
+    ]
   }
 };
 
@@ -228,8 +264,74 @@ async function generateGemini(key,model,prompt){
   return text;
 }
 
+function extractOpenAIResponseText(data){
+  if(typeof data?.output_text==='string' && data.output_text.trim()) return data.output_text.trim();
+  const output=Array.isArray(data?.output)?data.output:[];
+  return output.flatMap(item=>Array.isArray(item?.content)?item.content:[])
+    .filter(item=>item?.type==='output_text' || item?.type==='text')
+    .map(item=>String(item?.text||''))
+    .join('')
+    .trim();
+}
+
 async function generateOpenAI(key,model,prompt){
-  const response=await fetch('https://api.openai.com/v1/chat/completions',{
+  const response=await fetch('https://api.openai.com/v1/responses',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'authorization':'Bearer '+key
+    },
+    body:JSON.stringify({
+      model,
+      input:[
+        {
+          role:'system',
+          content:[{type:'input_text',text:'You are a senior content strategist and professional spoken-word video scriptwriter. Produce only the final narration and follow the platform, audience, channel voice, and anti-generic writing constraints exactly.'}]
+        },
+        {role:'user',content:[{type:'input_text',text:prompt}]}
+      ],
+      max_output_tokens:16000
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+    throw new Error(data?.error?.message||('OpenAI HTTP '+response.status));
+  }
+  const text=extractOpenAIResponseText(data);
+  if(!text) throw new Error('OpenAI không trả về nội dung kịch bản.');
+  return text;
+}
+
+async function generateAnthropic(key,model,prompt){
+  const response=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01'
+    },
+    body:JSON.stringify({
+      model,
+      max_tokens:16000,
+      system:'You are a senior content strategist and professional spoken-word video scriptwriter. Produce only the final narration. Preserve the requested channel voice, audience, platform contract and anti-generic writing rules.',
+      messages:[{role:'user',content:prompt}]
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+    throw new Error(data?.error?.message||('Anthropic HTTP '+response.status));
+  }
+  const text=(Array.isArray(data?.content)?data.content:[])
+    .filter(item=>item?.type==='text')
+    .map(item=>String(item.text||''))
+    .join('')
+    .trim();
+  if(!text) throw new Error('Anthropic không trả về nội dung kịch bản.');
+  return text;
+}
+
+async function generateXAI(key,model,prompt){
+  const response=await fetch('https://api.x.ai/v1/chat/completions',{
     method:'POST',
     headers:{
       'content-type':'application/json',
@@ -240,20 +342,35 @@ async function generateOpenAI(key,model,prompt){
       messages:[
         {
           role:'system',
-          content:'You are a senior content strategist and professional spoken-word video scriptwriter. Produce only the final narration and follow the platform, audience, channel voice, and anti-generic writing constraints exactly.'
+          content:'You are a senior content strategist and professional spoken-word video scriptwriter. Produce only the final narration. Follow the requested platform, audience, channel voice and anti-generic writing constraints.'
         },
         {role:'user',content:prompt}
-      ],
-      temperature:0.82
+      ]
     })
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
-    throw new Error(data?.error?.message||('OpenAI HTTP '+response.status));
+    throw new Error(data?.error?.message||('xAI HTTP '+response.status));
   }
-  const text=data?.choices?.[0]?.message?.content?.trim();
-  if(!text) throw new Error('OpenAI không trả về nội dung kịch bản.');
+  const text=String(data?.choices?.[0]?.message?.content||'').trim();
+  if(!text) throw new Error('xAI không trả về nội dung kịch bản.');
   return text;
+}
+
+function resolveRequestedModel(provider,requested){
+  const cfg=PROVIDERS[provider];
+  const explicit=String(requested||'').trim();
+  if(explicit) return explicit.slice(0,120);
+  if(provider==='gemini') return resolveGeminiScriptModel(process.env[cfg.modelEnv]);
+  return String(process.env[cfg.modelEnv]||cfg.defaultModel).trim();
+}
+
+async function generateByProvider(provider,key,model,prompt){
+  if(provider==='gemini') return generateGemini(key,model,prompt);
+  if(provider==='openai') return generateOpenAI(key,model,prompt);
+  if(provider==='anthropic') return generateAnthropic(key,model,prompt);
+  if(provider==='xai') return generateXAI(key,model,prompt);
+  throw new Error('Provider chưa được hỗ trợ.');
 }
 
 export default async function handler(req,res){
@@ -263,14 +380,20 @@ export default async function handler(req,res){
       service:'KTN Script Generator',
       version:'content-quality-v2',
       platforms:Object.entries(PLATFORM_PROFILES).map(([id,item])=>({id,label:item.label})),
-      providers:{
-        gemini:Boolean(process.env.GEMINI_API_KEY),
-        openai:Boolean(process.env.OPENAI_API_KEY)
-      },
-      models:{
-        gemini:resolveGeminiScriptModel(process.env.GEMINI_SCRIPT_MODEL),
-        openai:process.env.OPENAI_SCRIPT_MODEL||PROVIDERS.openai.defaultModel
-      }
+      providers:Object.fromEntries(
+        Object.entries(PROVIDERS).map(([id,cfg])=>[
+          id,
+          {
+            configured:Boolean(process.env[cfg.keyEnv]),
+            label:cfg.label,
+            defaultModel:resolveRequestedModel(id,''),
+            models:cfg.models
+          }
+        ])
+      ),
+      models:Object.fromEntries(
+        Object.entries(PROVIDERS).map(([id,cfg])=>[id,resolveRequestedModel(id,'')])
+      )
     });
   }
 
@@ -280,6 +403,7 @@ export default async function handler(req,res){
   const topic=clean(body.topic,2000);
   const platformMode=PLATFORM_PROFILES[body.platformMode]?body.platformMode:'youtube_long';
   const provider=String(body.provider||'gemini').toLowerCase();
+  const requestedModel=clean(body.model,120);
   const language=body.language==='en'?'en':'vi';
   const paragraphs=Math.max(1,Math.min(40,Number(body.paragraphs)||10));
   const duration=DURATION_PROFILES[body.duration]?body.duration:PLATFORM_PRESETS_FALLBACK(platformMode);
@@ -323,9 +447,7 @@ export default async function handler(req,res){
 
   const cfg=PROVIDERS[provider];
   const key=process.env[cfg.keyEnv];
-  const model=provider==='gemini'
-    ? resolveGeminiScriptModel(process.env[cfg.modelEnv])
-    : (process.env[cfg.modelEnv]||cfg.defaultModel);
+  const model=resolveRequestedModel(provider,requestedModel);
   if(!key){
     return send(res,503,{
       error:'Chưa cấu hình '+cfg.keyEnv+' trên Vercel.',
@@ -340,9 +462,7 @@ export default async function handler(req,res){
   });
 
   try{
-    const script=provider==='gemini'
-      ? await generateGemini(key,model,prompt)
-      : await generateOpenAI(key,model,prompt);
+    const script=await generateByProvider(provider,key,model,prompt);
 
     return send(res,200,{
       ok:true,
