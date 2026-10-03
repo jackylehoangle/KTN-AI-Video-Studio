@@ -52,7 +52,11 @@ function findInteractionAudio(payload){
 
 function validGeminiVoice(voice){
   const value=String(voice||'').trim();
-  return GEMINI_PREBUILT_VOICES.has(value) || /^voice_[A-Za-z0-9_-]+$/.test(value) || /^voicekey_[A-Za-z0-9_-]+$/.test(value);
+  if(GEMINI_PREBUILT_VOICES.has(value)) return true;
+  if(/^voice_[A-Za-z0-9_-]+$/.test(value) || /^voicekey_[A-Za-z0-9_-]+$/.test(value)) return true;
+  // Voices API returns catalog IDs such as "achernar", locale-specific IDs,
+  // and other safe alphanumeric/hyphen/underscore identifiers.
+  return /^[A-Za-z0-9][A-Za-z0-9_-]{1,119}$/.test(value);
 }
 
 async function generateGeminiVoice(key,model,text,voice,languageCode,styleInstruction){
