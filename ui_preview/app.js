@@ -1792,6 +1792,7 @@ async function loadAutosavedProject(){
       rememberActiveProject(project.id);
       await restoreProject(project);
       setAutosaveStatus('Đã mở dự án','saved');
+      await renderProjectLibrary();
       return true;
     }
 
