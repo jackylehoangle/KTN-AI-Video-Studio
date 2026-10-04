@@ -444,6 +444,20 @@ Verified:
 
 GitHub Actions currently reports no-step failures for standard CI jobs, with no retrievable job-log blob; this pattern also existed on an earlier Voice Studio PR. Exact CI infrastructure/account cause remains unresolved and must not be misreported as an application-code failure.
 
+### V1 non-provider technical progress — 04/10/2026
+
+- V1-G03 Scene Quality: technical regression PASS; AI-generated scenes now require visual + continuity review; owner visual acceptance pending.
+- V1-G04 Voice Studio: technical regression PASS; real batch/clone provider acceptance pending.
+- V1-G06 Subtitle: technical regression PASS; fixed silent-scene timeline drift; owner browser check pending.
+- V1-G08 Project persistence: technical contract PASS with read-back fingerprint verification; browser IndexedDB E2E pending.
+- V1-G09 Provider/readiness/error-state: technical PASS; runtime blockers are shown truthfully.
+
+Evidence:
+- `docs/V1_G03_SCENE_QUALITY_REGRESSION_2026-10-04.md`
+- `docs/V1_G06_SUBTITLE_REGRESSION_2026-10-04.md`
+- `docs/V1_G08_PROJECT_PERSISTENCE_REGRESSION_2026-10-04.md`
+- `docs/V1_G09_PROVIDER_READINESS_REGRESSION_2026-10-04.md`
+
 ### Scope discipline
 
 Until V1-G12 is PASS:
