@@ -18,18 +18,24 @@
         </div>
       </div>
 
-      <nav class="nav">
-        <button class="nav-item active" data-section="create"><span>✦</span>Tạo video</button>
+      <nav class="nav global-nav">
+        <div class="nav-label">Không gian làm việc</div>
+        <button class="nav-item active" data-workspace-link="projects"><span>▣</span>Dự án</button>
         <button class="nav-item" id="newProjectBtn"><span>＋</span>Dự án mới</button>
-        <button class="nav-item" data-section="script"><span>▤</span>Kịch bản</button>
-        <button class="nav-item" data-section="scene"><span>▦</span>Cảnh & hình ảnh</button>
-        <button class="nav-item" data-section="voice"><span>◉</span>Giọng đọc</button>
-        <button class="nav-item" data-section="subtitle"><span>CC</span>Phụ đề</button>
-        <button class="nav-item" data-section="library"><span>▣</span>Thư viện</button>
+        <button class="nav-item" data-workspace-link="channels"><span>◫</span>Kênh nội dung</button>
+        <button class="nav-item" data-workspace-link="library"><span>◇</span>Thư viện tài nguyên</button>
+
+        <div class="nav-label project-nav-label">Trong dự án</div>
+        <button class="nav-item project-nav-item" data-workspace-link="brief"><span>01</span>Brief</button>
+        <button class="nav-item project-nav-item" data-workspace-link="script"><span>02</span>Kịch bản</button>
+        <button class="nav-item project-nav-item" data-workspace-link="scene"><span>03</span>Cảnh</button>
+        <button class="nav-item project-nav-item" data-workspace-link="voice"><span>04</span>Giọng đọc</button>
+        <button class="nav-item project-nav-item" data-workspace-link="subtitle"><span>05</span>Phụ đề</button>
+        <button class="nav-item project-nav-item" data-workspace-link="export"><span>06</span>Xuất video</button>
       </nav>
 
       <div class="sidebar-bottom">
-        <button class="nav-item" data-section="settings"><span>⚙</span>Cài đặt</button>
+        <button class="nav-item" data-workspace-link="settings"><span>⚙</span>Cài đặt</button>
         <div class="engine-card">
           <div class="dot"></div>
           <div>
@@ -44,7 +50,7 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">KTN AI VIDEO STUDIO</p>
-          <h1>Tạo video AI</h1>
+          <h1 id="workspacePageTitle">Tạo video AI</h1>
         </div>
         <div class="top-actions">
           <div class="project-state">
@@ -60,154 +66,310 @@
         </div>
       </header>
 
-      <section class="workflow">
-        <div class="step done"><span>1</span><div><strong>Chủ đề</strong><small>Nhập ý tưởng</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>2</span><div><strong>Kịch bản</strong><small>AI biên soạn</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>3</span><div><strong>Hình ảnh</strong><small>Gemini / OpenAI</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>4</span><div><strong>Giọng & phụ đề</strong><small>Tự động</small></div></div>
-        <div class="line"></div>
-        <div class="step"><span>5</span><div><strong>Xuất video</strong><small>MP4</small></div></div>
-      </section>
+      <aside class="workspace-context-inspector hidden" id="workspaceContextInspector">
+        <div class="inspector-head">
+          <div>
+            <span>PROJECT CONTEXT</span>
+            <strong id="inspectorProjectName">Dự án chưa đặt tên</strong>
+          </div>
+          <button id="toggleInspectorBtn" type="button" aria-label="Ẩn thông tin dự án">×</button>
+        </div>
+        <dl>
+          <div><dt>Kênh</dt><dd id="inspectorChannel">Chưa chọn</dd></div>
+          <div><dt>Định dạng</dt><dd id="inspectorPlatform">YouTube Long</dd></div>
+          <div><dt>Thời lượng</dt><dd id="inspectorDuration">8–12 phút</dd></div>
+          <div><dt>Giọng</dt><dd id="inspectorVoice">Kore</dd></div>
+          <div><dt>Kịch bản</dt><dd id="inspectorScriptState">Chưa có</dd></div>
+          <div><dt>Scene</dt><dd id="inspectorSceneState">0</dd></div>
+        </dl>
+        <button class="secondary inspector-edit-brief" type="button" data-workspace-link="brief">Sửa Brief</button>
+      </aside>
 
-      <section class="content-grid">
-        <div class="panel main-panel">
+      <section class="content-grid workspace-view active" id="briefWorkspace" data-workspace-view="brief">
+        <div class="panel main-panel brief-main-panel">
           <div class="panel-head">
             <div>
-              <h2>Nội dung video</h2>
-              <p>Nhập chủ đề, chọn ngôn ngữ và AI để bắt đầu tạo kịch bản.</p>
+              <span class="workspace-kicker">01 · BRIEF</span>
+              <h2>Ý tưởng video</h2>
+              <p>Chọn kênh, định dạng và mô tả chủ đề. Cấu hình biên kịch nằm ở panel bên phải.</p>
             </div>
-            <span class="status-pill">Bước 1/5</span>
+            <span class="status-pill">Bước đầu tiên</span>
           </div>
 
-          <label>Chủ đề video</label>
-          <textarea id="topic" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
-
-          <div class="two-col">
-            <div>
-              <label>Ngôn ngữ kịch bản</label>
-              <select id="scriptLanguage">
-                <option value="vi">Tiếng Việt</option>
-                <option value="en">English</option>
-              </select>
+          <div class="channel-selector-block">
+            <div class="field-title-row">
+              <label for="channelProfileSelect">Kênh nội dung *</label>
+              <button class="text-button" id="openChannelManagerBtn" type="button">Quản lý kênh</button>
             </div>
-            <div>
-              <label>Nhà cung cấp AI</label>
-              <select id="scriptProvider">
-                <option value="gemini">Gemini</option>
-                <option value="openai">OpenAI</option>
-              </select>
+            <select id="channelProfileSelect">
+              <option value="">— Chọn kênh trước khi viết —</option>
+            </select>
+            <div class="channel-selected-summary" id="channelSelectedSummary">
+              <strong>Chưa chọn Channel Profile</strong>
+              <span>DNA kênh sẽ tự động được đưa vào AI khi tạo kịch bản.</span>
             </div>
           </div>
 
-          <details>
-            <summary>Cài đặt kịch bản nâng cao</summary>
-            <div class="advanced">
+          <div class="platform-block">
+            <div class="field-title-row">
+              <label for="platformMode">Nền tảng & định dạng</label>
+              <span class="quality-badge">Content Quality V2</span>
+            </div>
+            <select id="platformMode">
+              <option value="youtube_long">YouTube Long</option>
+              <option value="youtube_short">YouTube Short</option>
+              <option value="facebook_short">Facebook Short / Reels</option>
+            </select>
+            <p class="field-note" id="platformHint">Video dài có cấu trúc, ưu tiên chiều sâu và khả năng giữ chân người xem.</p>
+          </div>
+
+          <label>Chủ đề video *</label>
+          <textarea id="topic" class="topic-editor" placeholder="Ví dụ: Vì sao con người thường trì hoãn những việc quan trọng?"></textarea>
+
+          <div class="brief-readiness">
+            <div><span>1</span><strong>Chọn Channel Profile</strong></div>
+            <div><span>2</span><strong>Nhập chủ đề</strong></div>
+            <div><span>3</span><strong>Kiểm tra cấu hình biên kịch</strong></div>
+          </div>
+
+          <div class="actions brief-actions">
+            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản chất lượng</span></button>
+          </div>
+        </div>
+
+        <aside class="panel side-panel brief-config-panel">
+          <div class="panel-head compact">
+            <div>
+              <span class="workspace-kicker">CẤU HÌNH THEO TAB</span>
+              <h2>Cấu hình Brief</h2>
+              <p>Chỉ chứa những thiết lập ảnh hưởng tới kịch bản.</p>
+            </div>
+          </div>
+
+          <div class="context-setting-group">
+            <div class="context-setting-title">AI biên kịch</div>
+            <div class="two-col compact-fields">
               <div>
-                <label>Số đoạn</label>
-                <input id="paragraphCount" type="number" min="1" max="20" value="6" />
+                <label>Ngôn ngữ</label>
+                <select id="scriptLanguage">
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">English</option>
+                </select>
               </div>
               <div>
-                <label>Độ dài mục tiêu</label>
-                <select id="targetDuration"><option value="60-90s">60–90 giây</option><option value="3-5m">3–5 phút</option><option value="8-12m">8–12 phút</option></select>
+                <label>Nhà cung cấp AI</label>
+                <select id="scriptProvider">
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="xai">xAI Grok</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>Model</label>
+              <select id="scriptModel"></select>
+              <p class="field-note" id="scriptModelHint">Chọn model phù hợp giữa chất lượng, tốc độ và chi phí.</p>
+            </div>
+          </div>
+
+          <details class="quality-details contextual-details" open>
+            <summary>Content Brief · AI cần hiểu video trước khi viết</summary>
+            <div class="brief-grid">
+              <div class="full">
+                <label>Người xem riêng của video</label>
+                <input id="targetAudience" placeholder="Để trống để dùng người xem mặc định của Channel Profile" />
+              </div>
+              <div>
+                <label>Mục tiêu nội dung *</label>
+                <select id="contentGoal">
+                  <option value="educate">Giải thích / giáo dục</option>
+                  <option value="storytelling">Kể chuyện / tạo cảm xúc</option>
+                  <option value="retention">Giữ chân / khám phá chủ đề</option>
+                  <option value="persuade">Thuyết phục / thay đổi góc nhìn</option>
+                  <option value="entertain">Giải trí</option>
+                </select>
+              </div>
+              <div>
+                <label>Tông giọng</label>
+                <select id="contentTone">
+                  <option value="natural">Tự nhiên, gần gũi</option>
+                  <option value="cinematic">Cinematic, chiêm nghiệm</option>
+                  <option value="documentary">Tài liệu, điềm tĩnh</option>
+                  <option value="energetic">Nhanh, năng lượng</option>
+                  <option value="expert">Chuyên gia, rõ ràng</option>
+                  <option value="witty">Thông minh, dí dỏm</option>
+                </select>
+              </div>
+              <div>
+                <label>Mức chuyên môn</label>
+                <select id="expertiseLevel">
+                  <option value="general">Phổ thông</option>
+                  <option value="intermediate">Trung cấp</option>
+                  <option value="advanced">Chuyên sâu</option>
+                </select>
+              </div>
+              <div>
+                <label>CTA</label>
+                <select id="ctaStyle">
+                  <option value="soft">Nhẹ nhàng</option>
+                  <option value="none">Không CTA</option>
+                  <option value="comment">Gợi mở bình luận</option>
+                  <option value="follow">Theo dõi / đăng ký</option>
+                  <option value="action">Hành động cụ thể</option>
+                </select>
               </div>
               <div class="full">
-                <label>Yêu cầu bổ sung</label>
-                <input id="extraInstruction" placeholder="Phong cách kể chuyện, đối tượng người xem..." />
+                <label>Góc tiếp cận</label>
+                <input id="anglePreference" placeholder="Góc nhìn mong muốn của video..." />
+              </div>
+              <div class="full">
+                <label>Dữ kiện / nguồn bắt buộc</label>
+                <input id="sourceNotes" placeholder="Số liệu, luận điểm hoặc nguồn cần bám theo..." />
+              </div>
+              <div class="full">
+                <label>Điều không được làm</label>
+                <input id="forbiddenContent" placeholder="Không sáo rỗng, không bịa số liệu..." />
               </div>
             </div>
           </details>
 
-          <div class="actions">
-            <button class="secondary" id="keywordBtn" disabled>Tạo từ khóa từ kịch bản</button>
-            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
-          </div>
-        </div>
-
-        <aside class="panel side-panel">
-          <div class="panel-head compact">
-            <div>
-              <h2>Cấu hình nhanh</h2>
-              <p>Dùng cho bản video hiện tại.</p>
+          <details class="contextual-details">
+            <summary>Cài đặt kịch bản nâng cao</summary>
+            <div class="advanced">
+              <div>
+                <label>Số phần / đoạn</label>
+                <input id="paragraphCount" type="number" min="1" max="40" value="10" />
+              </div>
+              <div>
+                <label>Độ dài mục tiêu</label>
+                <select id="targetDuration">
+                  <option value="8-12m">8–12 phút</option>
+                  <option value="12-20m">12–20 phút</option>
+                  <option value="20-30m">20–30 phút</option>
+                </select>
+              </div>
+              <div class="full">
+                <label>Yêu cầu bổ sung</label>
+                <input id="extraInstruction" placeholder="Yêu cầu riêng chỉ áp dụng cho video hiện tại..." />
+              </div>
             </div>
-          </div>
-
-          <div class="quick-row voice-provider-row">
-            <div class="quick-icon">🎙</div>
-            <div>
-              <strong>Giọng đọc</strong>
-              <select id="voiceName" class="inline-select">
-                <option value="Kore">Kore · Rõ, chắc</option>
-                <option value="Achernar">Achernar · Nhẹ nhàng</option>
-                <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
-                <option value="Charon">Charon · Thuyết minh</option>
-                <option value="Sulafat">Sulafat · Ấm</option>
-                <option value="Puck">Puck · Năng lượng</option>
-              </select>
-              <span>Gemini TTS · vi-VN</span>
-            </div>
-            <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
-          </div>
-          <div class="quick-row">
-            <div class="quick-icon">CC</div>
-            <div><strong>Phụ đề</strong><span>Bật · Dưới màn hình</span></div>
-            <button>Đổi</button>
-          </div>
-          <div class="quick-row">
-            <div class="quick-icon">▭</div>
-            <div><strong>Tỷ lệ video</strong><span>16:9 · 1920×1080</span></div>
-            <button>Đổi</button>
-          </div>
-          <div class="quick-row image-provider-row">
-            <div class="quick-icon">◈</div>
-            <div>
-              <strong>Nguồn hình ảnh</strong>
-              <select id="imageProvider" class="inline-select">
-                <option value="ktn">KTN FLUX · Colab/VPS</option>
-                <option value="gemini">Gemini</option>
-                <option value="openai">OpenAI</option>
-              </select>
-              <span>KTN FLUX tự host · Gemini/OpenAI dự phòng</span>
-            </div>
-            <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
-          </div>
-
-          <div class="info-box">
-            <strong>Hướng phát triển hiện tại</strong>
-            <p>KTN Image Gateway là lớp ảnh chính: Colab để thử nghiệm, GPU VPS cho production. Gemini/OpenAI chỉ là provider dự phòng.</p>
-          </div>
+          </details>
         </aside>
       </section>
 
-      <section class="panel script-preview">
-        <div class="panel-head">
+      <section class="panel script-preview workspace-view" id="scriptWorkspace" data-workspace-view="script">
+        <div class="workspace-section-head">
           <div>
+            <span class="workspace-kicker">02 · SCRIPT WORKSPACE</span>
             <h2>Kịch bản</h2>
-            <p>Kết quả AI sẽ hiển thị tại đây để chỉnh sửa trước khi chia cảnh.</p>
+            <p>Đọc, biên tập và chuẩn bị kịch bản trước khi chuyển sang storyboard.</p>
           </div>
-          <div class="segmented">
-            <button class="active" id="scriptTabBtn">Kịch bản</button>
-            <button id="keywordTabBtn">Từ khóa</button>
-            <button id="historyTabBtn">Lịch sử</button>
+          <div class="workspace-head-actions">
+            <div class="segmented">
+              <button class="active" id="scriptTabBtn">Kịch bản</button>
+              <button id="keywordTabBtn">Từ khóa</button>
+              <button id="historyTabBtn">Lịch sử</button>
+            </div>
+            <button class="secondary compact-btn" id="keywordBtn" disabled type="button">Tạo từ khóa</button>
+            <button class="primary compact-btn" id="goToSceneFromScriptBtn" type="button">Tiếp tục → Cảnh</button>
           </div>
         </div>
-        <div id="scriptEmpty" class="empty-state">
-          <div class="empty-icon">✦</div>
-          <strong>Chưa có kịch bản</strong>
-          <p>Nhập chủ đề ở trên và chọn “Tạo kịch bản bằng AI”.</p>
-        </div>
-        <div id="scriptDemo" class="script-demo hidden">
-          <div class="script-toolbar">
-            <span id="scriptMeta">Đã tạo · bản nháp</span>
+
+        <div id="scriptQualityPanel" class="script-quality-panel hidden">
+          <div class="script-quality-head">
             <div>
-              <button id="copyScriptBtn">Sao chép</button>
-              <button id="editScriptBtn">Chỉnh sửa</button>
+              <span class="workspace-kicker">SCRIPT QUALITY PIPELINE</span>
+              <strong>Multi-pass Writing</strong>
+              <p>Angle → Outline → Hook/Sections → Humanize → QA. Mỗi bước được lưu cùng Project.</p>
+            </div>
+            <div class="script-quality-score">
+              <span>QA</span>
+              <strong id="scriptQaScore">—</strong>
+              <small id="scriptQaDecision">Chưa chấm</small>
             </div>
           </div>
-          <h3 id="scriptTitle">Kịch bản AI</h3>
-          <textarea id="scriptResult" readonly></textarea>
+
+          <div class="script-workflow-steps">
+            <div class="script-stage" id="sqStageAngle"><span>1</span><strong>Angle</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageOutline"><span>2</span><strong>Outline</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageDraft"><span>3</span><strong>Draft</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageRewrite"><span>4</span><strong>Humanize</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageQa"><span>5</span><strong>QA</strong><small>Chờ</small></div>
+          </div>
+
+          <div class="script-workflow-progress">
+            <div class="script-workflow-progress-head">
+              <span id="scriptWorkflowProgressLabel">Sẵn sàng</span>
+              <strong id="scriptWorkflowProgressValue">0%</strong>
+            </div>
+            <div class="script-workflow-track"><div id="scriptWorkflowBar"></div></div>
+          </div>
+
+          <details class="script-artifacts" open>
+            <summary>Angle & Outline đã duyệt bởi workflow</summary>
+            <div class="script-artifact-grid">
+              <article>
+                <span>ANGLE</span>
+                <strong id="scriptAngleTitle">—</strong>
+                <p id="scriptAngleSummary">Chưa có Angle.</p>
+                <small id="scriptAnglePromise"></small>
+              </article>
+              <article>
+                <span>OUTLINE</span>
+                <strong id="scriptOutlineTitle">—</strong>
+                <div id="scriptOutlineList" class="script-outline-list"></div>
+              </article>
+            </div>
+          </details>
+
+          <div id="scriptQaDetails" class="script-qa-details hidden">
+            <div>
+              <strong>QA report</strong>
+              <span id="scriptQaProblems">—</span>
+            </div>
+            <div>
+              <strong>Quyết định</strong>
+              <span id="scriptQaPlan">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="scriptEmpty" class="empty-state pro-empty">
+          <div class="empty-icon">✦</div>
+          <strong>Chưa có kịch bản</strong>
+          <p>Quay lại Brief để tạo kịch bản đầu tiên cho dự án này.</p>
+          <button class="secondary compact-btn" type="button" data-workspace-link="brief">← Về Brief</button>
+        </div>
+
+        <div id="scriptDemo" class="script-editor-shell hidden">
+          <div class="script-editor-header">
+            <div>
+              <span class="draft-chip">BẢN NHÁP</span>
+              <h3 id="scriptTitle">Kịch bản AI</h3>
+              <span id="scriptMeta">Đã tạo · bản nháp</span>
+            </div>
+            <div class="script-editor-actions">
+              <button id="copyScriptBtn">Sao chép</button>
+              <button class="primary-lite" id="editScriptBtn">Chỉnh sửa</button>
+            </div>
+          </div>
+
+          <div class="script-metrics" id="scriptMetrics">
+            <div><strong id="scriptWordCount">0</strong><span>Từ</span></div>
+            <div><strong id="scriptEstimatedDuration">0 phút</strong><span>Ước tính đọc</span></div>
+            <div><strong id="scriptCharacterCount">0</strong><span>Ký tự</span></div>
+            <div><strong id="scriptParagraphMetric">0</strong><span>Đoạn</span></div>
+          </div>
+
+          <div class="script-editor-canvas">
+            <textarea id="scriptResult" readonly></textarea>
+          </div>
+
+          <div class="script-editor-footer">
+            <span id="scriptEditorHint">Chỉnh sửa thủ công nếu cần; thay đổi được tự động lưu trong Project.</span>
+            <button class="secondary compact-btn" type="button" data-workspace-link="scene">Storyboard →</button>
+          </div>
         </div>
 
         <div id="keywordPanel" class="keyword-panel hidden">
@@ -229,46 +391,112 @@
       </section>
 
 
-      <section class="panel voice-workspace-panel" id="voiceSection">
-        <div class="panel-head">
+      <section class="panel voice-workspace-panel workspace-view" id="voiceSection" data-workspace-view="voice">
+        <div class="workspace-section-head">
           <div>
+            <span class="workspace-kicker">04 · VOICE STUDIO</span>
             <h2>Giọng đọc</h2>
-            <p>Nghe thử giọng Gemini TTS và tạo audio cho từng scene hoặc nhiều scene có kiểm soát.</p>
+            <p>Quản lý Voice Profile, clone giọng, tạo audio hàng loạt và kiểm soát QA theo từng scene.</p>
           </div>
-          <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Gemini TTS</span>
+          <div class="workspace-head-actions">
+            <span class="status-pill" id="voiceWorkspaceStatus">Đang kiểm tra Voice Provider</span>
+            <button class="secondary compact-btn" id="refreshVoiceLibraryBtn" type="button">↻ Đồng bộ giọng</button>
+            <button class="primary compact-btn" id="openVoiceCloneBtn" type="button">＋ Clone giọng</button>
+          </div>
+        </div>
+
+        <div class="voice-profile-shell">
+          <div class="voice-profile-main">
+            <div class="voice-card-head">
+              <div>
+                <strong>Voice Profile của dự án</strong>
+                <p>Chọn provider và giọng dùng mặc định cho toàn bộ video. Có thể đổi riêng từng scene sau.</p>
+              </div>
+              <span class="provider-state" id="voiceProviderState">Chưa kiểm tra</span>
+            </div>
+
+            <div class="voice-profile-fields">
+              <div>
+                <label>Nhà cung cấp</label>
+                <select id="voiceProvider">
+                  <option value="gemini">Google Gemini TTS</option>
+                  <option value="elevenlabs">ElevenLabs</option>
+                </select>
+              </div>
+              <div class="voice-select-field">
+                <label>Giọng mặc định</label>
+                <select id="voiceName">
+                  <option value="Kore">Kore · Gemini</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="voice-style-grid">
+              <div>
+                <label>Phong cách đọc</label>
+                <select id="voiceStylePreset">
+                  <option value="documentary">Documentary · điềm tĩnh</option>
+                  <option value="cinematic">Cinematic · giàu cảm xúc</option>
+                  <option value="conversational">Conversational · gần gũi</option>
+                  <option value="energetic">Energetic · nhanh, sáng</option>
+                  <option value="expert">Expert · rõ, chắc</option>
+                  <option value="custom">Tùy chỉnh</option>
+                </select>
+              </div>
+              <div>
+                <label>Tốc độ</label>
+                <select id="voiceSpeed">
+                  <option value="0.85">0.85× · Chậm</option>
+                  <option value="0.95">0.95×</option>
+                  <option value="1" selected>1.00× · Chuẩn</option>
+                  <option value="1.05">1.05×</option>
+                  <option value="1.1">1.10× · Nhanh</option>
+                </select>
+              </div>
+              <div class="full">
+                <label>Voice direction / ghi chú cách đọc</label>
+                <input id="voiceStyleInstruction" placeholder="Ví dụ: trầm, gần gũi, có khoảng nghỉ sau câu hỏi; không đọc như quảng cáo..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="voice-library-panel">
+            <div class="voice-card-head">
+              <div>
+                <strong>Voice Library</strong>
+                <p>Prebuilt + cloned voices từ provider đang chọn.</p>
+              </div>
+              <span id="voiceLibraryCount">0 giọng</span>
+            </div>
+            <div id="voiceLibraryEmpty" class="voice-library-empty">Đang tải thư viện giọng...</div>
+            <div id="voiceLibraryGrid" class="voice-library-grid hidden"></div>
+          </div>
         </div>
 
         <div id="voiceDailyQuotaNotice" class="voice-daily-quota-notice hidden">
-          <strong>Đã chạm quota TTS Free Tier theo ngày</strong>
-          <span>Hệ thống đã dừng retry và khóa tạo audio mới trong phiên này để tránh gọi API vô ích. Audio đã tạo vẫn được giữ nguyên.</span>
+          <strong>Provider hiện không cho tạo thêm audio</strong>
+          <span>Hệ thống đã dừng retry để tránh gọi API vô ích. Audio đã tạo vẫn được giữ nguyên.</span>
         </div>
 
-        <div class="voice-workspace-grid">
-          <div class="voice-preview-card">
+        <div class="voice-production-grid">
+          <div class="voice-preview-card voice-studio-card">
             <div class="voice-card-head">
               <div>
-                <strong>Nghe thử giọng</strong>
-                <p>Tạo một đoạn ngắn trước khi áp dụng cho toàn bộ video.</p>
+                <strong>Nghe thử</strong>
+                <p>Kiểm tra voice profile trước khi chạy batch.</p>
               </div>
-              <span id="voicePreviewModel">Gemini TTS</span>
+              <span id="voicePreviewModel">TTS</span>
             </div>
 
-            <label>Giọng</label>
-            <select id="voiceWorkspaceVoice">
-              <option value="Kore">Kore · Rõ, chắc</option>
-              <option value="Achernar">Achernar · Nhẹ nhàng</option>
-              <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
-              <option value="Charon">Charon · Thuyết minh</option>
-              <option value="Sulafat">Sulafat · Ấm</option>
-              <option value="Puck">Puck · Năng lượng</option>
-            </select>
+            <label>Giọng nghe thử</label>
+            <select id="voiceWorkspaceVoice"><option value="Kore">Kore</option></select>
 
             <label>Câu nghe thử</label>
             <textarea id="voicePreviewText">Xin chào, đây là bản thử giọng của KTN AI Video Studio. Hãy lắng nghe tốc độ, độ rõ và cảm xúc của giọng đọc này.</textarea>
 
             <div class="voice-preview-actions">
               <span class="cost-note">Mỗi lần nghe thử là một request TTS.</span>
-              <button class="primary compact-btn" id="voicePreviewBtn">Nghe thử</button>
+              <button class="primary compact-btn" id="voicePreviewBtn">▶ Nghe thử</button>
             </div>
 
             <div id="voicePreviewOutput" class="voice-preview-output hidden">
@@ -277,11 +505,11 @@
             </div>
           </div>
 
-          <div class="voice-batch-card">
+          <div class="voice-batch-card voice-studio-card">
             <div class="voice-card-head">
               <div>
-                <strong>Tạo audio hàng loạt</strong>
-                <p>Chạy tuần tự từng scene và tự giãn nhịp theo quota Gemini Free Tier để tránh lỗi giới hạn request.</p>
+                <strong>Batch Job Queue</strong>
+                <p>Tạo audio theo hàng đợi; có Pause / Resume / Retry lỗi và tiến độ trực quan.</p>
               </div>
               <span id="voiceBatchSummary">0/0 audio</span>
             </div>
@@ -290,36 +518,57 @@
               <div><strong id="voiceSceneTotal">0</strong><span>Tổng scene</span></div>
               <div><strong id="voiceSceneReady">0</strong><span>Đã có audio</span></div>
               <div><strong id="voiceSceneMissing">0</strong><span>Chưa có audio</span></div>
+              <div><strong id="voiceSceneFailed">0</strong><span>Lỗi</span></div>
             </div>
 
-            <label>Phạm vi tạo</label>
-            <select id="voiceBatchScope">
-              <option value="test2" selected>Kiểm thử tối đa 2 scene chưa có audio</option>
-              <option value="missing">Tất cả scene chưa có audio</option>
-              <option value="all">Tạo lại toàn bộ scene</option>
-            </select>
+            <div class="voice-batch-config">
+              <div>
+                <label>Phạm vi tạo</label>
+                <select id="voiceBatchScope">
+                  <option value="test2">Test tối đa 2 scene</option>
+                  <option value="missing" selected>Tất cả scene chưa có audio</option>
+                  <option value="all">Tạo lại toàn bộ scene</option>
+                  <option value="failed">Chỉ retry scene lỗi</option>
+                </select>
+              </div>
+              <label class="voice-confirm-row">
+                <input type="checkbox" id="voiceBatchConfirm" />
+                <span>Tôi xác nhận phạm vi batch và chi phí API có thể phát sinh.</span>
+              </label>
+            </div>
 
-            <label class="voice-confirm-row">
-              <input type="checkbox" id="voiceBatchConfirm" />
-              <span>Tôi hiểu việc tạo audio hàng loạt có thể phát sinh phí API và chỉ muốn chạy phạm vi đã chọn.</span>
-            </label>
-
-            <button class="primary voice-batch-btn" id="voiceBatchBtn" disabled>Tạo audio hàng loạt</button>
-
-            <div id="voiceBatchProgress" class="voice-batch-progress hidden">
+            <div id="voiceBatchProgress" class="voice-batch-progress">
               <div class="voice-batch-progress-head">
-                <span id="voiceBatchProgressLabel">Đang chuẩn bị...</span>
+                <span id="voiceBatchProgressLabel">Sẵn sàng</span>
                 <strong id="voiceBatchProgressValue">0%</strong>
               </div>
               <div class="voice-batch-track"><div id="voiceBatchBar"></div></div>
-              <div id="voiceBatchResults" class="voice-batch-results"></div>
+              <div class="voice-job-metrics">
+                <span id="voiceQueueMetric">0 queued</span>
+                <span id="voiceRunningMetric">0 running</span>
+                <span id="voicePassMetric">0 pass</span>
+                <span id="voiceFailMetric">0 fail</span>
+              </div>
             </div>
+
+            <div class="voice-batch-controls">
+              <button class="primary" id="voiceBatchBtn" disabled>▶ Chạy batch</button>
+              <button class="secondary" id="voiceBatchPauseBtn" disabled>Pause</button>
+              <button class="secondary" id="voiceBatchResumeBtn" disabled>Resume</button>
+              <button class="secondary" id="voiceBatchRetryBtn" disabled>Retry lỗi</button>
+              <button class="secondary danger-soft" id="voiceBatchCancelBtn" disabled>Cancel</button>
+            </div>
+
+            <div id="voiceBatchResults" class="voice-batch-results voice-job-queue"></div>
           </div>
         </div>
 
         <div class="voice-scene-status">
           <div class="voice-scene-status-head">
-            <strong>Trạng thái audio theo scene</strong>
+            <div>
+              <strong>Scene Audio QA</strong>
+              <p>Kiểm tra file audio, thời lượng và duyệt thủ công trước khi render.</p>
+            </div>
             <button class="secondary compact-btn" id="refreshVoiceWorkspaceBtn">Làm mới</button>
           </div>
           <div id="voiceSceneStatusEmpty" class="empty-state">
@@ -331,21 +580,43 @@
         </div>
       </section>
 
-      <section id="imageQuotaNotice" class="panel image-quota-notice hidden">
+      <section id="imageQuotaNotice" class="panel image-quota-notice hidden" data-workspace-aux="scene">
         <strong>Gemini Image không có quota Free Tier trên API key hiện tại</strong>
         <span>Hệ thống đã khóa tạo ảnh bằng Gemini trong phiên này để tránh gọi API vô ích. Có thể cấu hình nhà cung cấp ảnh khác sau.</span>
       </section>
 
-      <section class="panel scene-panel" id="sceneSection">
-        <div class="panel-head">
+      <section class="panel scene-panel workspace-view" id="sceneSection" data-workspace-view="scene">
+        <div class="workspace-section-head">
           <div>
-            <h2>Chia cảnh</h2>
-            <p>AI tách kịch bản thành các scene có lời đọc, thời lượng và prompt hình ảnh.</p>
+            <span class="workspace-kicker">03 · STORYBOARD</span>
+            <h2>Cảnh & storyboard</h2>
+            <p>Mỗi card là một cảnh gồm lời đọc, thời lượng, hình ảnh và audio.</p>
           </div>
-          <button class="primary compact-btn" id="sceneBtn" disabled>
-            <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
-          </button>
+          <div class="workspace-head-actions">
+            <div class="segmented scene-view-toggle">
+              <button class="active" id="sceneBoardViewBtn" type="button">Board</button>
+              <button id="sceneListViewBtn" type="button">List</button>
+            </div>
+            <span class="scene-qa-chip" id="sceneQaChip">QA 0/0</span>
+            <span class="scene-count-chip" id="sceneCountChip">0 cảnh</span>
+            <button class="primary compact-btn" id="sceneBtn" disabled>
+              <span id="sceneBtnText">▦ Chia cảnh bằng AI</span>
+            </button>
+          </div>
         </div>
+        <div class="tab-context-bar scene-context-bar">
+          <div>
+            <label>Nguồn hình ảnh</label>
+            <select id="imageProvider">
+              <option value="ktn">KTN FLUX · Colab/VPS</option>
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <span class="provider-state" id="imageProviderState">Chưa kiểm tra</span>
+          <p>Chỉ cấu hình hình ảnh tại workspace Cảnh.</p>
+        </div>
+
         <div id="sceneEmpty" class="empty-state">
           <div class="empty-icon">▦</div>
           <strong>Chưa có cảnh</strong>
@@ -354,7 +625,7 @@
         <div id="sceneList" class="scene-list hidden"></div>
       </section>
 
-      <section class="panel subtitle-panel" id="subtitleSection">
+      <section class="panel subtitle-panel workspace-view" id="subtitleSection" data-workspace-view="subtitle">
         <div class="panel-head">
           <div>
             <h2>Phụ đề</h2>
@@ -387,14 +658,47 @@
         </div>
         <div id="subtitleOutput" class="subtitle-output hidden">
           <div class="subtitle-toolbar">
-            <span id="subtitleMeta">SRT</span>
-            <button id="downloadSrtBtn">Tải file .srt</button>
+            <div class="subtitle-toolbar-meta">
+              <span id="subtitleMeta">SRT</span>
+              <span id="subtitleQaBadge" class="subtitle-qa-badge">Chưa kiểm tra</span>
+            </div>
+            <div class="subtitle-toolbar-actions">
+              <button id="validateSrtBtn" type="button">Kiểm tra SRT</button>
+              <button id="downloadSrtBtn" type="button">Tải file .srt</button>
+            </div>
           </div>
-          <pre id="subtitlePreview"></pre>
+          <textarea id="subtitlePreview" class="subtitle-editor" spellcheck="false" aria-label="SRT editor"></textarea>
+          <div id="subtitleQaDetails" class="subtitle-qa-details"></div>
         </div>
       </section>
 
-      <section class="panel asset-library-panel" id="librarySection">
+      <section class="panel project-library-panel workspace-view global-workspace" id="projectsSection" data-workspace-view="projects">
+        <div class="workspace-section-head">
+          <div>
+            <span class="workspace-kicker">PROJECT LIBRARY</span>
+            <h2>Dự án</h2>
+            <p>Mỗi dự án được lưu riêng trong IndexedDB của trình duyệt. Có thể mở lại, đổi tên, xuất hoặc xóa.</p>
+          </div>
+          <button class="primary compact-btn" id="newProjectFromLibraryBtn" type="button">＋ Dự án mới</button>
+        </div>
+
+        <div class="project-storage-summary">
+          <div><strong id="projectLibraryCount">0</strong><span>Dự án</span></div>
+          <div><strong id="projectLibraryStorage">—</strong><span>Dung lượng cục bộ</span></div>
+          <div><strong>IndexedDB</strong><span>Nơi lưu hiện tại</span></div>
+          <div><strong>Cloud</strong><span>Chưa bật · phase sau</span></div>
+        </div>
+
+        <div id="projectLibraryEmpty" class="empty-state pro-empty">
+          <div class="empty-icon">▣</div>
+          <strong>Chưa có dự án</strong>
+          <p>Tạo dự án đầu tiên. Hệ thống sẽ lưu độc lập thay vì chỉ có một “current draft”.</p>
+          <button class="primary compact-btn" id="newProjectEmptyBtn" type="button">＋ Tạo dự án</button>
+        </div>
+        <div id="projectLibraryGrid" class="project-library-grid hidden"></div>
+      </section>
+
+      <section class="panel asset-library-panel workspace-view global-workspace" id="librarySection" data-workspace-view="library">
         <div class="panel-head">
           <div>
             <h2>Thư viện tài nguyên</h2>
@@ -425,7 +729,7 @@
         <div id="assetLibraryGrid" class="asset-library-grid hidden"></div>
       </section>
 
-      <section class="panel render-panel" id="renderSection">
+      <section class="panel render-panel workspace-view" id="renderSection" data-workspace-view="export">
         <div class="panel-head">
           <div>
             <h2>Xuất video</h2>
@@ -477,7 +781,160 @@
         </div>
       </section>
 
-      <section class="panel settings-panel" id="settingsSection">
+      <section class="panel channel-library-panel workspace-view global-workspace" id="channelProfilesSection" data-workspace-view="channels">
+        <div class="panel-head">
+          <div>
+            <h2>Kênh nội dung</h2>
+            <p>Tạo Channel Profile một lần, sau đó chọn lại ở mọi video. DNA kênh không cần nhập lặp lại.</p>
+          </div>
+          <button class="primary compact-btn" id="newChannelProfileBtn">＋ Tạo kênh</button>
+        </div>
+
+        <div class="channel-library-layout">
+          <div class="channel-list-pane">
+            <div class="channel-library-meta">
+              <strong id="channelProfileCount">0 kênh</strong>
+              <span>Lưu cục bộ trên trình duyệt trong giai đoạn V1.</span>
+            </div>
+            <div id="channelProfileEmpty" class="empty-state compact-empty">
+              <div class="empty-icon">◫</div>
+              <strong>Chưa có kênh nội dung</strong>
+              <p>Tạo profile đầu tiên để lưu DNA thương hiệu, người xem và giọng kể.</p>
+            </div>
+            <div id="channelProfileGrid" class="channel-profile-grid hidden"></div>
+          </div>
+
+          <div class="channel-editor-pane" id="channelEditorPane">
+            <div class="channel-editor-head">
+              <div>
+                <span class="editor-kicker" id="channelEditorMode">Tạo Channel Profile</span>
+                <h3 id="channelEditorTitle">Kênh mới</h3>
+              </div>
+              <button class="text-button" id="cancelChannelEditBtn" type="button">Làm mới form</button>
+            </div>
+
+            <input id="channelProfileId" type="hidden" />
+
+            <div class="channel-form-grid">
+              <div>
+                <label>Tên kênh *</label>
+                <input id="channelProfileName" placeholder="Ví dụ: The Hidden Mind" />
+              </div>
+              <div>
+                <label>Nền tảng chính</label>
+                <select id="channelPrimaryPlatform">
+                  <option value="youtube">YouTube</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="multi">Đa nền tảng</option>
+                </select>
+              </div>
+              <div>
+                <label>Chủ đề / niche *</label>
+                <input id="channelNiche" placeholder="Ví dụ: Tâm lý học, hành vi, phát triển bản thân" />
+              </div>
+              <div>
+                <label>Người xem mặc định *</label>
+                <input id="channelTargetAudience" placeholder="Ví dụ: Người đi làm 25–40 tuổi" />
+              </div>
+
+              <div>
+                <label>Tông giọng mặc định</label>
+                <select id="channelDefaultTone">
+                  <option value="natural">Tự nhiên, gần gũi</option>
+                  <option value="cinematic">Cinematic, chiêm nghiệm</option>
+                  <option value="documentary">Tài liệu, điềm tĩnh</option>
+                  <option value="energetic">Nhanh, năng lượng</option>
+                  <option value="expert">Chuyên gia, rõ ràng</option>
+                  <option value="witty">Thông minh, dí dỏm</option>
+                </select>
+              </div>
+              <div>
+                <label>Mục tiêu mặc định</label>
+                <select id="channelDefaultGoal">
+                  <option value="educate">Giải thích / giáo dục</option>
+                  <option value="storytelling">Kể chuyện / tạo cảm xúc</option>
+                  <option value="retention">Giữ chân / khám phá chủ đề</option>
+                  <option value="persuade">Thuyết phục / thay đổi góc nhìn</option>
+                  <option value="entertain">Giải trí</option>
+                </select>
+              </div>
+              <div>
+                <label>Mức chuyên môn mặc định</label>
+                <select id="channelDefaultExpertise">
+                  <option value="general">Phổ thông, dễ hiểu</option>
+                  <option value="intermediate">Trung cấp</option>
+                  <option value="advanced">Chuyên sâu</option>
+                </select>
+              </div>
+              <div>
+                <label>CTA mặc định</label>
+                <select id="channelDefaultCta">
+                  <option value="soft">Nhẹ nhàng, tự nhiên</option>
+                  <option value="none">Không CTA</option>
+                  <option value="comment">Gợi mở bình luận</option>
+                  <option value="follow">Theo dõi / đăng ký</option>
+                  <option value="action">Kêu gọi hành động cụ thể</option>
+                </select>
+              </div>
+
+              <div class="full">
+                <label>Phong cách kênh</label>
+                <input id="channelProfileStyle" placeholder="Ví dụ: Cinematic Psychology + documentary storytelling" />
+              </div>
+              <div class="full">
+                <label>Nhân vật người kể / narrator</label>
+                <input id="channelNarratorPersona" placeholder="Ví dụ: Điềm tĩnh, tinh tế, không phán xét, nói như đang trò chuyện riêng" />
+              </div>
+              <div>
+                <label>Phong cách từ vựng</label>
+                <input id="channelVocabularyStyle" placeholder="Đời thường, chính xác, dễ hiểu" />
+              </div>
+              <div>
+                <label>Kiểu mở đầu</label>
+                <input id="channelOpeningStyle" placeholder="Tình huống quen thuộc hoặc câu hỏi cụ thể" />
+              </div>
+              <div class="full">
+                <label>Phong cách kể chuyện</label>
+                <input id="channelStorytellingStyle" placeholder="Tình huống → câu hỏi → lý giải → ví dụ → đổi góc nhìn → payoff" />
+              </div>
+              <div class="full">
+                <label>Cụm từ / kiểu viết cấm dùng</label>
+                <input id="channelForbiddenPhrases" placeholder="Hãy cùng khám phá; Trong thế giới ngày nay; ..." />
+              </div>
+              <div class="full">
+                <label>Nguyên tắc nội dung cố định</label>
+                <input id="channelForbiddenContent" placeholder="Không giật tít sai, không bịa số liệu, không phán xét..." />
+              </div>
+
+              <div>
+                <label>Giọng đọc mặc định</label>
+                <select id="channelDefaultVoice">
+                  <option value="Kore">Kore · Rõ, chắc</option>
+                  <option value="Achernar">Achernar · Nhẹ nhàng</option>
+                  <option value="Aoede">Aoede · Thoáng, tự nhiên</option>
+                  <option value="Charon">Charon · Thuyết minh</option>
+                  <option value="Sulafat">Sulafat · Ấm</option>
+                  <option value="Puck">Puck · Năng lượng</option>
+                </select>
+              </div>
+              <div>
+                <label>Quy tắc phát âm / ghi chú giọng</label>
+                <input id="channelPronunciationNotes" placeholder="Ví dụ: AI = ây-ai; KTN = ca-tê-en" />
+              </div>
+            </div>
+
+            <div class="channel-editor-actions">
+              <button class="secondary" id="deleteChannelProfileBtn" type="button" disabled>Xóa</button>
+              <div>
+                <button class="secondary" id="duplicateChannelProfileBtn" type="button" disabled>Nhân bản</button>
+                <button class="primary" id="saveChannelProfileBtn" type="button">Lưu Channel Profile</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel workspace-view global-workspace" id="settingsSection" data-workspace-view="settings">
         <div class="panel-head">
           <div>
             <h2>Cài đặt hệ thống</h2>
@@ -505,6 +962,33 @@
               <div><dt>Biến môi trường</dt><dd>OPENAI_API_KEY</dd></div>
               <div><dt>Script</dt><dd data-field="scriptModel">—</dd></div>
               <div><dt>Image</dt><dd data-field="imageModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="anthropic">
+            <div class="system-card-head"><strong>Anthropic Claude</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · biên tập · long-form reasoning</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>ANTHROPIC_API_KEY</dd></div>
+              <div><dt>Model mặc định</dt><dd data-field="scriptModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="xai">
+            <div class="system-card-head"><strong>xAI Grok</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>Kịch bản · phân tích · creative drafting</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>XAI_API_KEY</dd></div>
+              <div><dt>Model mặc định</dt><dd data-field="scriptModel">—</dd></div>
+            </dl>
+          </article>
+
+          <article class="system-card" data-system="elevenlabs">
+            <div class="system-card-head"><strong>ElevenLabs</strong><span class="system-badge">Đang kiểm tra</span></div>
+            <p>TTS Premium · Voice Library · Instant Voice Clone</p>
+            <dl>
+              <div><dt>Biến môi trường</dt><dd>ELEVENLABS_API_KEY</dd></div>
+              <div><dt>TTS</dt><dd data-field="ttsModel">—</dd></div>
             </dl>
           </article>
 
@@ -543,6 +1027,158 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="voiceCloneModal" role="dialog" aria-modal="true" aria-labelledby="voiceCloneModalTitle">
+    <div class="modal-card voice-clone-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="workspace-kicker">VOICE CLONE</span>
+          <h2 id="voiceCloneModalTitle">Clone giọng đọc</h2>
+          <p>Chỉ clone giọng của chính chủ sở hữu hoặc khi có quyền và sự đồng ý hợp lệ.</p>
+        </div>
+        <button class="icon-btn" id="closeVoiceCloneBtn" type="button">×</button>
+      </div>
+      <div class="modal-body voice-clone-form">
+        <div class="two-col">
+          <div>
+            <label>Provider</label>
+            <select id="voiceCloneProvider">
+              <option value="gemini">Google Gemini · Voice Replication</option>
+              <option value="elevenlabs">ElevenLabs · Instant Voice Clone</option>
+            </select>
+          </div>
+          <div>
+            <label>Tên Voice Profile *</label>
+            <input id="voiceCloneName" placeholder="Ví dụ: Sóc Narrator V1" />
+          </div>
+        </div>
+
+        <label>Reference audio *</label>
+        <input id="voiceCloneReferenceFile" type="file" accept="audio/*" />
+        <p class="field-note">Gemini khuyến nghị 10–30 giây giọng thật sạch, một người nói. ElevenLabs có thể dùng sample ngắn nhưng chất lượng phụ thuộc audio nguồn.</p>
+
+        <div id="geminiConsentAudioBlock">
+          <label>Consent audio của cùng người nói *</label>
+          <input id="voiceCloneConsentFile" type="file" accept="audio/*" />
+          <div class="consent-script">
+            <strong>Câu phải đọc chính xác cho Gemini (vi-VN):</strong>
+            <p>Tôi là chủ sở hữu giọng nói này và tôi đồng ý cho Google sử dụng giọng nói này để tạo mô hình giọng nói tổng hợp.</p>
+          </div>
+        </div>
+
+        <label>Mô tả</label>
+        <input id="voiceCloneDescription" placeholder="Ví dụ: Giọng nam trầm, documentary, tiếng Việt" />
+
+        <label class="scene-lock-row voice-consent-row">
+          <input id="voiceCloneConsentConfirmed" type="checkbox" />
+          Tôi xác nhận người nói là người trưởng thành, là chủ sở hữu giọng hoặc đã cấp quyền hợp lệ cho việc clone và sử dụng giọng này.
+        </label>
+
+        <div id="voiceCloneStatus" class="voice-clone-status"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="cancelVoiceCloneBtn" type="button">Hủy</button>
+        <button class="primary" id="createVoiceCloneBtn" type="button">Tạo Voice Clone</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="sceneEditorModal" role="dialog" aria-modal="true" aria-labelledby="sceneEditorTitle">
+    <div class="modal-card scene-editor-modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="workspace-kicker">SCENE EDITOR</span>
+          <h2 id="sceneEditorTitle">Chỉnh sửa cảnh</h2>
+          <p>Điều chỉnh mục đích, narration, visual intent và continuity mà không cần tạo lại toàn bộ storyboard.</p>
+        </div>
+        <button class="icon-btn" id="closeSceneEditorBtn" type="button">×</button>
+      </div>
+      <div class="modal-body scene-editor-form">
+        <input id="sceneEditorId" type="hidden" />
+        <div class="two-col">
+          <div>
+            <label>Tiêu đề</label>
+            <input id="sceneEditorSceneTitle" />
+          </div>
+          <div>
+            <label>Mục đích scene</label>
+            <select id="sceneEditorPurpose">
+              <option value="hook">Hook</option>
+              <option value="context">Context</option>
+              <option value="tension">Tension</option>
+              <option value="explanation">Explanation</option>
+              <option value="evidence">Evidence</option>
+              <option value="example">Example</option>
+              <option value="transition">Transition</option>
+              <option value="payoff">Payoff</option>
+              <option value="cta">CTA</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <label>Lời đọc / narration</label>
+        <textarea id="sceneEditorNarration" rows="6"></textarea>
+        <div class="two-col">
+          <div>
+            <label>Thời lượng mục tiêu (giây)</label>
+            <input id="sceneEditorDuration" type="number" min="2" max="60" />
+          </div>
+          <div>
+            <label>Shot type</label>
+            <input id="sceneEditorShotType" placeholder="Ví dụ: archival wide, close-up detail..." />
+          </div>
+        </div>
+        <label>Visual intent</label>
+        <textarea id="sceneEditorVisualIntent" rows="3"></textarea>
+        <label>Continuity notes</label>
+        <textarea id="sceneEditorContinuity" rows="3"></textarea>
+        <label>Mô tả hình ảnh</label>
+        <textarea id="sceneEditorVisualDescription" rows="4"></textarea>
+        <label>Image prompt</label>
+        <textarea id="sceneEditorImagePrompt" rows="5"></textarea>
+        <label class="scene-lock-row"><input id="sceneEditorLocked" type="checkbox" /> Khóa scene này để không bị AI ghi đè khi chia cảnh lại.</label>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="sceneEditorCancelBtn" type="button">Hủy</button>
+        <button class="primary" id="sceneEditorSaveBtn" type="button">Lưu scene</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="newProjectModal" role="dialog" aria-modal="true" aria-labelledby="newProjectModalTitle">
+    <div class="modal-card project-create-modal">
+      <div class="modal-head">
+        <div>
+          <span class="workspace-kicker">NEW PROJECT</span>
+          <h2 id="newProjectModalTitle">Tạo dự án mới</h2>
+          <p>Đặt tên trước khi bắt đầu. Dự án sẽ có vùng dữ liệu riêng trong IndexedDB.</p>
+        </div>
+        <button class="icon-btn" id="closeNewProjectModalBtn" type="button">×</button>
+      </div>
+      <div class="modal-body">
+        <label>Tên dự án *</label>
+        <input id="newProjectNameInput" placeholder="Ví dụ: Hidden Mind · Trì hoãn · YouTube Long" maxlength="120" />
+        <div class="two-col">
+          <div>
+            <label>Kênh nội dung</label>
+            <select id="newProjectChannelSelect"><option value="">— Chọn sau —</option></select>
+          </div>
+          <div>
+            <label>Định dạng</label>
+            <select id="newProjectPlatformSelect">
+              <option value="youtube_long">YouTube Long</option>
+              <option value="youtube_short">YouTube Short</option>
+              <option value="facebook_short">Facebook Short / Reels</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="cancelNewProjectBtn" type="button">Hủy</button>
+        <button class="primary" id="confirmNewProjectBtn" type="button">Tạo dự án</button>
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast">KTN AI Video Studio đã sẵn sàng. Hệ thống sẽ kiểm tra các dịch vụ AI và render trước khi chạy.</div>

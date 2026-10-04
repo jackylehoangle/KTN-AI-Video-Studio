@@ -590,6 +590,29 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
         return ""
 
     subtitle_path = path.join(utils.task_dir(task_id), "subtitle.srt")
+
+    custom_subtitle_content = str(
+        getattr(params, "custom_subtitle_content", "") or ""
+    ).strip()
+    if custom_subtitle_content:
+        logger.info("\n\n## using custom subtitle content supplied by caller")
+        with open(subtitle_path, "w", encoding="utf-8") as f:
+            f.write(custom_subtitle_content.rstrip() + "\n")
+
+        subtitle_lines = subtitle.file_to_subtitles(subtitle_path)
+        if not subtitle_lines:
+            logger.warning("custom subtitle content is invalid SRT")
+            try:
+                os.remove(subtitle_path)
+            except OSError:
+                pass
+            return ""
+
+        logger.info(
+            f"custom subtitle accepted: {len(subtitle_lines)} cues, file: {subtitle_path}"
+        )
+        return subtitle_path
+
     subtitle_provider = config.app.get("subtitle_provider", "edge").strip().lower()
     logger.info(f"\n\n## generating subtitle, provider: {subtitle_provider}")
 

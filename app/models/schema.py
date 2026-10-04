@@ -137,6 +137,9 @@ class VideoParams(BaseModel):
     sonilo_bgm_prompt: str = Field(default="", max_length=2000)
 
     subtitle_enabled: Optional[bool] = True
+    # Optional externally authored SRT. When provided, the render pipeline uses
+    # this exact subtitle timeline instead of regenerating subtitles from TTS.
+    custom_subtitle_content: str = Field(default="", max_length=200000)
     subtitle_position: Optional[str] = config.ui.get(
         "subtitle_position", "bottom"
     )  # top, bottom, center, custom, two_thirds_bottom

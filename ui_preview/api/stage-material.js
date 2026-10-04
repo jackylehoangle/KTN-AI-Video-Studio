@@ -19,12 +19,18 @@ function workerHeaders(apiKey){
 export default async function handler(req,res){
   if(req.method==='GET'){
     const cfg=workerConfig();
-    return send(res,200,{ok:true,configured:Boolean(cfg.baseUrl)});
+    return send(res,200,{
+      ok:true,
+      configured:Boolean(cfg.baseUrl && cfg.apiKey),
+      baseUrlConfigured:Boolean(cfg.baseUrl),
+      apiKeyConfigured:Boolean(cfg.apiKey)
+    });
   }
   if(req.method!=='POST') return send(res,405,{error:'Phương thức không được hỗ trợ.'});
 
   const cfg=workerConfig();
   if(!cfg.baseUrl) return send(res,503,{error:'Chưa cấu hình MPT_RENDER_BASE_URL trên Vercel.',code:'render_worker_missing'});
+  if(!cfg.apiKey) return send(res,503,{error:'Chưa cấu hình MPT_RENDER_API_KEY trên Vercel.',code:'render_worker_auth_missing'});
 
   const body=typeof req.body==='object'&&req.body?req.body:{};
   const sceneId=String(body.sceneId||'scene').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80)||'scene';
