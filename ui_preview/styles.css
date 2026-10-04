@@ -830,3 +830,11 @@ body[data-active-workspace="settings"] .project-nav-item{opacity:.82}
 .subtitle-editor:focus{box-shadow:inset 0 0 0 2px rgba(49,87,213,.22)}
 .subtitle-qa-details{white-space:pre-wrap;border-top:1px solid #e5e9f0;background:#fbfcfe;color:#6e798c;font-size:8px;line-height:1.55;padding:9px 12px;max-height:140px;overflow:auto}
 .subtitle-qa-details.hidden{display:none!important}
+
+
+/* V1-G03A — explicit scene review state */
+.scene-edit-actions button.reviewed{
+  color:#198754;
+  border-color:#cfe7d6;
+  background:#f3fbf5;
+}
