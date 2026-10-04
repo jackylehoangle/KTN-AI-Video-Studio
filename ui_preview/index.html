@@ -658,10 +658,17 @@
         </div>
         <div id="subtitleOutput" class="subtitle-output hidden">
           <div class="subtitle-toolbar">
-            <span id="subtitleMeta">SRT</span>
-            <button id="downloadSrtBtn">Tải file .srt</button>
+            <div class="subtitle-toolbar-meta">
+              <span id="subtitleMeta">SRT</span>
+              <span id="subtitleQaBadge" class="subtitle-qa-badge">Chưa kiểm tra</span>
+            </div>
+            <div class="subtitle-toolbar-actions">
+              <button id="validateSrtBtn" type="button">Kiểm tra SRT</button>
+              <button id="downloadSrtBtn" type="button">Tải file .srt</button>
+            </div>
           </div>
-          <pre id="subtitlePreview"></pre>
+          <textarea id="subtitlePreview" class="subtitle-editor" spellcheck="false" aria-label="SRT editor"></textarea>
+          <div id="subtitleQaDetails" class="subtitle-qa-details"></div>
         </div>
       </section>
 
