@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ktn.local/schemas/script_task_v1.json",
+  "title": "KTN Script Task V1",
+  "type": "object",
+  "required": [
+    "id",
+    "task",
+    "language",
+    "platform_mode",
+    "channel_profile",
+    "content_brief",
+    "input",
+    "target",
+    "quality"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task": {
+      "enum": [
+        "angle",
+        "outline",
+        "hook",
+        "section",
+        "rewrite",
+        "qa"
+      ]
+    },
+    "language": {
+      "enum": [
+        "vi",
+        "en"
+      ]
+    },
+    "platform_mode": {
+      "enum": [
+        "youtube_long",
+        "youtube_short",
+        "facebook_short"
+      ]
+    },
+    "channel_profile": {
+      "type": "object",
+      "required": [
+        "name",
+        "niche",
+        "audience",
+        "tone",
+        "narrator",
+        "storytelling"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "niche": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "tone": {
+          "type": "string"
+        },
+        "narrator": {
+          "type": "string"
+        },
+        "vocabulary": {
+          "type": "string"
+        },
+        "opening_style": {
+          "type": "string"
+        },
+        "storytelling": {
+          "type": "string"
+        },
+        "forbidden_phrases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fixed_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "content_brief": {
+      "type": "object",
+      "required": [
+        "topic",
+        "goal",
+        "target_duration"
+      ],
+      "properties": {
+        "topic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string"
+        },
+        "target_duration": {
+          "type": "string"
+        },
+        "angle_preference": {
+          "type": "string"
+        },
+        "cta_style": {
+          "type": "string"
+        },
+        "source_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_content": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "target": {
+      "type": [
+        "object",
+        "string",
+        "array"
+      ]
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "label",
+        "reviewed"
+      ],
+      "properties": {
+        "label": {
+          "enum": [
+            "GOLD",
+            "SILVER",
+            "REJECT"
+          ]
+        },
+        "reviewed": {
+          "type": "boolean"
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
