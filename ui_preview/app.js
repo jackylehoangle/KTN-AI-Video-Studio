@@ -3397,7 +3397,7 @@ function saveSceneEditor(){
     continuity_review_required:false,
     qa_status:'reviewed'
   };
-  renderScenes(currentScenes,{providerLabel:'Đã chỉnh sửa'});
+  renderScenes(currentScenes,{providerLabel:'Đã chỉnh sửa & duyệt scene'});
   closeSceneEditor();
   scheduleAutosave();
   showToast('Đã cập nhật scene.');
@@ -3469,7 +3469,29 @@ function toggleSceneLock(id){
   const scene=sceneById(id);
   if(!scene) return;
   scene.locked=!scene.locked;
-  renderScenes(currentScenes,{providerLabel:scene.locked?'Đã khóa':'Đã mở khóa'});
+  renderScenes(currentScenes,{providerLabel:scene.locked?'Đã khóa AI':'Đã mở khóa AI'});
+  scheduleAutosave();
+}
+
+function approveSceneReview(id){
+  const scene=sceneById(id);
+  if(!scene) return;
+  const baseChecks=[
+    Boolean(String(scene.narration||'').trim()),
+    Number(scene.duration_seconds)>=2 && Number(scene.duration_seconds)<=60,
+    Boolean(scene.purpose && scene.purpose!=='other'),
+    Boolean(String(scene.visual_intent||'').trim()),
+    Boolean(String(scene.shot_type||'').trim()),
+    Boolean(String(scene.visual_description||'').trim() && String(scene.image_prompt||'').trim())
+  ];
+  if(baseChecks.some(ok=>!ok)){
+    showToast('Scene còn thiếu nội dung bắt buộc. Hãy Sửa scene trước khi duyệt.');
+    return;
+  }
+  scene.visual_review_required=false;
+  scene.continuity_review_required=false;
+  scene.qa_status='reviewed';
+  renderScenes(currentScenes,{providerLabel:'Đã duyệt scene'});
   scheduleAutosave();
 }
 
@@ -3611,14 +3633,18 @@ function renderScenes(scenes,meta){
       return button;
     };
     const editBtn=makeAction('Sửa','edit');
-    const lockBtn=makeAction(scene.locked?'Mở khóa':'Khóa','lock');
+    const reviewNeeded=Boolean(scene.visual_review_required||scene.continuity_review_required);
+    const reviewBtn=makeAction(reviewNeeded?'Duyệt cảnh':'Đã duyệt','review',!reviewNeeded);
+    if(!reviewNeeded) reviewBtn.classList.add('reviewed');
+    const lockBtn=makeAction(scene.locked?'Mở khóa AI':'Khóa AI','lock');
     const upBtn=makeAction('↑','up',index===0);
     const downBtn=makeAction('↓','down',index===currentScenes.length-1);
     const splitBtn=makeAction('Tách','split');
     const mergeBtn=makeAction('Gộp tiếp','merge',index===currentScenes.length-1);
-    editActions.append(editBtn,lockBtn,upBtn,downBtn,splitBtn,mergeBtn);
+    editActions.append(editBtn,reviewBtn,lockBtn,upBtn,downBtn,splitBtn,mergeBtn);
 
     editBtn.addEventListener('click',()=>openSceneEditor(scene));
+    reviewBtn.addEventListener('click',()=>approveSceneReview(scene.id));
     lockBtn.addEventListener('click',()=>toggleSceneLock(scene.id));
     upBtn.addEventListener('click',()=>moveScene(scene.id,-1));
     downBtn.addEventListener('click',()=>moveScene(scene.id,1));
@@ -3700,7 +3726,12 @@ async function analyzeScript(action){
     if(action==='keywords'){
       renderKeywords(data.keywords||[],data);
     }else{
-      const incoming=(data.scenes||[]).map((scene,index)=>normalizeSceneClient(scene,index));
+      const incoming=(data.scenes||[]).map((scene,index)=>({
+        ...normalizeSceneClient(scene,index),
+        visual_review_required:true,
+        continuity_review_required:true,
+        qa_status:'pending'
+      }));
       const lockedByOrder=new Map(
         currentScenes.filter(scene=>scene.locked).map(scene=>[Number(scene.order),scene])
       );
