@@ -397,7 +397,7 @@ V1 is **100% complete only when every gate below is PASS**:
 | V1-G01 | Consolidate current product branches into one RC baseline | PASS — `release/v1-rc1` |
 | V1-G02 | Script Quality multi-pass workflow passes real Vietnamese Long + Short tests | BLOCKED_PROVIDER — Gemini high demand / Free Tier quota during 2026-10-04 real test |
 | V1-G03 | Scene Quality owner functional/visual acceptance | PASS — owner/browser acceptance completed on RC preview |
-| V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | TECH + REAL TTS PASS / OWNER BATCH + CLONE PENDING |
+| V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | TECH + REAL TTS + OWNER BATCH PASS / CLONE CONSENT AUDIO PENDING |
 | V1-G05 | Image runtime live; create/regenerate image E2E PASS | BLOCKED_PROVIDER/RUNTIME — Gemini Image Free Tier 0; KTN FLUX offline; OpenAI not configured |
 | V1-G06 | Subtitle workflow acceptance | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 |
 | V1-G07 | Render Worker live; final MP4 E2E + playback PASS | BLOCKED_RUNTIME — configured but ready=false; API key not configured |
@@ -430,6 +430,19 @@ V1 is **100% complete only when every gate below is PASS**:
 - Short format verified `9:16` / `scene-aspect-9-16`.
 - KTN FLUX configured-but-offline state stayed truthful; image generation remains part of `V1-G05`.
 
+### V1-G04B owner/browser Voice Batch acceptance — 04/10/2026
+
+- Preview tested: `https://ktn-ai-video-studio-ntppjsm2p-jackylehoangles-projects.vercel.app/`.
+- Imported `G04B Owner Voice Batch Seed` through the production UI import path; app returned `PASS · Đã nhập, lưu và xác minh dự án`.
+- Voice Library loaded from the live provider catalog and Gemini/Kore TTS was ready.
+- Batch confirmation, live %, running/queued/pass/fail queue states, Pause, Resume and Cancel passed.
+- Controlled failure + `Retry lỗi` passed: the failed scene was restored, retried and regenerated with real Gemini TTS audio.
+- Final state reached `3/3 audio`, `0 fail`, queue rows `PASS / PASS / PASS`.
+- Scene Audio QA manually approved all three scenes as `TECH PASS ĐÃ DUYỆT`.
+- Project reload in a fresh browser tab restored `3/3 audio` and all Audio QA approvals.
+- Detailed evidence: `docs/V1_G04B_OWNER_VOICE_BATCH_ACCEPTANCE_2026-10-04.md`.
+- Voice clone remains pending until owner-approved reference/consent audio is supplied.
+
 ### V1-G02A real test note — 04/10/2026
 
 - Multi-pass implementation is deployed and structurally PASS.
@@ -448,7 +461,7 @@ While V1-G02 is provider-blocked, non-Gemini gates continue in parallel.
 
 Verified:
 - V1-G03 Scene Quality PASS after owner/browser acceptance.
-- V1-G04 Gemini TTS real generation PASS twice with valid WAV output; batch UI/clone owner acceptance pending.
+- V1-G04 Gemini TTS real generation PASS twice with valid WAV output; owner/browser batch acceptance PASS; clone acceptance pending until consent/reference audio is supplied.
 - V1-G05 real Gemini Image call BLOCKED by provider Free Tier (0 input tokens/min); KTN FLUX remains offline.
 - V1-G06 technical Subtitle editor/validator/exact-SRT-to-render contract PASS; final MP4 subtitle validation belongs to G07.
 - V1-G08 full Project read-back fingerprint/import validation technical PASS; browser IndexedDB E2E pending.
@@ -460,7 +473,7 @@ GitHub Actions currently reports no-step failures for standard CI jobs, with no 
 ### V1 non-provider technical progress — 04/10/2026
 
 - V1-G03 Scene Quality: PASS; AI-generated scenes require visual + continuity review and owner/browser acceptance is complete.
-- V1-G04 Voice Studio: technical regression PASS; real batch/clone provider acceptance pending.
+- V1-G04 Voice Studio: technical regression PASS; real owner/browser batch acceptance PASS; clone provider acceptance pending until consent/reference audio is supplied.
 - V1-G06 Subtitle: technical regression PASS; fixed silent-scene timeline drift; owner browser check pending.
 - V1-G08 Project persistence: technical contract PASS with read-back fingerprint verification; browser IndexedDB E2E pending.
 - V1-G09 Provider/readiness/error-state: technical PASS; runtime blockers are shown truthfully.
@@ -468,13 +481,14 @@ GitHub Actions currently reports no-step failures for standard CI jobs, with no 
 Evidence:
 - `docs/V1_G03_SCENE_QUALITY_REGRESSION_2026-10-04.md`
 - `docs/V1_G03B_OWNER_BROWSER_ACCEPTANCE_2026-10-04.md`
+- `docs/V1_G04B_OWNER_VOICE_BATCH_ACCEPTANCE_2026-10-04.md`
 - `docs/V1_G06_SUBTITLE_REGRESSION_2026-10-04.md`
 - `docs/V1_G08_PROJECT_PERSISTENCE_REGRESSION_2026-10-04.md`
 - `docs/V1_G09_PROVIDER_READINESS_REGRESSION_2026-10-04.md`
 
 ### V1 runtime gate technical status — 04/10/2026
 
-- V1-G04 Voice Studio: TECH PASS; real TTS batch/clone acceptance pending.
+- V1-G04 Voice Studio: TECH + REAL TTS + OWNER BATCH PASS; clone acceptance pending until consent/reference audio is supplied.
 - V1-G05 Image: TECH PASS; Gemini Image Free Tier unavailable in current key, KTN FLUX offline, OpenAI Image not configured.
 - V1-G07 Render: TECH PASS; production readiness now requires URL + API key + health. Current URL exists but API key is missing, therefore configured=false / ready=false.
 
