@@ -4316,45 +4316,48 @@ function buildSrt(){
   if(!currentScenes.length){showToast('Cần chia cảnh trước khi tạo phụ đề.');return;}
   const maxChars=Math.max(20,Math.min(84,Number(document.getElementById('subtitleMaxChars').value||42)));
   const gap=Math.max(0,Math.min(2,Number(document.getElementById('subtitleGap').value||0)));
-  const subtitleScenes=currentScenes.map(scene=>({
-    scene,
-    chunks:splitSubtitleText(scene.narration,maxChars)
-  })).filter(item=>item.chunks.length);
 
-  if(!subtitleScenes.length){
+  let cursor=0;
+  let cue=1;
+  let scenesWithSubtitle=0;
+  const blocks=[];
+
+  currentScenes.forEach((scene,sceneIndex)=>{
+    const chunks=splitSubtitleText(scene.narration,maxChars);
+    const duration=Math.max(1,Number(scene.audio_duration_seconds||scene.duration_seconds||3));
+
+    if(chunks.length){
+      scenesWithSubtitle+=1;
+      const weights=chunks.map(x=>Math.max(x.replace(/\s+/g,'').length,1));
+      const totalWeight=weights.reduce((a,b)=>a+b,0);
+      let sceneCursor=cursor;
+
+      chunks.forEach((chunk,index)=>{
+        const share=duration*(weights[index]/totalWeight);
+        const end=index===chunks.length-1?cursor+duration:sceneCursor+share;
+        blocks.push(
+          cue+'\n'+
+          formatSrtTime(sceneCursor)+' --> '+formatSrtTime(end)+'\n'+
+          chunk
+        );
+        cue+=1;
+        sceneCursor=end;
+      });
+    }
+
+    // Always advance the global timeline, even when this scene has no narration.
+    // Otherwise every later subtitle would start too early relative to the video.
+    cursor+=duration;
+    if(sceneIndex<currentScenes.length-1) cursor+=gap;
+  });
+
+  if(!blocks.length){
     showToast('Không có narration để tạo phụ đề.');
     return;
   }
 
-  let cursor=0;
-  let cue=1;
-  const blocks=[];
-
-  subtitleScenes.forEach((item,sceneIndex)=>{
-    const {scene,chunks}=item;
-    const duration=Math.max(1,Number(scene.audio_duration_seconds||scene.duration_seconds||3));
-    const weights=chunks.map(x=>Math.max(x.replace(/\s+/g,'').length,1));
-    const totalWeight=weights.reduce((a,b)=>a+b,0);
-    let sceneCursor=cursor;
-
-    chunks.forEach((chunk,index)=>{
-      const share=duration*(weights[index]/totalWeight);
-      const end=index===chunks.length-1?cursor+duration:sceneCursor+share;
-      blocks.push(
-        cue+'\n'+
-        formatSrtTime(sceneCursor)+' --> '+formatSrtTime(end)+'\n'+
-        chunk
-      );
-      cue+=1;
-      sceneCursor=end;
-    });
-
-    cursor+=duration;
-    if(sceneIndex<subtitleScenes.length-1) cursor+=gap;
-  });
-
   setSubtitleEditorValue(blocks.join('\n\n')+'\n',{updateMeta:true});
-  subtitleMeta.textContent=(cue-1)+' câu · '+formatSrtTime(cursor)+' · '+subtitleScenes.length+' cảnh';
+  subtitleMeta.textContent=(cue-1)+' câu · '+formatSrtTime(cursor)+' · '+scenesWithSubtitle+'/'+currentScenes.length+' cảnh có phụ đề';
   subtitleEmpty.classList.add('hidden');
   subtitleOutput.classList.remove('hidden');
   document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
