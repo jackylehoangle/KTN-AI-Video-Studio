@@ -1,0 +1,56 @@
+{
+  "schema_version": "ktn-script-training-pilot-v1",
+  "freeze_before_training": true,
+  "dataset": {
+    "train": "script_model/data/golden_v1_train.jsonl",
+    "validation": "script_model/data/golden_v1_val.jsonl",
+    "allow_labels": [
+      "GOLD",
+      "SILVER"
+    ],
+    "reject_unreviewed": true
+  },
+  "policies": {
+    "qwen35_4b": {
+      "model_id": "Qwen/Qwen3.5-4B",
+      "method": "lora_bf16",
+      "reason": "Current Unsloth Qwen3.5 guidance discourages QLoRA due quantization differences."
+    },
+    "gemma3_4b": {
+      "model_id": "google/gemma-3-4b-it",
+      "method": "qlora_4bit"
+    },
+    "phi4_mini": {
+      "model_id": "microsoft/Phi-4-mini-instruct",
+      "method": "qlora_4bit"
+    },
+    "gemma4_e4b": {
+      "model_id": "google/gemma-4-E4B-it",
+      "method": "benchmark_then_decide"
+    }
+  },
+  "common": {
+    "task_types": [
+      "angle",
+      "outline",
+      "hook",
+      "section",
+      "rewrite",
+      "qa"
+    ],
+    "max_seq_length_pilot": 4096,
+    "effective_batch_size_target": 16,
+    "epochs_pilot": 1,
+    "seed": 3407,
+    "early_stop_on_regression": true
+  },
+  "acceptance": {
+    "compare_against_base": true,
+    "min_mean_score_gain": 5,
+    "no_regression_dimensions": [
+      "vietnamese_naturalness",
+      "channel_dna",
+      "factual_discipline"
+    ]
+  }
+}

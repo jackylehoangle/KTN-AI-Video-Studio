@@ -1,0 +1,38 @@
+{
+  "schema_version": "ktn-script-model-registry-v1",
+  "benchmark_primary": [
+    "qwen35_4b",
+    "gemma3_4b",
+    "phi4_mini"
+  ],
+  "shadow_candidates": [
+    "gemma4_e4b"
+  ],
+  "models": {
+    "qwen35_4b": {
+      "model_id": "Qwen/Qwen3.5-4B",
+      "role": "primary",
+      "license": "apache-2.0",
+      "training_policy": "lora_bf16_preferred",
+      "notes": "Do not default to QLoRA for Qwen3.5. Benchmark first."
+    },
+    "gemma3_4b": {
+      "model_id": "google/gemma-3-4b-it",
+      "role": "primary",
+      "training_policy": "qlora_pilot_allowed"
+    },
+    "phi4_mini": {
+      "model_id": "microsoft/Phi-4-mini-instruct",
+      "role": "primary",
+      "license": "mit",
+      "training_policy": "qlora_pilot_allowed"
+    },
+    "gemma4_e4b": {
+      "model_id": "google/gemma-4-E4B-it",
+      "role": "shadow",
+      "license": "apache-2.0",
+      "training_policy": "benchmark_before_training",
+      "notes": "Newer generation tracked as shadow candidate."
+    }
+  }
+}
