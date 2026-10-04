@@ -346,3 +346,81 @@ Cutover branch: `ui-prod-01-canonical-cutover`.
 Product-facing copy has been changed from **Bản xem trước** to **Bản chính thức** without changing runtime API behavior. Detailed capability map: `docs/KTN_AI_VIDEO_STUDIO_CANONICAL_UI.md`.
 
 Acceptance sequence: Vercel preview READY → HTTP/UI/system-status smoke → merge to `main` → production deployment → production smoke → close hardening.
+
+
+## 14. V1 / V2 product split — 04/10/2026
+
+### Owner decision
+
+The custom KTN Script Model training program is **deferred to V2**.
+
+V1 must be completed as a stable, usable AI Video Studio using hosted LLM providers and the existing KTN runtime architecture before any custom LLM training is resumed.
+
+### V1 definition
+
+**KTN AI Video Studio V1** includes:
+
+1. Project-centric product UI.
+2. Named multi-project workflow and recovery.
+3. Reusable Channel Profile / Channel DNA.
+4. Hosted LLM script generation through provider/model registry.
+5. Multi-pass Script Quality Engine: Brief → Angle → Outline → Hook/Sections → Rewrite/Humanize → QA.
+6. Scene Quality workflow: Board/List, purpose, visual intent, continuity, edit/split/merge/reorder/lock, Scene QA.
+7. Voice Studio: Voice Library, provider selection, clone workflow where provider supports it, batch queue, progress, retry, Scene Audio QA.
+8. Image generation provider routing with truthful live readiness.
+9. Subtitle generation/editing sufficient for final video export.
+10. Render Worker integration and real MP4 output.
+11. Project/asset persistence and recovery sufficient for V1 acceptance.
+12. One canonical V1 release branch and one production release after regression + owner acceptance.
+
+### V2 definition
+
+**KTN AI Video Studio V2** starts only after V1 is stable.
+
+V2 includes:
+- KTN Script Model benchmark;
+- Golden Dataset build;
+- LoRA/QLoRA pilot;
+- local KTN Script Server;
+- student-model QA routing;
+- hosted LLM fallback A/B;
+- continuous dataset improvement under the separate Script Model Source of Truth.
+
+The separate document `docs/KTN_SCRIPT_MODEL_SOURCE_OF_TRUTH_V1.md` remains valid for V2, but its training gates are frozen during V1 completion.
+
+### V1 completion rule
+
+V1 is **100% complete only when every gate below is PASS**:
+
+| Gate | Requirement | Status |
+|---|---|---|
+| V1-G01 | Consolidate current product branches into one RC baseline | PASS — `release/v1-rc1` |
+| V1-G02 | Script Quality multi-pass workflow passes real Vietnamese Long + Short tests | PENDING |
+| V1-G03 | Scene Quality owner functional/visual acceptance | PENDING |
+| V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | PENDING |
+| V1-G05 | Image runtime live; create/regenerate image E2E PASS | PENDING |
+| V1-G06 | Subtitle workflow acceptance | PENDING |
+| V1-G07 | Render Worker live; final MP4 E2E + playback PASS | PENDING |
+| V1-G08 | Project save/restore/export/import regression PASS | PENDING |
+| V1-G09 | Provider/readiness/error-state regression PASS | PENDING |
+| V1-G10 | Golden end-to-end project from Brief → MP4 PASS | PENDING |
+| V1-G11 | Owner acceptance + freeze V1 RC | PENDING |
+| V1-G12 | Merge one approved RC to `main` + production smoke PASS | PENDING |
+
+### Scope discipline
+
+Until V1-G12 is PASS:
+
+- Do not resume custom LLM training.
+- Do not add unrelated product modules.
+- Do not redesign architecture without a V1 blocker.
+- Prefer fixing correctness, quality, persistence, runtime readiness and E2E reliability.
+- New optional providers are not blockers if at least one supported provider passes the corresponding production workflow.
+- A configured endpoint is never equal to a READY runtime; live probe remains authoritative.
+
+### Canonical active branches
+
+- Production: `main`
+- Consolidated V1 RC baseline: `release/v1-rc1`
+- Active V1 completion development: `v1-completion-01`
+- Custom Script Model / V2 work: `script-model-01` — **FROZEN until V1 completion**

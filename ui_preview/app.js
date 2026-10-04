@@ -2062,7 +2062,8 @@ function serializeProjectState({includeMaterialKeys=false}={}){
     script:{
       title:scriptTitle.textContent||'Kịch bản AI',
       text:scriptResult.value||'',
-      meta:scriptMeta.textContent||''
+      meta:scriptMeta.textContent||'',
+      workflow:currentScriptWorkflow
     },
     scenes:currentScenes.map(scene=>({
       id:scene.id,
@@ -2198,6 +2199,10 @@ async function restoreProject(project){
     scriptTitle.textContent=project.script?.title||'Kịch bản AI';
     scriptResult.value=project.script?.text||'';
     scriptMeta.textContent=project.script?.meta||'Đã khôi phục · bản nháp';
+    currentScriptWorkflow=project.script?.workflow&&typeof project.script.workflow==='object'
+      ? {...emptyScriptWorkflow(),...project.script.workflow}
+      : emptyScriptWorkflow();
+    renderScriptWorkflowArtifacts();
     updateScriptStats();
 
     currentScenes=Array.isArray(project.scenes)
@@ -2371,6 +2376,8 @@ function resetProjectForm({name='Dự án mới',channelId='',platformMode='yout
     document.getElementById('renderAspect').value=platformMode==='youtube_long'?'16:9':'9:16';
     document.getElementById('renderTransition').value='';
     scriptResult.value='';
+    currentScriptWorkflow=emptyScriptWorkflow();
+    renderScriptWorkflowArtifacts();
     scriptTitle.textContent='Kịch bản AI';
     scriptMeta.textContent='Đã tạo · bản nháp';
     currentScenes=[];
@@ -2692,6 +2699,23 @@ function clearRenderTask(){
 }
 
 let currentScriptProvider='gemini';
+let currentScriptWorkflow={
+  version:'v1-multipass',
+  status:'idle',
+  angle:null,
+  outline:null,
+  hook:'',
+  sections:[],
+  draft:'',
+  rewritten:'',
+  qa:null,
+  repaired:false,
+  final:'',
+  provider:'',
+  model:'',
+  startedAt:'',
+  completedAt:''
+};
 let currentScenes=[];
 let sceneViewMode='board';
 let providerAvailability={gemini:false,openai:false,ktn:false};
@@ -3568,7 +3592,108 @@ document.querySelectorAll('.nav-item[data-section]').forEach(btn=>{
   });
 });
 
-generateBtn.addEventListener('click',async()=>{
+function emptyScriptWorkflow(){
+  return {
+    version:'v1-multipass',
+    status:'idle',
+    angle:null,
+    outline:null,
+    hook:'',
+    sections:[],
+    draft:'',
+    rewritten:'',
+    qa:null,
+    repaired:false,
+    final:'',
+    provider:'',
+    model:'',
+    startedAt:'',
+    completedAt:''
+  };
+}
+
+function setScriptStage(stage,state,label=''){
+  const map={
+    angle:'sqStageAngle',
+    outline:'sqStageOutline',
+    draft:'sqStageDraft',
+    rewrite:'sqStageRewrite',
+    qa:'sqStageQa'
+  };
+  const el=document.getElementById(map[stage]);
+  if(!el) return;
+  el.classList.remove('running','pass','fail');
+  if(state) el.classList.add(state);
+  const small=el.querySelector('small');
+  if(small) small.textContent=label||({running:'Đang chạy',pass:'PASS',fail:'FAIL'}[state]||'Chờ');
+}
+
+function setScriptWorkflowProgress(percent,label){
+  const pct=Math.max(0,Math.min(100,Math.round(Number(percent)||0)));
+  const bar=document.getElementById('scriptWorkflowBar');
+  const value=document.getElementById('scriptWorkflowProgressValue');
+  const text=document.getElementById('scriptWorkflowProgressLabel');
+  if(bar) bar.style.width=pct+'%';
+  if(value) value.textContent=pct+'%';
+  if(text) text.textContent=label||'';
+}
+
+function renderScriptWorkflowArtifacts(){
+  const panel=document.getElementById('scriptQualityPanel');
+  if(!panel) return;
+  const hasData=Boolean(
+    currentScriptWorkflow?.status!=='idle' ||
+    currentScriptWorkflow?.angle ||
+    currentScriptWorkflow?.outline ||
+    currentScriptWorkflow?.qa
+  );
+  panel.classList.toggle('hidden',!hasData);
+  if(!hasData) return;
+
+  const angle=currentScriptWorkflow.angle||{};
+  const outline=currentScriptWorkflow.outline||{};
+  const qa=currentScriptWorkflow.qa||{};
+  const assign=(id,value)=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=value??'';
+  };
+
+  assign('scriptAngleTitle',angle.angle||'—');
+  assign('scriptAngleSummary',angle.viewer_question?('Câu hỏi trung tâm: '+angle.viewer_question):'Chưa có Angle.');
+  assign('scriptAnglePromise',angle.promise?('Lời hứa nội dung: '+angle.promise):'');
+  assign('scriptOutlineTitle',outline.title||'—');
+
+  const list=document.getElementById('scriptOutlineList');
+  if(list){
+    list.innerHTML='';
+    (Array.isArray(outline.sections)?outline.sections:[]).forEach((section,index)=>{
+      const row=document.createElement('div');
+      const num=document.createElement('span');
+      num.textContent=String(index+1).padStart(2,'0');
+      const body=document.createElement('div');
+      const strong=document.createElement('strong');
+      strong.textContent=section.title||('Phần '+(index+1));
+      const small=document.createElement('small');
+      small.textContent=section.purpose||section.viewer_question||'';
+      body.append(strong,small);
+      row.append(num,body);
+      list.appendChild(row);
+    });
+  }
+
+  const score=Number(qa.score);
+  assign('scriptQaScore',Number.isFinite(score)?score:'—');
+  assign('scriptQaDecision',qa.decision||'Chưa chấm');
+  const qaDetails=document.getElementById('scriptQaDetails');
+  if(qaDetails){
+    const show=Boolean(qa && Object.keys(qa).length);
+    qaDetails.classList.toggle('hidden',!show);
+    assign('scriptQaProblems',Array.isArray(qa.problems)&&qa.problems.length?qa.problems.join(' · '):'Không có lỗi lớn được ghi nhận.');
+    assign('scriptQaPlan',Array.isArray(qa.rewrite_plan)&&qa.rewrite_plan.length?qa.rewrite_plan.join(' · '):(qa.decision||'—'));
+  }
+}
+
+function collectScriptWorkflowInput(){
   const topic=document.getElementById('topic').value.trim();
   const platformMode=document.getElementById('platformMode').value;
   const provider=document.getElementById('scriptProvider').value;
@@ -3588,14 +3713,9 @@ generateBtn.addEventListener('click',async()=>{
     forbiddenContent:document.getElementById('forbiddenContent').value.trim()
   };
   const channelProfile=getSelectedChannelProfile();
-  const channelBible=channelProfileToBible(channelProfile);
+  if(!topic) throw new Error('Hãy nhập chủ đề video trước.');
+  if(!channelProfile) throw new Error('Hãy chọn Channel Profile trước khi AI viết kịch bản.');
 
-  if(!topic){showToast('Hãy nhập chủ đề video trước.');document.getElementById('topic').focus();return;}
-  if(!channelProfile){
-    showToast('Hãy chọn Channel Profile trước khi AI viết kịch bản.');
-    document.getElementById('channelProfileSelect').focus();
-    return;
-  }
   contentBrief.targetAudience=contentBrief.targetAudience||channelProfile.targetAudience;
   contentBrief.contentGoal=contentBrief.contentGoal||channelProfile.defaultGoal;
   contentBrief.contentTone=contentBrief.contentTone||channelProfile.defaultTone;
@@ -3604,56 +3724,213 @@ generateBtn.addEventListener('click',async()=>{
   contentBrief.forbiddenContent=[channelProfile.forbiddenContent,contentBrief.forbiddenContent]
     .filter(Boolean).join('; ');
 
+  if(!contentBrief.targetAudience) throw new Error('Channel Profile hoặc Content Brief cần có người xem mục tiêu.');
+
+  return {
+    topic,platformMode,provider,model,language,paragraphs,duration,extraInstruction,
+    contentBrief,
+    channelBible:channelProfileToBible(channelProfile)
+  };
+}
+
+async function callScriptWorkflowStage(stage,base,workflow={}){
+  const res=await fetch('/api/script-workflow',{
+    method:'POST',
+    headers:{'content-type':'application/json','accept':'application/json'},
+    body:JSON.stringify({...base,stage,workflow})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||('Script workflow HTTP '+res.status));
+  return data;
+}
+
+function resetDownstreamAfterScript(){
+  keywordList.innerHTML='';
+  currentScenes=[];
+  sceneList.innerHTML='';
+  sceneList.classList.add('hidden');
+  sceneEmpty.classList.remove('hidden');
+  subtitleBtn.disabled=true;
+  subtitleEmpty.classList.remove('hidden');
+  subtitleOutput.classList.add('hidden');
+  currentSrt='';
+  updateRenderReadiness();
+}
+
+async function runProfessionalScriptWorkflow(){
+  let base;
+  try{
+    base=collectScriptWorkflowInput();
+  }catch(error){
+    showToast(error.message);
+    return;
+  }
+
+  currentScriptWorkflow=emptyScriptWorkflow();
+  currentScriptWorkflow.status='running';
+  currentScriptWorkflow.provider=base.provider;
+  currentScriptWorkflow.model=base.model;
+  currentScriptWorkflow.startedAt=new Date().toISOString();
+
+  ['angle','outline','draft','rewrite','qa'].forEach(stage=>setScriptStage(stage,'','Chờ'));
+  setScriptWorkflowProgress(0,'Khởi tạo Script Quality Pipeline...');
+  renderScriptWorkflowArtifacts();
+
   generateBtn.disabled=true;
-  generateBtnText.innerHTML='<span class="loading-dot"></span>Đang tạo kịch bản...';
-  backendStatus.textContent='AI đang xử lý...';
+  generateBtnText.innerHTML='<span class="loading-dot"></span>Đang chạy multi-pass...';
+  backendStatus.textContent='Script Quality Pipeline đang xử lý...';
   backendStatus.className='preview-badge';
 
   try{
-    const res=await fetch('/api/generate-script',{
-      method:'POST',
-      headers:{'content-type':'application/json','accept':'application/json'},
-      body:JSON.stringify({
-        topic,platformMode,provider,model,language,paragraphs,duration,extraInstruction,
-        contentBrief,channelBible
-      })
-    });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+    setScriptStage('angle','running');
+    setScriptWorkflowProgress(5,'Đang tìm Angle tốt nhất...');
+    const angleResult=await callScriptWorkflowStage('angle',base,{});
+    currentScriptWorkflow.angle=angleResult.output;
+    setScriptStage('angle','pass');
+    setScriptWorkflowProgress(12,'Angle PASS');
+    renderScriptWorkflowArtifacts();
 
-    currentScriptProvider=provider;
+    setScriptStage('outline','running');
+    const outlineResult=await callScriptWorkflowStage('outline',base,{angle:currentScriptWorkflow.angle});
+    const outline=outlineResult.output||{};
+    if(!Array.isArray(outline.sections)||!outline.sections.length){
+      throw new Error('Outline không có section hợp lệ.');
+    }
+    currentScriptWorkflow.outline=outline;
+    setScriptStage('outline','pass');
+    setScriptWorkflowProgress(22,'Outline PASS · '+outline.sections.length+' phần');
+    renderScriptWorkflowArtifacts();
+
+    setScriptStage('draft','running','Hook');
+    const hookResult=await callScriptWorkflowStage('hook',base,{
+      angle:currentScriptWorkflow.angle,
+      outline:currentScriptWorkflow.outline
+    });
+    currentScriptWorkflow.hook=String(hookResult.output||'').trim();
+    if(!currentScriptWorkflow.hook) throw new Error('Hook rỗng.');
+
+    currentScriptWorkflow.sections=[];
+    let rolling=[currentScriptWorkflow.hook];
+    for(let i=0;i<outline.sections.length;i++){
+      const section=outline.sections[i];
+      const nextSection=outline.sections[i+1]||null;
+      const previousEnding=rolling.join('\n\n').slice(-2200);
+      setScriptStage('draft','running','Phần '+(i+1)+'/'+outline.sections.length);
+      const pct=28+Math.round(((i+1)/outline.sections.length)*38);
+      setScriptWorkflowProgress(pct,'Đang viết '+(section.title||('phần '+(i+1)))+'...');
+      const sectionResult=await callScriptWorkflowStage('section',base,{
+        angle:currentScriptWorkflow.angle,
+        outline:currentScriptWorkflow.outline,
+        section,
+        nextSection,
+        previousEnding
+      });
+      const text=String(sectionResult.output||'').trim();
+      if(!text) throw new Error('Section '+(i+1)+' rỗng.');
+      currentScriptWorkflow.sections.push({
+        id:section.id||('s'+(i+1)),
+        title:section.title||('Phần '+(i+1)),
+        text
+      });
+      rolling.push(text);
+      await new Promise(resolve=>setTimeout(resolve,250));
+    }
+    currentScriptWorkflow.draft=[currentScriptWorkflow.hook,...currentScriptWorkflow.sections.map(x=>x.text)]
+      .filter(Boolean).join('\n\n');
+    setScriptStage('draft','pass',outline.sections.length+' phần');
+    setScriptWorkflowProgress(68,'Draft hoàn tất');
+
+    setScriptStage('rewrite','running');
+    const rewriteResult=await callScriptWorkflowStage('rewrite',base,{
+      angle:currentScriptWorkflow.angle,
+      outline:currentScriptWorkflow.outline,
+      script:currentScriptWorkflow.draft
+    });
+    currentScriptWorkflow.rewritten=String(rewriteResult.output||'').trim();
+    if(!currentScriptWorkflow.rewritten) throw new Error('Humanize trả về nội dung rỗng.');
+    setScriptStage('rewrite','pass');
+    setScriptWorkflowProgress(82,'Humanize PASS');
+
+    setScriptStage('qa','running');
+    let qaResult=await callScriptWorkflowStage('qa',base,{
+      angle:currentScriptWorkflow.angle,
+      outline:currentScriptWorkflow.outline,
+      script:currentScriptWorkflow.rewritten
+    });
+    currentScriptWorkflow.qa=qaResult.output||{};
+    let finalScript=currentScriptWorkflow.rewritten;
+    let score=Number(currentScriptWorkflow.qa?.score)||0;
+
+    if(score<80 || String(currentScriptWorkflow.qa?.decision||'').toUpperCase()!=='PASS'){
+      setScriptWorkflowProgress(91,'QA '+score+'/100 · đang sửa vòng cuối...');
+      const repairResult=await callScriptWorkflowStage('repair',base,{
+        angle:currentScriptWorkflow.angle,
+        outline:currentScriptWorkflow.outline,
+        script:finalScript,
+        qa:currentScriptWorkflow.qa
+      });
+      finalScript=String(repairResult.output||'').trim();
+      if(!finalScript) throw new Error('Repair trả về nội dung rỗng.');
+      currentScriptWorkflow.repaired=true;
+
+      qaResult=await callScriptWorkflowStage('qa',base,{
+        angle:currentScriptWorkflow.angle,
+        outline:currentScriptWorkflow.outline,
+        script:finalScript
+      });
+      currentScriptWorkflow.qa=qaResult.output||currentScriptWorkflow.qa;
+      score=Number(currentScriptWorkflow.qa?.score)||score;
+    }
+
+    currentScriptWorkflow.final=finalScript;
+    currentScriptWorkflow.status='complete';
+    currentScriptWorkflow.completedAt=new Date().toISOString();
+    setScriptStage('qa','pass',(score||0)+'/100');
+    setScriptWorkflowProgress(100,'Hoàn tất · QA '+(score||0)+'/100');
+    renderScriptWorkflowArtifacts();
+
+    currentScriptProvider=base.provider;
     scriptEmpty.classList.add('hidden');
     scriptDemo.classList.remove('hidden');
-    scriptTitle.textContent=topic;
-    scriptResult.value=data.script||'';
+    scriptTitle.textContent=base.topic;
+    scriptResult.value=finalScript;
     updateScriptStats();
-    scriptMeta.textContent='Đã tạo · '+(PLATFORM_PRESETS[platformMode]?.label||platformMode)+' · '+(data.providerLabel||provider)+' · '+(data.model||'AI')+' · bản nháp';
-    backendStatus.textContent='AI sẵn sàng · '+(data.providerLabel||provider);
-    backendStatus.className='preview-badge ready';
-    keywordList.innerHTML='';
-    currentScenes=[];
-    sceneList.innerHTML='';
-    sceneList.classList.add('hidden');
-    sceneEmpty.classList.remove('hidden');
-    subtitleBtn.disabled=true;
-    subtitleEmpty.classList.remove('hidden');
-    subtitleOutput.classList.add('hidden');
-    currentSrt='';
-    updateRenderReadiness();
+    scriptMeta.textContent='Multi-pass · '+(PLATFORM_PRESETS[base.platformMode]?.label||base.platformMode)+
+      ' · '+(SCRIPT_MODEL_REGISTRY[base.provider]?.label||base.provider)+' · '+base.model+
+      ' · QA '+(score||0)+'/100'+(currentScriptWorkflow.repaired?' · repaired':'');
+    backendStatus.textContent='AI sẵn sàng · QA '+(score||0)+'/100';
+    backendStatus.className='preview-badge '+(score>=80?'ready':'warn');
+
+    resetDownstreamAfterScript();
     selectScriptTab('script');
     activateScriptTools();
     scheduleAutosave();
     updateWorkspaceContext();
-    showToast('Đã tạo kịch bản thật bằng '+(data.providerLabel||provider)+'.');
+    showToast('Đã tạo kịch bản Multi-pass · QA '+(score||0)+'/100.');
   }catch(err){
-    backendStatus.textContent='Cần kiểm tra cấu hình AI';
+    currentScriptWorkflow.status='failed';
+    const running=document.querySelector('.script-stage.running');
+    if(running){
+      running.classList.remove('running');
+      running.classList.add('fail');
+      const small=running.querySelector('small');
+      if(small) small.textContent='FAIL';
+    }
+    setScriptWorkflowProgress(
+      Number(document.getElementById('scriptWorkflowProgressValue')?.textContent?.replace('%',''))||0,
+      err.message||'Script Quality Pipeline thất bại.'
+    );
+    renderScriptWorkflowArtifacts();
+    backendStatus.textContent='Script Quality Pipeline cần kiểm tra';
     backendStatus.className='preview-badge warn';
-    showToast(err.message||'Không thể tạo kịch bản.');
+    showToast(err.message||'Không thể tạo kịch bản Multi-pass.');
   }finally{
     generateBtn.disabled=false;
-    generateBtnText.textContent='✦ Tạo kịch bản bằng AI';
+    generateBtnText.textContent='✦ Tạo kịch bản chất lượng';
   }
-});
+}
+
+generateBtn.addEventListener('click',runProfessionalScriptWorkflow);
 
 document.getElementById('goToSceneFromScriptBtn').addEventListener('click',()=>setWorkspace('scene'));
 
