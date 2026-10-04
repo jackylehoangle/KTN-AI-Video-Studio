@@ -132,6 +132,42 @@ async function runProvider(provider,key,model,prompt,jsonMode=false){
   if(provider==='xai') return xai(key,model,prompt,jsonMode);
   throw new Error('Provider chưa được hỗ trợ.');
 }
+
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+
+function isTransientProviderError(error){
+  const message=String(error?.message||'').toLowerCase();
+  return (
+    message.includes('high demand') ||
+    message.includes('overloaded') ||
+    message.includes('rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('http 429') ||
+    message.includes('http 503') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('service unavailable')
+  );
+}
+
+async function runProviderWithRetry(provider,key,model,prompt,jsonMode=false){
+  const delays=[0,3500,9000,18000];
+  let lastError=null;
+  for(let attempt=0;attempt<delays.length;attempt++){
+    if(delays[attempt]) await sleep(delays[attempt]);
+    try{
+      return await runProvider(provider,key,model,prompt,jsonMode);
+    }catch(error){
+      lastError=error;
+      if(!isTransientProviderError(error) || attempt===delays.length-1) throw error;
+      console.warn('script_provider_retry',{
+        provider,model,attempt:attempt+1,
+        nextDelayMs:delays[attempt+1]||0,
+        message:error?.message
+      });
+    }
+  }
+  throw lastError||new Error('Provider request failed.');
+}
 function parseJsonLoose(text){
   const raw=String(text||'').trim().replace(/^\s*```(?:json)?/i,'').replace(/```\s*$/,'').trim();
   try{return JSON.parse(raw)}catch{}
@@ -377,20 +413,20 @@ function selfTestBase(kind){
   };
 }
 
-async function runSelfTest(kind){
+async function runSelfTest(kind,requestedModel=''){
   const provider='gemini';
   const cfg=PROVIDERS[provider];
   const key=process.env[cfg.keyEnv];
   if(!key) throw new Error('GEMINI_API_KEY chưa cấu hình.');
   const base=selfTestBase(kind);
   const c=commonContext(base);
-  const model=resolveModel(provider,'');
+  const model=resolveModel(provider,requestedModel);
   const started=Date.now();
   const timings={};
 
   const call=async(stage,workflow)=>{
     const t=Date.now();
-    const raw=await runProvider(provider,key,model,stagePrompt(stage,c,workflow),['angle','outline','qa'].includes(stage));
+    const raw=await runProviderWithRetry(provider,key,model,stagePrompt(stage,c,workflow),['angle','outline','qa'].includes(stage));
     timings[stage]=(Date.now()-t)/1000;
     return ['angle','outline','qa'].includes(stage)?parseJsonLoose(raw):raw.trim();
   };
@@ -405,7 +441,7 @@ async function runSelfTest(kind){
   for(let i=0;i<outline.sections.length;i++){
     const section=outline.sections[i];
     const t=Date.now();
-    const text=await runProvider(
+    const text=await runProviderWithRetry(
       provider,key,model,
       stagePrompt('section',c,{
         angle,outline,section,
@@ -455,7 +491,7 @@ export default async function handler(req,res){
     const selftest=String(req.query?.selftest||'').toLowerCase();
     if(selftest==='long' || selftest==='short'){
       try{
-        const result=await runSelfTest(selftest);
+        const result=await runSelfTest(selftest,String(req.query?.model||''));
         return send(res,200,{ok:true,service:'KTN Script Quality Workflow Self-Test',version:'v1-g02a',result});
       }catch(error){
         console.error('v1_g02a_selftest_failed',{selftest,message:error?.message});
@@ -487,7 +523,7 @@ export default async function handler(req,res){
   const prompt=stagePrompt(stage,c,workflow);
 
   try{
-    const raw=await runProvider(provider,key,model,prompt,jsonMode);
+    const raw=await runProviderWithRetry(provider,key,model,prompt,jsonMode);
     const output=jsonMode?parseJsonLoose(raw):raw.trim();
     return send(res,200,{
       ok:true,stage,output,provider,providerLabel:cfg.label,model,
