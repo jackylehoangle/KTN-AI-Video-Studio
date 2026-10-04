@@ -11,7 +11,7 @@
 |---|---|---|---|
 | V1-G01 | Consolidate current product work into one RC | PASS | `release/v1-rc1` + Draft PR #13 |
 | V1-G02 | Real Vietnamese Long + Short multi-pass Script Quality | BLOCKED_PROVIDER | Gemini script daily/free-tier limits; no final Short/Long acceptance yet |
-| V1-G03 | Scene Quality | TECH PASS / OWNER PENDING | Board/List/Edit/Split/Merge/Reorder/Lock/QA + aspect/stale-review fixes |
+| V1-G03 | Scene Quality | PASS | Owner/browser acceptance passed: Board/List/Edit/Split/Merge/Reorder/Lock/QA + Long 16:9 / Short 9:16 |
 | V1-G04 | Voice Studio | TECH + REAL TTS PASS / OWNER BATCH + CLONE PENDING | Two real Gemini TTS self-tests returned valid WAV |
 | V1-G05 | Image generation E2E | BLOCKED_PROVIDER | Gemini Image Free Tier reports 0 input tokens/min; KTN FLUX runtime offline; OpenAI image not configured |
 | V1-G06 | Subtitle workflow | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 | Editable/validated SRT is forwarded exactly to render worker |
@@ -21,6 +21,31 @@
 | V1-G10 | Golden Brief → MP4 | PENDING | Depends on G02/G05/G07 |
 | V1-G11 | Owner acceptance + RC freeze | PENDING | Requires owner visual/function acceptance |
 | V1-G12 | Merge `main` + production smoke | PENDING | PR #13 remains Draft |
+
+## V1-G03B owner/browser acceptance
+
+Preview:
+`https://ktn-ai-video-studio-ntppjsm2p-jackylehoangles-projects.vercel.app/`
+
+Result:
+**PASS**
+
+Verified in browser:
+- Project JSON import path returned `PASS · Đã nhập, lưu và xác minh dự án`.
+- Board/List switching preserved scene state.
+- `Duyệt cảnh` prevents false-green and moves reviewed scenes to disabled `Đã duyệt`.
+- Scene Editor save works and can bring a valid scene to `QA 100%`.
+- Reorder marks continuity review required and drops summary back to `QA 0/2`.
+- Lock toggles between `Khóa AI` and `Mở khóa AI`.
+- Split creates review-required child scenes and changes count to `3 cảnh`.
+- Merge returns count to `2 cảnh` and keeps review required.
+- Final reviewed state reached `QA 2/2`.
+- YouTube Long uses `16:9` / `scene-aspect-16-9`.
+- YouTube Short uses `9:16` / `scene-aspect-9-16`.
+- KTN FLUX configured-but-offline state remains truthful and does not fake image readiness.
+
+Evidence:
+`docs/V1_G03B_OWNER_BROWSER_ACCEPTANCE_2026-10-04.md`
 
 ## V1-G04 real Voice evidence
 
@@ -149,6 +174,6 @@ Therefore the available evidence does **not** attribute the CI failure to applic
 1. Script provider availability for G02.
 2. Image provider/runtime for G05.
 3. Render Worker for G07.
-4. Owner browser acceptance for Scene, Voice queue, Project persistence.
+4. Owner browser acceptance for Voice queue and Project persistence.
 5. Golden Brief → MP4 E2E.
 6. GitHub Actions no-step failure diagnosis.
