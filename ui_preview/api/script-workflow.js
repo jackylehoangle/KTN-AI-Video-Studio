@@ -1,3 +1,5 @@
+export const maxDuration = 300;
+
 const PROVIDERS={
   gemini:{label:'Google Gemini',keyEnv:'GEMINI_API_KEY',modelEnv:'GEMINI_SCRIPT_MODEL',defaultModel:'gemini-3.8-flash'},
   openai:{label:'OpenAI',keyEnv:'OPENAI_API_KEY',modelEnv:'OPENAI_SCRIPT_MODEL',defaultModel:'gpt-6.1-sol'},
@@ -309,8 +311,157 @@ function stagePrompt(stage,c,workflow){
   throw new Error('Stage không hợp lệ.');
 }
 
+
+function selfTestBase(kind){
+  if(kind==='long'){
+    return {
+      topic:'Vì sao con người biết mình cần thay đổi nhưng vẫn tiếp tục lặp lại những thói quen cũ?',
+      platformMode:'youtube_long',
+      duration:'3-5m',
+      language:'vi',
+      paragraphs:7,
+      extraInstruction:'Ưu tiên chiều sâu tâm lý, ví dụ đời thường và giọng kể cinematic nhưng không khoa trương.',
+      contentBrief:{
+        targetAudience:'Người đi làm 25–40 tuổi, thường biết điều mình nên làm nhưng khó duy trì thay đổi',
+        contentGoal:'educate',
+        contentTone:'cinematic',
+        expertiseLevel:'general',
+        anglePreference:'Khoảng cách giữa hiểu biết và hành vi; tránh đổ lỗi cho ý chí yếu',
+        ctaStyle:'none',
+        sourceNotes:'Chỉ dùng kiến thức tâm lý phổ thông; không bịa nghiên cứu, số liệu, tên chuyên gia hay chẩn đoán.',
+        forbiddenContent:'Không chẩn đoán bệnh lý. Không hứa hẹn thay đổi tức thì.'
+      },
+      channelBible:{
+        channelName:'The Hidden Mind',
+        primaryPlatform:'youtube',
+        niche:'Tâm lý học và hành vi',
+        channelStyle:'Cinematic Psychology, suy ngẫm nhưng dễ hiểu',
+        narratorPersona:'Điềm tĩnh, tinh tế, không phán xét người xem',
+        vocabularyStyle:'Đời thường, cụ thể, tránh thuật ngữ khi không cần',
+        openingStyle:'Mở bằng tình huống quen thuộc khiến người xem nhận ra chính mình',
+        storytellingStyle:'Situation → Question → Explanation → Example → Perspective shift → Payoff',
+        forbiddenPhrases:'Hãy cùng khám phá; Trong thế giới ngày nay; Điều quan trọng cần lưu ý là; Bạn có bao giờ tự hỏi',
+        fixedRules:'Không bịa nghiên cứu hoặc số liệu. Không gọi người xem là lười. Không biến nội dung thành bài giảng.'
+      }
+    };
+  }
+  return {
+    topic:'Vì sao công ty có CRM, chatbot và AI nhưng nhân viên vẫn phải chép dữ liệu từ Zalo sang Excel?',
+    platformMode:'youtube_short',
+    duration:'30-60s',
+    language:'vi',
+    paragraphs:4,
+    extraInstruction:'Một ý duy nhất, cụ thể, thực dụng, không quảng cáo KTN.',
+    contentBrief:{
+      targetAudience:'Chủ doanh nghiệp nhỏ và người quản lý vận hành 25–45 tuổi',
+      contentGoal:'educate',
+      contentTone:'expert',
+      expertiseLevel:'general',
+      anglePreference:'Nghịch lý: nhiều công cụ nhưng quy trình vẫn thủ công',
+      ctaStyle:'comment',
+      sourceNotes:'Ví dụ thực tế: khách điền form, dữ liệu vào bảng theo dõi, gửi xác nhận và giao việc tự động.',
+      forbiddenContent:'Không đưa số liệu ROI giả. Không khẳng định mọi doanh nghiệp đều giống nhau.'
+    },
+    channelBible:{
+      channelName:'KTN Tech',
+      primaryPlatform:'youtube',
+      niche:'AI, công nghệ và tự động hóa',
+      channelStyle:'Chuyên gia, rõ ràng, thực dụng',
+      narratorPersona:'Logic, bình tĩnh, nói thẳng vào vấn đề',
+      vocabularyStyle:'Ngắn gọn, cụ thể, ưu tiên ví dụ ứng dụng',
+      openingStyle:'Mở bằng một vấn đề hoặc nghịch lý vận hành thật',
+      storytellingStyle:'Problem → Cause → Mechanism → Example → Solution → Payoff',
+      forbiddenPhrases:'Cách mạng hóa; thay đổi thế giới; công nghệ đột phá; hãy cùng khám phá',
+      fixedRules:'Không hype AI. Không bịa số liệu. Không bán hàng trực diện.'
+    }
+  };
+}
+
+async function runSelfTest(kind){
+  const provider='gemini';
+  const cfg=PROVIDERS[provider];
+  const key=process.env[cfg.keyEnv];
+  if(!key) throw new Error('GEMINI_API_KEY chưa cấu hình.');
+  const base=selfTestBase(kind);
+  const c=commonContext(base);
+  const model=resolveModel(provider,'');
+  const started=Date.now();
+  const timings={};
+
+  const call=async(stage,workflow)=>{
+    const t=Date.now();
+    const raw=await runProvider(provider,key,model,stagePrompt(stage,c,workflow),['angle','outline','qa'].includes(stage));
+    timings[stage]=(Date.now()-t)/1000;
+    return ['angle','outline','qa'].includes(stage)?parseJsonLoose(raw):raw.trim();
+  };
+
+  const angle=await call('angle',{});
+  const outline=await call('outline',{angle});
+  if(!Array.isArray(outline?.sections)||!outline.sections.length) throw new Error('Self-test outline không có section.');
+
+  const hook=await call('hook',{angle,outline});
+  const sections=[];
+  const rolling=[hook];
+  for(let i=0;i<outline.sections.length;i++){
+    const section=outline.sections[i];
+    const t=Date.now();
+    const text=await runProvider(
+      provider,key,model,
+      stagePrompt('section',c,{
+        angle,outline,section,
+        nextSection:outline.sections[i+1]||null,
+        previousEnding:rolling.join('\n\n').slice(-2200)
+      }),
+      false
+    );
+    timings['section_'+(i+1)]=(Date.now()-t)/1000;
+    sections.push({id:section.id||('s'+(i+1)),title:section.title||('Phần '+(i+1)),text:text.trim()});
+    rolling.push(text.trim());
+  }
+
+  const draft=[hook,...sections.map(x=>x.text)].filter(Boolean).join('\n\n');
+  const rewritten=await call('rewrite',{angle,outline,script:draft});
+  let qa=await call('qa',{angle,outline,script:rewritten});
+  let finalScript=rewritten;
+  let repaired=false;
+
+  if((Number(qa?.score)||0)<80 || String(qa?.decision||'').toUpperCase()!=='PASS'){
+    finalScript=await call('repair',{angle,outline,script:rewritten,qa});
+    repaired=true;
+    qa=await call('qa',{angle,outline,script:finalScript});
+  }
+
+  const words=finalScript.split(/\s+/).filter(Boolean).length;
+  return {
+    kind,
+    provider,
+    model,
+    angle,
+    outline,
+    qa,
+    repaired,
+    finalScript,
+    metrics:{
+      words,
+      sections:sections.length,
+      total_seconds:Math.round((Date.now()-started)/100)/10,
+      timings
+    }
+  };
+}
+
 export default async function handler(req,res){
   if(req.method==='GET'){
+    const selftest=String(req.query?.selftest||'').toLowerCase();
+    if(selftest==='long' || selftest==='short'){
+      try{
+        const result=await runSelfTest(selftest);
+        return send(res,200,{ok:true,service:'KTN Script Quality Workflow Self-Test',version:'v1-g02a',result});
+      }catch(error){
+        console.error('v1_g02a_selftest_failed',{selftest,message:error?.message});
+        return send(res,502,{ok:false,error:error?.message||'Self-test thất bại.',selftest});
+      }
+    }
     return send(res,200,{ok:true,service:'KTN Script Quality Workflow',version:'v1-multipass',stages:STAGES,qaThreshold:80});
   }
   if(req.method!=='POST') return send(res,405,{error:'Phương thức không được hỗ trợ.'});
