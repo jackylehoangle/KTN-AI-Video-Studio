@@ -133,7 +133,7 @@
           </div>
 
           <div class="actions brief-actions">
-            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản bằng AI</span></button>
+            <button class="primary" id="generateBtn"><span id="generateBtnText">✦ Tạo kịch bản chất lượng</span></button>
           </div>
         </div>
 
@@ -273,6 +273,65 @@
             </div>
             <button class="secondary compact-btn" id="keywordBtn" disabled type="button">Tạo từ khóa</button>
             <button class="primary compact-btn" id="goToSceneFromScriptBtn" type="button">Tiếp tục → Cảnh</button>
+          </div>
+        </div>
+
+        <div id="scriptQualityPanel" class="script-quality-panel hidden">
+          <div class="script-quality-head">
+            <div>
+              <span class="workspace-kicker">SCRIPT QUALITY PIPELINE</span>
+              <strong>Multi-pass Writing</strong>
+              <p>Angle → Outline → Hook/Sections → Humanize → QA. Mỗi bước được lưu cùng Project.</p>
+            </div>
+            <div class="script-quality-score">
+              <span>QA</span>
+              <strong id="scriptQaScore">—</strong>
+              <small id="scriptQaDecision">Chưa chấm</small>
+            </div>
+          </div>
+
+          <div class="script-workflow-steps">
+            <div class="script-stage" id="sqStageAngle"><span>1</span><strong>Angle</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageOutline"><span>2</span><strong>Outline</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageDraft"><span>3</span><strong>Draft</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageRewrite"><span>4</span><strong>Humanize</strong><small>Chờ</small></div>
+            <div class="script-stage" id="sqStageQa"><span>5</span><strong>QA</strong><small>Chờ</small></div>
+          </div>
+
+          <div class="script-workflow-progress">
+            <div class="script-workflow-progress-head">
+              <span id="scriptWorkflowProgressLabel">Sẵn sàng</span>
+              <strong id="scriptWorkflowProgressValue">0%</strong>
+            </div>
+            <div class="script-workflow-track"><div id="scriptWorkflowBar"></div></div>
+          </div>
+
+          <details class="script-artifacts" open>
+            <summary>Angle & Outline đã duyệt bởi workflow</summary>
+            <div class="script-artifact-grid">
+              <article>
+                <span>ANGLE</span>
+                <strong id="scriptAngleTitle">—</strong>
+                <p id="scriptAngleSummary">Chưa có Angle.</p>
+                <small id="scriptAnglePromise"></small>
+              </article>
+              <article>
+                <span>OUTLINE</span>
+                <strong id="scriptOutlineTitle">—</strong>
+                <div id="scriptOutlineList" class="script-outline-list"></div>
+              </article>
+            </div>
+          </details>
+
+          <div id="scriptQaDetails" class="script-qa-details hidden">
+            <div>
+              <strong>QA report</strong>
+              <span id="scriptQaProblems">—</span>
+            </div>
+            <div>
+              <strong>Quyết định</strong>
+              <span id="scriptQaPlan">—</span>
+            </div>
           </div>
         </div>
 
