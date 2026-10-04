@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-04  
 **Branch:** `release/v1-rc1`  
-**Latest verified Preview commit:** `c2c68f1bcddee1cc37f7b6aa449fea20681a3b79`  
+**Latest verified Preview commit: `a7f4342f94d1801bc18b4836f8eb90b65d5b298e`  
 **Gate status:** **TECH PASS / OWNER VISUAL PENDING**
 
 ## Scope verified
@@ -50,6 +50,14 @@ Scene Quality contract includes:
 5. Persistence.
    - Visual/continuity review flags are serialized with the Project and restored.
 
+## Additional safety fix — AI-generated scenes
+
+- AI-generated scenes now require human review before full QA PASS.
+- `visual_review_required=true`
+- `continuity_review_required=true`
+- `qa_status=pending`
+- This prevents a fresh AI storyboard from appearing fully approved before owner/editor review.
+
 ## Static regression
 
 - `app.js` syntax: PASS
@@ -63,7 +71,7 @@ Scene Quality contract includes:
 
 ## Preview smoke
 
-Latest Preview: `https://ktn-ai-video-studio-grl352thq-jackylehoangles-projects.vercel.app/`
+Latest Preview: `https://ktn-ai-video-studio-mtska0kww-jackylehoangles-projects.vercel.app/`
 
 - Home HTTP 200
 - Scene Board control present
