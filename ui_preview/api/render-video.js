@@ -16,6 +16,26 @@ function headers(cfg,extra={}){
   return {...extra,...(cfg.apiKey?{'x-api-key':cfg.apiKey}:{})};
 }
 
+
+function mptVoiceName(voiceConfig={}){
+  const provider=String(voiceConfig?.provider||'').trim().toLowerCase();
+  const voice=String(voiceConfig?.voice||'').trim();
+  if(!voice) return 'vi-VN-HoaiMyNeural';
+  if(provider==='gemini'){
+    return voice.startsWith('gemini:')?voice:('gemini:'+voice);
+  }
+  if(provider==='elevenlabs'){
+    return voice.startsWith('elevenlabs:')?voice:('elevenlabs:'+voice+':KTN');
+  }
+  return voice;
+}
+
+function safeVoiceRate(value){
+  const parsed=Number(value);
+  if(!Number.isFinite(parsed) || parsed<=0) return 1;
+  return Math.max(0.5,Math.min(2,parsed));
+}
+
 function publicVideoUrl(baseUrl,value){
   if(!value) return '';
   if(/^https?:\/\//i.test(value)) return value;
@@ -97,7 +117,8 @@ export default async function handler(req,res){
     1,
     ...materials.map(item=>item.duration)
   );
-  const voiceName='vi-VN-HoaiMyNeural';
+  const voiceName=mptVoiceName(body?.voice||{});
+  const voiceRate=safeVoiceRate(body?.voice?.speed);
   const aspect=['16:9','9:16','1:1'].includes(body?.video?.aspect)?body.video.aspect:'16:9';
   const transition=body?.video?.transition||null;
 
@@ -118,7 +139,7 @@ export default async function handler(req,res){
     video_language:'vi-VN',
     voice_name:voiceName,
     voice_volume:1.0,
-    voice_rate:1.0,
+    voice_rate:voiceRate,
     bgm_type:'',
     bgm_file:'',
     bgm_volume:0,
@@ -146,7 +167,16 @@ export default async function handler(req,res){
     }
     const taskId=payload?.data?.task_id;
     if(!taskId) throw new Error('MPT không trả về task_id.');
-    return send(res,200,{ok:true,task_id:taskId});
+    return send(res,200,{
+      ok:true,
+      task_id:taskId,
+      voice:{
+        provider:String(body?.voice?.provider||''),
+        voice:String(body?.voice?.voice||''),
+        mpt_voice_name:voiceName,
+        speed:voiceRate
+      }
+    });
   }catch(error){
     console.error('render_submit_failed',{message:error?.message});
     return send(res,502,{error:'Không thể tạo MPT render task: '+(error?.message||'Lỗi không xác định')});
