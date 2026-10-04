@@ -135,35 +135,77 @@ async function runProvider(provider,key,model,prompt,jsonMode=false){
 
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
 
-function isTransientProviderError(error){
-  const message=String(error?.message||'').toLowerCase();
-  return (
-    message.includes('high demand') ||
-    message.includes('overloaded') ||
-    message.includes('rate limit') ||
-    message.includes('too many requests') ||
-    message.includes('http 429') ||
-    message.includes('http 503') ||
-    message.includes('temporarily unavailable') ||
-    message.includes('service unavailable')
+function providerRetryDirective(error,attempt){
+  const message=String(error?.message||'');
+  const lower=message.toLowerCase();
+
+  const hardQuota=(
+    /limit:\s*0\s+requests?\s+per\s+day/i.test(message) ||
+    /limit:\s*0\s+input\s+tokens?\s+per\s+minute/i.test(message) ||
+    /requests?\s+per\s+day/i.test(message) && /rate limit/i.test(message)
   );
+  if(hardQuota){
+    return {retryable:false,hardQuota:true,waitMs:0,reason:'hard_quota'};
+  }
+
+  const retryMatch=message.match(/retry\s+in\s+(\d+(?:\.\d+)?)s/i);
+  if(retryMatch){
+    const seconds=Math.max(1,Math.ceil(Number(retryMatch[1])));
+    return {
+      retryable:true,
+      hardQuota:false,
+      waitMs:Math.min(70000,(seconds+1)*1000),
+      reason:'provider_retry_after'
+    };
+  }
+
+  const transient=(
+    lower.includes('high demand') ||
+    lower.includes('overloaded') ||
+    lower.includes('rate limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('http 429') ||
+    lower.includes('http 503') ||
+    lower.includes('temporarily unavailable') ||
+    lower.includes('service unavailable')
+  );
+  if(!transient) return {retryable:false,hardQuota:false,waitMs:0,reason:'non_transient'};
+
+  const backoff=[3500,9000,18000,30000];
+  return {
+    retryable:true,
+    hardQuota:false,
+    waitMs:backoff[Math.min(attempt,backoff.length-1)],
+    reason:'transient_backoff'
+  };
 }
 
 async function runProviderWithRetry(provider,key,model,prompt,jsonMode=false){
-  const delays=[0,3500,9000,18000];
+  const maxAttempts=4;
   let lastError=null;
-  for(let attempt=0;attempt<delays.length;attempt++){
-    if(delays[attempt]) await sleep(delays[attempt]);
+
+  for(let attempt=0;attempt<maxAttempts;attempt++){
     try{
       return await runProvider(provider,key,model,prompt,jsonMode);
     }catch(error){
       lastError=error;
-      if(!isTransientProviderError(error) || attempt===delays.length-1) throw error;
+      const directive=providerRetryDirective(error,attempt);
+      if(!directive.retryable || attempt===maxAttempts-1){
+        if(directive.hardQuota){
+          error.code='provider_hard_quota';
+          error.retryable=false;
+        }
+        throw error;
+      }
+
       console.warn('script_provider_retry',{
-        provider,model,attempt:attempt+1,
-        nextDelayMs:delays[attempt+1]||0,
+        provider,model,
+        attempt:attempt+1,
+        nextDelayMs:directive.waitMs,
+        reason:directive.reason,
         message:error?.message
       });
+      await sleep(directive.waitMs);
     }
   }
   throw lastError||new Error('Provider request failed.');
