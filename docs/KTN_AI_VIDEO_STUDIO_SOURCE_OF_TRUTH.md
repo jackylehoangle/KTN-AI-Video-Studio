@@ -396,7 +396,7 @@ V1 is **100% complete only when every gate below is PASS**:
 |---|---|---|
 | V1-G01 | Consolidate current product branches into one RC baseline | PASS — `release/v1-rc1` |
 | V1-G02 | Script Quality multi-pass workflow passes real Vietnamese Long + Short tests | BLOCKED_PROVIDER — Gemini high demand / Free Tier quota during 2026-10-04 real test |
-| V1-G03 | Scene Quality owner functional/visual acceptance | TECH PASS / OWNER VISUAL PENDING |
+| V1-G03 | Scene Quality owner functional/visual acceptance | PASS — owner/browser acceptance completed on RC preview |
 | V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | TECH + REAL TTS PASS / OWNER BATCH + CLONE PENDING |
 | V1-G05 | Image runtime live; create/regenerate image E2E PASS | BLOCKED_PROVIDER/RUNTIME — Gemini Image Free Tier 0; KTN FLUX offline; OpenAI not configured |
 | V1-G06 | Subtitle workflow acceptance | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 |
@@ -415,7 +415,20 @@ V1 is **100% complete only when every gate below is PASS**:
 - Added explicit `Duyệt cảnh` action to prevent false-green Scene QA.
 - Dynamic aspect ratio follows current Render Aspect / platform default; generated image asset stores its ratio and Scene QA detects mismatch.
 - Detailed evidence: `docs/V1_G03A_SCENE_QUALITY_REGRESSION_2026-10-04.md`.
-- Gate remains open only for owner visual/functional acceptance.
+- Owner/browser acceptance is completed in `docs/V1_G03B_OWNER_BROWSER_ACCEPTANCE_2026-10-04.md`.
+- Gate `V1-G03` is **PASS**.
+
+### V1-G03B owner/browser acceptance — 04/10/2026
+
+- Preview tested: `https://ktn-ai-video-studio-ntppjsm2p-jackylehoangles-projects.vercel.app/`.
+- Imported a local V1 project seed through the production UI import path; app returned `PASS · Đã nhập, lưu và xác minh dự án`.
+- Board/List switching passed.
+- Edit, review, reorder, lock, split and merge passed.
+- Reorder, split and merge correctly reintroduced review requirements instead of false-green QA.
+- Final reviewed state reached `QA 2/2`.
+- Long format verified `16:9` / `scene-aspect-16-9`.
+- Short format verified `9:16` / `scene-aspect-9-16`.
+- KTN FLUX configured-but-offline state stayed truthful; image generation remains part of `V1-G05`.
 
 ### V1-G02A real test note — 04/10/2026
 
@@ -434,7 +447,7 @@ V1 is **100% complete only when every gate below is PASS**:
 While V1-G02 is provider-blocked, non-Gemini gates continue in parallel.
 
 Verified:
-- V1-G03 technical Scene Quality regression PASS; owner visual acceptance pending.
+- V1-G03 Scene Quality PASS after owner/browser acceptance.
 - V1-G04 Gemini TTS real generation PASS twice with valid WAV output; batch UI/clone owner acceptance pending.
 - V1-G05 real Gemini Image call BLOCKED by provider Free Tier (0 input tokens/min); KTN FLUX remains offline.
 - V1-G06 technical Subtitle editor/validator/exact-SRT-to-render contract PASS; final MP4 subtitle validation belongs to G07.
@@ -446,7 +459,7 @@ GitHub Actions currently reports no-step failures for standard CI jobs, with no 
 
 ### V1 non-provider technical progress — 04/10/2026
 
-- V1-G03 Scene Quality: technical regression PASS; AI-generated scenes now require visual + continuity review; owner visual acceptance pending.
+- V1-G03 Scene Quality: PASS; AI-generated scenes require visual + continuity review and owner/browser acceptance is complete.
 - V1-G04 Voice Studio: technical regression PASS; real batch/clone provider acceptance pending.
 - V1-G06 Subtitle: technical regression PASS; fixed silent-scene timeline drift; owner browser check pending.
 - V1-G08 Project persistence: technical contract PASS with read-back fingerprint verification; browser IndexedDB E2E pending.
@@ -454,6 +467,7 @@ GitHub Actions currently reports no-step failures for standard CI jobs, with no 
 
 Evidence:
 - `docs/V1_G03_SCENE_QUALITY_REGRESSION_2026-10-04.md`
+- `docs/V1_G03B_OWNER_BROWSER_ACCEPTANCE_2026-10-04.md`
 - `docs/V1_G06_SUBTITLE_REGRESSION_2026-10-04.md`
 - `docs/V1_G08_PROJECT_PERSISTENCE_REGRESSION_2026-10-04.md`
 - `docs/V1_G09_PROVIDER_READINESS_REGRESSION_2026-10-04.md`
