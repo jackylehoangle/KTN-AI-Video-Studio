@@ -807,3 +807,14 @@ body[data-active-workspace="settings"] .project-nav-item{opacity:.82}
   .script-quality-score{margin-top:9px;width:100%}
   .script-workflow-steps{grid-template-columns:1fr}
 }
+
+
+/* V1-G03 — Scene aspect follows project/output ratio */
+.scene-list.scene-aspect-16-9 .storyboard-media{aspect-ratio:16/9}
+.scene-list.scene-aspect-9-16 .storyboard-media{aspect-ratio:9/16}
+.scene-list.scene-aspect-1-1 .storyboard-media{aspect-ratio:1/1}
+
+/* Keep list mode compact while still showing the intended frame shape. */
+.scene-list-mode.scene-aspect-16-9 .storyboard-media{aspect-ratio:16/9}
+.scene-list-mode.scene-aspect-9-16 .storyboard-media{aspect-ratio:9/16;height:180px}
+.scene-list-mode.scene-aspect-1-1 .storyboard-media{aspect-ratio:1/1;height:150px}
