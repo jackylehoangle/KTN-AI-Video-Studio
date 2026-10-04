@@ -110,6 +110,20 @@ function inferPlatformFromDuration(duration){
     : 'youtube_long';
 }
 
+function defaultAspectForPlatform(mode){
+  return mode==='youtube_short' || mode==='facebook_short' ? '9:16' : '16:9';
+}
+
+function currentSceneAspect(){
+  return document.getElementById('renderAspect')?.value || defaultAspectForPlatform(document.getElementById('platformMode')?.value);
+}
+
+function applySceneAspectClass(){
+  if(!sceneList) return;
+  sceneList.classList.remove('scene-aspect-16-9','scene-aspect-9-16','scene-aspect-1-1');
+  sceneList.classList.add('scene-aspect-'+currentSceneAspect().replace(':','-'));
+}
+
 function configurePlatformMode(mode,preferredDuration='',updateParagraphCount=false){
   const preset=PLATFORM_PRESETS[mode]||PLATFORM_PRESETS.youtube_long;
   const durationSelect=document.getElementById('targetDuration');
@@ -129,6 +143,9 @@ function configurePlatformMode(mode,preferredDuration='',updateParagraphCount=fa
   if(updateParagraphCount){
     const paragraphCount=document.getElementById('paragraphCount');
     if(paragraphCount) paragraphCount.value=String(preset.paragraphCount);
+    const renderAspect=document.getElementById('renderAspect');
+    if(renderAspect) renderAspect.value=defaultAspectForPlatform(mode);
+    applySceneAspectClass();
   }
 }
 
@@ -2079,6 +2096,8 @@ function serializeProjectState({includeMaterialKeys=false}={}){
       visual_description:scene.visual_description,
       image_prompt:scene.image_prompt,
       locked:Boolean(scene.locked),
+      visual_review_required:Boolean(scene.visual_review_required),
+      continuity_review_required:Boolean(scene.continuity_review_required),
       qa_status:scene.qa_status||'pending',
       voice_job_status:scene.voice_job_status||'',
       voice_job_error:scene.voice_job_error||'',
@@ -3081,7 +3100,7 @@ async function generateSceneImage(scene,card,button){
         provider,
         prompt,
         sceneId:scene.id,
-        aspectRatio:'16:9'
+        aspectRatio:currentSceneAspect()
       })
     });
     const data=await res.json().catch(()=>({}));
@@ -3096,7 +3115,8 @@ async function generateSceneImage(scene,card,button){
       b64_json:data.b64_json,
       mime_type:imageMime,
       provider:data.provider||provider,
-      model:data.model||''
+      model:data.model||'',
+      aspect_ratio:currentSceneAspect()
     };
     scene.material_key='';
     status.textContent='';
@@ -3148,6 +3168,8 @@ function normalizeSceneClient(scene,index=0){
     visual_description:String(scene?.visual_description||'').trim(),
     image_prompt:String(scene?.image_prompt||'').trim(),
     locked:Boolean(scene?.locked),
+    visual_review_required:Boolean(scene?.visual_review_required),
+    continuity_review_required:Boolean(scene?.continuity_review_required),
     qa_status:String(scene?.qa_status||'pending')
   };
 }
@@ -3157,13 +3179,19 @@ function normalizeCurrentSceneOrder(){
 }
 
 function sceneQa(scene){
+  const imageRatioOk=!scene.image_asset?.b64_json ||
+    !scene.image_asset?.aspect_ratio ||
+    scene.image_asset.aspect_ratio===currentSceneAspect();
   const checks=[
     ['Narration',Boolean(String(scene.narration||'').trim())],
     ['Duration',Number(scene.duration_seconds)>=2 && Number(scene.duration_seconds)<=60],
     ['Purpose',Boolean(scene.purpose && scene.purpose!=='other')],
     ['Visual intent',Boolean(String(scene.visual_intent||'').trim())],
     ['Shot',Boolean(String(scene.shot_type||'').trim())],
-    ['Visual prompt',Boolean(String(scene.visual_description||'').trim() && String(scene.image_prompt||'').trim())]
+    ['Visual prompt',Boolean(String(scene.visual_description||'').trim() && String(scene.image_prompt||'').trim())],
+    ['Visual review',!scene.visual_review_required],
+    ['Continuity review',!scene.continuity_review_required],
+    ['Image ratio',imageRatioOk]
   ];
   const pass=checks.filter(([,ok])=>ok).length;
   return {
@@ -3235,6 +3263,8 @@ function saveSceneEditor(){
     visual_description:value('sceneEditorVisualDescription'),
     image_prompt:value('sceneEditorImagePrompt'),
     locked:Boolean(document.getElementById('sceneEditorLocked')?.checked),
+    visual_review_required:false,
+    continuity_review_required:false,
     qa_status:'reviewed'
   };
   renderScenes(currentScenes,{providerLabel:'Đã chỉnh sửa'});
@@ -3249,7 +3279,11 @@ function moveScene(id,direction){
   if(index<0 || target<0 || target>=currentScenes.length) return;
   [currentScenes[index],currentScenes[target]]=[currentScenes[target],currentScenes[index]];
   normalizeCurrentSceneOrder();
-  renderScenes(currentScenes,{providerLabel:'Đã sắp xếp'});
+  const affected=new Set([index-1,index,index+1,target-1,target,target+1]);
+  affected.forEach(i=>{
+    if(i>=0 && i<currentScenes.length) currentScenes[i].continuity_review_required=true;
+  });
+  renderScenes(currentScenes,{providerLabel:'Đã sắp xếp · cần rà continuity'});
   scheduleAutosave();
 }
 
@@ -3267,8 +3301,8 @@ function splitScene(id){
   const left=sentences.slice(0,midpoint).join(' ');
   const right=sentences.slice(midpoint).join(' ');
   const baseDuration=Math.max(4,Number(scene.duration_seconds)||8);
-  const first={...scene,narration:left,duration_seconds:Math.max(2,Math.round(baseDuration/2)),title:scene.title+' · A',image_asset:null,audio_asset:null,material_key:'',locked:false,qa_status:'pending'};
-  const second={...scene,id:'scene_'+Date.now().toString(36),narration:right,duration_seconds:Math.max(2,baseDuration-Math.round(baseDuration/2)),title:scene.title+' · B',image_asset:null,audio_asset:null,material_key:'',locked:false,qa_status:'pending'};
+  const first={...scene,narration:left,duration_seconds:Math.max(2,Math.round(baseDuration/2)),title:scene.title+' · A',image_asset:null,audio_asset:null,material_key:'',locked:false,visual_review_required:true,continuity_review_required:true,qa_status:'pending'};
+  const second={...scene,id:'scene_'+Date.now().toString(36),narration:right,duration_seconds:Math.max(2,baseDuration-Math.round(baseDuration/2)),title:scene.title+' · B',image_asset:null,audio_asset:null,material_key:'',locked:false,visual_review_required:true,continuity_review_required:true,qa_status:'pending'};
   currentScenes.splice(index,1,first,second);
   normalizeCurrentSceneOrder();
   renderScenes(currentScenes,{providerLabel:'Đã tách scene'});
@@ -3292,7 +3326,8 @@ function mergeSceneWithNext(id){
     continuity_notes:[a.continuity_notes,b.continuity_notes].filter(Boolean).join(' · '),
     visual_description:[a.visual_description,b.visual_description].filter(Boolean).join(' '),
     image_prompt:[a.image_prompt,b.image_prompt].filter(Boolean).join(', '),
-    image_asset:null,audio_asset:null,material_key:'',locked:false,qa_status:'pending'
+    image_asset:null,audio_asset:null,material_key:'',locked:false,
+    visual_review_required:true,continuity_review_required:true,qa_status:'pending'
   };
   currentScenes.splice(index,2,merged);
   normalizeCurrentSceneOrder();
@@ -3313,6 +3348,7 @@ function renderScenes(scenes,meta){
   normalizeCurrentSceneOrder();
   sceneList.innerHTML='';
   sceneList.classList.toggle('scene-list-mode',sceneViewMode==='list');
+  applySceneAspectClass();
 
   currentScenes.forEach((scene,index)=>{
     const qa=sceneQa(scene);
@@ -4287,6 +4323,12 @@ document.getElementById('scriptModel').addEventListener('change',scheduleAutosav
 
 document.getElementById('platformMode').addEventListener('change',e=>{
   configurePlatformMode(e.target.value,'',true);
+  if(currentScenes.length) renderScenes(currentScenes,{providerLabel:'Đã đổi định dạng video'});
+  scheduleAutosave();
+});
+document.getElementById('renderAspect').addEventListener('change',()=>{
+  applySceneAspectClass();
+  if(currentScenes.length) renderScenes(currentScenes,{providerLabel:'Đã đổi tỷ lệ khung hình'});
   scheduleAutosave();
 });
 
