@@ -151,6 +151,41 @@ async function generateOpenAIImage(key,model,prompt,aspectRatio){
 
 export default async function handler(req,res){
   if(req.method==='GET'){
+    const selftest=String(req.query?.selftest||'').toLowerCase();
+    if(selftest==='gemini'){
+      const key=process.env.GEMINI_API_KEY||'';
+      const model=process.env.GEMINI_IMAGE_MODEL||PROVIDERS.gemini.defaultModel;
+      const aspect=['16:9','9:16','1:1'].includes(req.query?.aspect)?req.query.aspect:'16:9';
+      if(!key) return send(res,503,{ok:false,error:'GEMINI_API_KEY chưa cấu hình.',code:'provider_key_missing'});
+      try{
+        const prompt=[
+          'A clean cinematic documentary frame of a Vietnamese creator working at a desk with a laptop,',
+          'natural daylight, realistic photography, professional composition, no text, no logo, no watermark.'
+        ].join(' ');
+        const image=await generateGeminiImage(key,model,prompt,aspect);
+        const bytes=Buffer.from(image.b64_json,'base64');
+        return send(res,200,{
+          ok:true,
+          service:'KTN Image Generator Self-Test',
+          provider:'gemini',
+          model,
+          aspect_ratio:aspect,
+          mime_type:image.mime_type,
+          bytes:bytes.length,
+          jpeg_magic:bytes.length>=2 && bytes[0]===0xff && bytes[1]===0xd8,
+          createdAt:new Date().toISOString()
+        });
+      }catch(error){
+        return send(res,502,{
+          ok:false,
+          provider:'gemini',
+          model,
+          aspect_ratio:aspect,
+          error:String(error?.message||'Image self-test failed.')
+        });
+      }
+    }
+
     return send(res,200,{
       ok:true,
       service:'KTN Image Generator',
