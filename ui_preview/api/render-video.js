@@ -46,14 +46,22 @@ export default async function handler(req,res){
   const cfg=config();
 
   if(req.method==='GET' && !req.query?.task_id){
-    if(!cfg.baseUrl) return send(res,200,{ok:true,configured:false,ready:false});
+    if(!cfg.baseUrl || !cfg.apiKey){
+      return send(res,200,{
+        ok:true,
+        configured:Boolean(cfg.baseUrl && cfg.apiKey),
+        ready:false,
+        baseUrlConfigured:Boolean(cfg.baseUrl),
+        apiKeyConfigured:Boolean(cfg.apiKey)
+      });
+    }
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),8000);
     try{
       const response=await fetch(cfg.baseUrl+'/docs',{headers:headers(cfg),signal:controller.signal,cache:'no-store'});
-      return send(res,200,{ok:true,configured:true,ready:response.ok});
+      return send(res,200,{ok:true,configured:true,ready:response.ok,baseUrlConfigured:true,apiKeyConfigured:true});
     }catch{
-      return send(res,200,{ok:true,configured:true,ready:false});
+      return send(res,200,{ok:true,configured:true,ready:false,baseUrlConfigured:true,apiKeyConfigured:true});
     }finally{
       clearTimeout(timer);
     }
@@ -61,6 +69,9 @@ export default async function handler(req,res){
 
   if(!cfg.baseUrl){
     return send(res,503,{error:'Chưa cấu hình MPT_RENDER_BASE_URL trên Vercel.',code:'render_worker_missing'});
+  }
+  if(!cfg.apiKey){
+    return send(res,503,{error:'Chưa cấu hình MPT_RENDER_API_KEY trên Vercel.',code:'render_worker_auth_missing'});
   }
 
   if(req.method==='GET'){
