@@ -1995,6 +1995,113 @@ function projectPersistenceStats(project){
   };
 }
 
+function projectPersistenceFingerprint(project){
+  const scenes=Array.isArray(project?.scenes)?project.scenes:[];
+  const stable={
+    schema_version:project?.schema_version||'',
+    id:project?.id||'',
+    name:project?.name||'',
+    inputs:{
+      topic:project?.inputs?.topic||'',
+      platformMode:project?.inputs?.platformMode||'',
+      scriptLanguage:project?.inputs?.scriptLanguage||'',
+      scriptProvider:project?.inputs?.scriptProvider||'',
+      scriptModel:project?.inputs?.scriptModel||'',
+      paragraphCount:Number(project?.inputs?.paragraphCount||0),
+      targetDuration:project?.inputs?.targetDuration||'',
+      extraInstruction:project?.inputs?.extraInstruction||'',
+      contentBrief:project?.inputs?.contentBrief||{},
+      channelProfileId:project?.inputs?.channelProfileId||'',
+      channelProfileSnapshot:project?.inputs?.channelProfileSnapshot||null
+    },
+    script:{
+      title:project?.script?.title||'',
+      text:project?.script?.text||'',
+      meta:project?.script?.meta||'',
+      workflow:project?.script?.workflow||null
+    },
+    scenes:scenes.map(scene=>({
+      id:scene?.id||'',
+      order:Number(scene?.order||0),
+      title:scene?.title||'',
+      purpose:scene?.purpose||'',
+      narration:scene?.narration||'',
+      duration_seconds:Number(scene?.duration_seconds||0),
+      audio_duration_seconds:scene?.audio_duration_seconds==null?null:Number(scene.audio_duration_seconds),
+      visual_intent:scene?.visual_intent||'',
+      shot_type:scene?.shot_type||'',
+      continuity_notes:scene?.continuity_notes||'',
+      visual_description:scene?.visual_description||'',
+      image_prompt:scene?.image_prompt||'',
+      locked:Boolean(scene?.locked),
+      visual_review_required:Boolean(scene?.visual_review_required),
+      continuity_review_required:Boolean(scene?.continuity_review_required),
+      qa_status:scene?.qa_status||'',
+      voice_job_status:scene?.voice_job_status||'',
+      voice_job_error:scene?.voice_job_error||'',
+      audio_qa_approved:Boolean(scene?.audio_qa_approved),
+      image_asset:scene?.image_asset ? {
+        mime_type:scene.image_asset.mime_type||'',
+        provider:scene.image_asset.provider||'',
+        model:scene.image_asset.model||'',
+        aspect_ratio:scene.image_asset.aspect_ratio||'',
+        payload_length:String(scene.image_asset.b64_json||'').length
+      } : null,
+      audio_asset:scene?.audio_asset ? {
+        mime_type:scene.audio_asset.mime_type||'',
+        provider:scene.audio_asset.provider||'',
+        model:scene.audio_asset.model||'',
+        voice:scene.audio_asset.voice||'',
+        duration_seconds:scene.audio_asset.duration_seconds==null?null:Number(scene.audio_asset.duration_seconds),
+        payload_length:String(scene.audio_asset.b64_audio||'').length
+      } : null
+    })),
+    subtitles:{
+      srt:project?.subtitles?.srt||'',
+      maxChars:Number(project?.subtitles?.maxChars||0),
+      gap:Number(project?.subtitles?.gap||0)
+    },
+    settings:project?.settings||{}
+  };
+  return JSON.stringify(stable);
+}
+
+function validateImportedProjectV1(project){
+  if(!project || typeof project!=='object'){
+    throw new Error('File dự án phải là JSON object.');
+  }
+  if(project.schema_version!=='ktn-ai-video-project-v1'){
+    throw new Error('File không đúng định dạng dự án KTN AI Video Studio V1.');
+  }
+  if(!project.inputs || typeof project.inputs!=='object'){
+    throw new Error('Dự án thiếu inputs.');
+  }
+  if(!project.script || typeof project.script!=='object'){
+    throw new Error('Dự án thiếu script state.');
+  }
+  if(!Array.isArray(project.scenes)){
+    throw new Error('Dự án thiếu danh sách scenes.');
+  }
+  if(project.scenes.length>500){
+    throw new Error('Dự án có quá nhiều scene (>500).');
+  }
+  const ids=new Set();
+  project.scenes.forEach((scene,index)=>{
+    if(!scene || typeof scene!=='object') throw new Error('Scene '+(index+1)+' không hợp lệ.');
+    const id=String(scene.id||'').trim();
+    if(!id) throw new Error('Scene '+(index+1)+' thiếu ID.');
+    if(ids.has(id)) throw new Error('Dự án có scene ID bị trùng: '+id);
+    ids.add(id);
+  });
+  if(project.subtitles && typeof project.subtitles!=='object'){
+    throw new Error('Subtitle state không hợp lệ.');
+  }
+  if(project.settings && typeof project.settings!=='object'){
+    throw new Error('Settings không hợp lệ.');
+  }
+  return true;
+}
+
 async function dbPutProject(project){
   const db=await openProjectDb();
   return new Promise((resolve,reject)=>{
@@ -2137,11 +2244,13 @@ async function saveProjectNow({silent=false}={}){
     setAutosaveStatus('Đang lưu...','saving');
     const project=serializeProjectState();
     const expected=projectPersistenceStats(project);
+    const expectedFingerprint=projectPersistenceFingerprint(project);
     await persistProjectBundle(project);
 
     const storedManifest=await dbGetProject(project.id);
     const stored=await hydrateProjectAssets(storedManifest);
     const actual=projectPersistenceStats(stored);
+    const actualFingerprint=projectPersistenceFingerprint(stored);
 
     if(
       actual.scenes!==expected.scenes ||
@@ -2152,6 +2261,9 @@ async function saveProjectNow({silent=false}={}){
         'Xác minh lưu thất bại: cần '+expected.scenes+' scene / '+expected.images+' ảnh / '+expected.audio+
         ' audio nhưng đọc lại được '+actual.scenes+' scene / '+actual.images+' ảnh / '+actual.audio+' audio.'
       );
+    }
+    if(actualFingerprint!==expectedFingerprint){
+      throw new Error('Xác minh nội dung Project thất bại: dữ liệu đọc lại không khớp dữ liệu vừa lưu.');
     }
 
     setAutosaveStatus(
@@ -2603,20 +2715,34 @@ function exportProject(){
 async function importProjectFile(file){
   if(!file) return;
   try{
+    const maxImportBytes=250*1024*1024;
+    if(Number(file.size||0)>maxImportBytes){
+      throw new Error('File dự án vượt quá 250 MB.');
+    }
     const text=await file.text();
     const imported=JSON.parse(text);
-    if(imported?.schema_version!=='ktn-ai-video-project-v1'){
-      throw new Error('File không đúng định dạng dự án KTN AI Video Studio V1.');
+    validateImportedProjectV1(imported);
+
+    if(activeProjectId){
+      const currentSaved=await saveProjectNow({silent:true});
+      if(!currentSaved?.ok) throw new Error('Không thể xác minh dự án đang mở trước khi import.');
     }
-    if(activeProjectId) await saveProjectNow({silent:true});
+
     const id=makeProjectId();
-    const project={...imported,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    const project={
+      ...imported,
+      id,
+      created_at:new Date().toISOString(),
+      updated_at:new Date().toISOString(),
+      scenes:imported.scenes.map(scene=>({...scene,material_key:null}))
+    };
     rememberActiveProject(id);
     activeProjectCreatedAt=project.created_at;
     await restoreProject(project);
-    await saveProjectNow({silent:true});
+    const saved=await saveProjectNow({silent:true});
+    if(!saved?.ok) throw new Error('Import đọc được nhưng không xác minh được dữ liệu sau khi lưu.');
     await renderProjectLibrary();
-    showToast('Đã nhập và khôi phục dự án.');
+    showToast('PASS · Đã nhập, lưu và xác minh dự án.');
   }catch(err){
     showToast('Không thể nhập dự án: '+(err?.message||'file không hợp lệ'));
   }finally{
@@ -2637,7 +2763,7 @@ async function checkPersistenceHealth(){
       ? ' · '+(used/1048576).toFixed(1)+'/'+(quota/1048576).toFixed(0)+' MB'
       : '';
     if(saved?.ok){
-      text.textContent='PASS · '+saved.stats.scenes+' scene · '+saved.stats.audio+' audio'+usageText;
+      text.textContent='PASS · nội dung khớp · '+saved.stats.scenes+' scene · '+saved.stats.images+' ảnh · '+saved.stats.audio+' audio'+usageText;
       text.style.color='#198754';
     }else{
       text.textContent='FAIL · không xác minh được IndexedDB'+usageText;
