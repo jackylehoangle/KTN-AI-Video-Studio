@@ -12,7 +12,7 @@
 | V1-G01 | Consolidate current product work into one RC | PASS | `release/v1-rc1` + Draft PR #13 |
 | V1-G02 | Real Vietnamese Long + Short multi-pass Script Quality | BLOCKED_PROVIDER | Gemini script daily/free-tier limits; no final Short/Long acceptance yet |
 | V1-G03 | Scene Quality | PASS | Owner/browser acceptance passed: Board/List/Edit/Split/Merge/Reorder/Lock/QA + Long 16:9 / Short 9:16 |
-| V1-G04 | Voice Studio | TECH + REAL TTS PASS / OWNER BATCH + CLONE PENDING | Two real Gemini TTS self-tests returned valid WAV |
+| V1-G04 | Voice Studio | TECH + REAL TTS + OWNER BATCH PASS / CLONE CONSENT AUDIO PENDING | G04B owner/browser batch acceptance passed on RC preview |
 | V1-G05 | Image generation E2E | BLOCKED_PROVIDER | Gemini Image Free Tier reports 0 input tokens/min; KTN FLUX runtime offline; OpenAI image not configured |
 | V1-G06 | Subtitle workflow | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 | Editable/validated SRT is forwarded exactly to render worker |
 | V1-G07 | Render Worker → final MP4 | BLOCKED_RUNTIME | Render configured but live probe `ready=false`; API key not configured |
@@ -74,7 +74,32 @@ Conclusion:
 - Gemini TTS itself is currently usable.
 - Repeated real TTS requests pass.
 - Batch queue logic, live %, Pause/Resume/Retry/Cancel and Scene Audio QA are implemented.
-- Full G04 still requires owner/browser acceptance for the queue UI and a real clone test when consent/reference audio is supplied.
+- Owner/browser batch acceptance is complete in `docs/V1_G04B_OWNER_VOICE_BATCH_ACCEPTANCE_2026-10-04.md`.
+- Voice clone acceptance remains pending until owner-approved reference/consent audio is supplied.
+
+## V1-G04B owner/browser batch acceptance
+
+Preview:
+`https://ktn-ai-video-studio-ntppjsm2p-jackylehoangles-projects.vercel.app/`
+
+Result:
+**PASS**
+
+Verified in browser:
+- Imported `G04B Owner Voice Batch Seed` through the production UI import path and received `PASS · Đã nhập, lưu và xác minh dự án`.
+- Voice Library loaded from the live provider catalog and Gemini TTS showed `sẵn sàng`.
+- Batch confirmation correctly guarded API-cost execution.
+- Live progress showed running/queued/pass/fail state and percentage.
+- Pause changed the job to `Đã tạm dừng`; Resume returned the job to the quota-wait/running path.
+- Cancel stopped the queue while preserving already-created audio.
+- Controlled failure created a real `FAIL` row; `Retry lỗi` became enabled only when a failed scene existed.
+- Retry switched scope to `Chỉ retry scene lỗi` and regenerated the failed scene with real Gemini/Kore audio.
+- Final queue state reached `3/3 audio`, `0 fail`, rows `PASS / PASS / PASS`.
+- Scene Audio QA approved all three scenes as `TECH PASS ĐÃ DUYỆT`.
+- Project reload in a fresh tab restored `3/3 audio` and all audio QA approvals.
+
+Evidence:
+`docs/V1_G04B_OWNER_VOICE_BATCH_ACCEPTANCE_2026-10-04.md`
 
 ## V1-G05 real Image evidence
 
@@ -174,6 +199,6 @@ Therefore the available evidence does **not** attribute the CI failure to applic
 1. Script provider availability for G02.
 2. Image provider/runtime for G05.
 3. Render Worker for G07.
-4. Owner browser acceptance for Voice queue and Project persistence.
+4. Full Project persistence browser E2E beyond the G04 voice reload path.
 5. Golden Brief → MP4 E2E.
 6. GitHub Actions no-step failure diagnosis.
