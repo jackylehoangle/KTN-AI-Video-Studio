@@ -1,5 +1,8 @@
 # KTN-SCRIPT-MODEL-01
 
+> Canonical Source of Truth: `docs/KTN_SCRIPT_MODEL_SOURCE_OF_TRUTH_V1.md`  
+> Any implementation or experiment under this program must conform to the Source of Truth unless the owner explicitly approves a versioned change.
+
 Status: Gate A implementation
 Owner goal: reduce dependency on hosted LLMs for Vietnamese YouTube/Facebook script production without sacrificing quality.
 
