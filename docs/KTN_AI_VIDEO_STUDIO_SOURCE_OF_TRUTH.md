@@ -458,6 +458,17 @@ Evidence:
 - `docs/V1_G08_PROJECT_PERSISTENCE_REGRESSION_2026-10-04.md`
 - `docs/V1_G09_PROVIDER_READINESS_REGRESSION_2026-10-04.md`
 
+### V1 runtime gate technical status — 04/10/2026
+
+- V1-G04 Voice Studio: TECH PASS; real TTS batch/clone acceptance pending.
+- V1-G05 Image: TECH PASS; Gemini Image Free Tier unavailable in current key, KTN FLUX offline, OpenAI Image not configured.
+- V1-G07 Render: TECH PASS; production readiness now requires URL + API key + health. Current URL exists but API key is missing, therefore configured=false / ready=false.
+
+Evidence:
+- `docs/V1_G04_VOICE_STUDIO_REGRESSION_2026-10-04.md`
+- `docs/V1_G05_IMAGE_PIPELINE_REGRESSION_2026-10-04.md`
+- `docs/V1_G07_RENDER_PIPELINE_REGRESSION_2026-10-04.md`
+
 ### Scope discipline
 
 Until V1-G12 is PASS:
