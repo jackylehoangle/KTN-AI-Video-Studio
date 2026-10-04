@@ -408,6 +408,15 @@ V1 is **100% complete only when every gate below is PASS**:
 | V1-G12 | Merge one approved RC to `main` + production smoke PASS | PENDING |
 
 
+### V1-G03A technical regression note — 04/10/2026
+
+- Board/List, Scene Editor, Split/Merge, Reorder, Lock AI, aspect-ratio correctness and Scene QA passed structural regression.
+- AI-generated scenes now require explicit visual + continuity review before QA can reach full PASS.
+- Added explicit `Duyệt cảnh` action to prevent false-green Scene QA.
+- Dynamic aspect ratio follows current Render Aspect / platform default; generated image asset stores its ratio and Scene QA detects mismatch.
+- Detailed evidence: `docs/V1_G03A_SCENE_QUALITY_REGRESSION_2026-10-04.md`.
+- Gate remains open only for owner visual/functional acceptance.
+
 ### V1-G02A real test note — 04/10/2026
 
 - Multi-pass implementation is deployed and structurally PASS.
