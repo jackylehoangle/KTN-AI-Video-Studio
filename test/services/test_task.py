@@ -974,6 +974,79 @@ class TestTaskService(unittest.TestCase):
             task_id, "audio", "generated audio duration is zero"
         )
 
+    def test_generate_subtitle_prefers_valid_custom_srt_content(self):
+        """V1 editor SRT must be rendered exactly and must bypass provider regeneration."""
+        task_id = "test-v1-custom-srt"
+        task_dir = utils.task_dir(task_id)
+        params = VideoParams(
+            video_subject="custom subtitle",
+            video_script="Original script.",
+            subtitle_enabled=True,
+            custom_subtitle_content=(
+                "1\n"
+                "00:00:00,000 --> 00:00:01,200\n"
+                "Dòng phụ đề đã chỉnh sửa.\n\n"
+                "2\n"
+                "00:00:01,300 --> 00:00:02,500\n"
+                "Nội dung phải được giữ nguyên.\n"
+            ),
+        )
+
+        try:
+            with (
+                patch.object(tm.voice, "create_subtitle") as edge_create,
+                patch.object(tm.subtitle, "create") as whisper_create,
+            ):
+                subtitle_path = tm.generate_subtitle(
+                    task_id=task_id,
+                    params=params,
+                    video_script="Original script.",
+                    sub_maker=None,
+                    audio_file="unused.wav",
+                )
+                content = Path(subtitle_path).read_text(encoding="utf-8")
+        finally:
+            shutil.rmtree(task_dir, ignore_errors=True)
+
+        self.assertTrue(subtitle_path.endswith("subtitle.srt"))
+        self.assertIn("Dòng phụ đề đã chỉnh sửa.", content)
+        self.assertIn("Nội dung phải được giữ nguyên.", content)
+        edge_create.assert_not_called()
+        whisper_create.assert_not_called()
+
+    def test_generate_subtitle_rejects_invalid_custom_srt_content(self):
+        """Malformed edited SRT must not silently fall back to regenerated subtitles."""
+        task_id = "test-v1-invalid-custom-srt"
+        task_dir = utils.task_dir(task_id)
+        params = VideoParams(
+            video_subject="invalid custom subtitle",
+            video_script="Original script.",
+            subtitle_enabled=True,
+            custom_subtitle_content="1\nnot-a-timestamp\nBroken subtitle\n",
+        )
+
+        try:
+            with (
+                patch.object(tm.voice, "create_subtitle") as edge_create,
+                patch.object(tm.subtitle, "create") as whisper_create,
+            ):
+                subtitle_path = tm.generate_subtitle(
+                    task_id=task_id,
+                    params=params,
+                    video_script="Original script.",
+                    sub_maker=None,
+                    audio_file="unused.wav",
+                )
+                generated_path = Path(task_dir) / "subtitle.srt"
+                still_exists = generated_path.exists()
+        finally:
+            shutil.rmtree(task_dir, ignore_errors=True)
+
+        self.assertEqual(subtitle_path, "")
+        self.assertFalse(still_exists)
+        edge_create.assert_not_called()
+        whisper_create.assert_not_called()
+
     def test_generate_subtitle_uses_whisper_for_custom_audio_without_sub_maker(self):
         """
         自定义音频不会经过 TTS，所以没有 sub_maker。
