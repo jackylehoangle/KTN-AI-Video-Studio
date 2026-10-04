@@ -145,3 +145,29 @@ PASS requires:
 3. complete final script;
 4. QA >= 80 after optional repair;
 5. owner quality acceptance.
+
+
+## 9. V1-G02A.1 rerun — 2026-10-04 13:59 GMT+7
+
+Provider availability was checked again on the latest V1 RC.
+
+Current provider configuration:
+- Gemini: configured.
+- OpenAI: not configured.
+- Anthropic Claude: not configured.
+- xAI Grok: not configured.
+
+Real YouTube Short rerun against Gemini 3.8 Flash:
+
+`Rate limit exceeded for model gemini-3.8-flash (limit: 20 requests per day on Free Tier). Please retry in 17h13s or upgrade your tier.`
+
+Runtime log behavior:
+- First provider response was transient high demand → one controlled retry.
+- Next provider response was daily quota exhaustion (20 requests/day) → stopped immediately.
+- No further retry loop occurred.
+
+Decision:
+- V1-G02A.1 remains **BLOCKED_PROVIDER**.
+- Do not run YouTube Long while Short cannot clear the first provider stage.
+- Earliest practical retry window is after the provider daily reset reported by Gemini, approximately the next morning in GMT+7.
+- Alternative unblock: configure at least one additional script provider for this Vercel project.
