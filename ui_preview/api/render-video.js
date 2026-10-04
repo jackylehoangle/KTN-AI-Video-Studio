@@ -123,6 +123,7 @@ export default async function handler(req,res){
     bgm_file:'',
     bgm_volume:0,
     subtitle_enabled:Boolean(body?.video?.subtitles),
+    custom_subtitle_content:String(body?.subtitle_srt||'').trim().slice(0,200000),
     subtitle_position:'bottom',
     subtitle_display_mode:'sentence',
     subtitle_animation:'none',
