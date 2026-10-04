@@ -871,8 +871,12 @@ async function refreshVoiceLibrary({preserveSelection=true,silent=false}={}){
     if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
 
     voiceLibrary=Array.isArray(data.voices)?data.voices:[];
-    voiceAvailability.gemini=Boolean(data.providers?.gemini?.configured);
-    voiceAvailability.elevenlabs=Boolean(data.providers?.elevenlabs?.configured);
+    voiceAvailability.gemini=Boolean(
+      data.providers?.gemini?.configured && !data.providers?.gemini?.error
+    );
+    voiceAvailability.elevenlabs=Boolean(
+      data.providers?.elevenlabs?.configured && !data.providers?.elevenlabs?.error
+    );
     populateVoiceSelectors(provider,preferred);
     renderVoiceLibrary();
     updateVoiceProviderState();
@@ -2922,8 +2926,8 @@ async function refreshBackendStatus(){
     }
     updateImageProviderState();
     if(configured.length){
-      backendStatus.textContent='AI sẵn sàng · '+configured.join(' / ');
-      backendStatus.className='preview-badge ready';
+      backendStatus.textContent='Provider đã cấu hình · '+configured.join(' / ');
+      backendStatus.className='preview-badge';
     }else{
       backendStatus.textContent='Chưa cấu hình provider';
       backendStatus.className='preview-badge warn';
