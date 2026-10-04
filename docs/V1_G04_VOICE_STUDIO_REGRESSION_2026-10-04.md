@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-04  
 **Branch:** `release/v1-rc1`  
-**Status:** **TECH PASS / REAL TTS + CLONE ACCEPTANCE PENDING**
+**Status:** **TECH + REAL TTS + OWNER BATCH PASS / CLONE CONSENT AUDIO PENDING**
 
 PASS:
 - Gemini + ElevenLabs provider architecture.
@@ -21,10 +21,19 @@ PASS:
 - Manual audio approval.
 - Voice provider/profile and audio QA persist with Project.
 - JS/API syntax PASS.
+- Owner/browser batch acceptance:
+  - live progress percentage;
+  - Pause / Resume;
+  - Cancel preserving completed audio;
+  - Retry failed scene;
+  - Scene Audio QA manual approval;
+  - Project reload persistence.
 
 Current runtime limitations:
-- Gemini TTS daily quota was previously exhausted during owner testing.
 - ElevenLabs API key is not configured.
-- Real clone requires real reference audio + consent.
+- Real clone requires owner-approved reference audio + consent.
 
-**Decision:** technical implementation PASS; gate closes only after real TTS batch/progress/retry and one permitted clone/provider acceptance.
+Evidence:
+- `docs/V1_G04B_OWNER_VOICE_BATCH_ACCEPTANCE_2026-10-04.md`
+
+**Decision:** technical implementation and owner/browser batch acceptance PASS; clone acceptance remains pending until consent/reference audio is supplied.
