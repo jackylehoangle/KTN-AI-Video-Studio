@@ -2262,8 +2262,8 @@ async function restoreProject(project){
     }
 
     if(currentSrt){
-      subtitlePreview.textContent=currentSrt;
-      subtitleMeta.textContent='Đã khôi phục SRT';
+      setSubtitleEditorValue(currentSrt,{updateMeta:true});
+      subtitleMeta.textContent='Đã khôi phục SRT · '+validateSrtText(currentSrt).cues+' cue';
       subtitleEmpty.classList.add('hidden');
       subtitleOutput.classList.remove('hidden');
     }else{
@@ -2405,7 +2405,7 @@ function resetProjectForm({name='Dự án mới',channelId='',platformMode='yout
     sceneList.innerHTML='';
     sceneList.classList.add('hidden');
     sceneEmpty.classList.remove('hidden');
-    subtitlePreview.textContent='';
+    setSubtitleEditorValue('');
     subtitleOutput.classList.add('hidden');
     subtitleEmpty.classList.remove('hidden');
     scriptDemo.classList.add('hidden');
@@ -4017,20 +4017,133 @@ function formatSrtTime(seconds){
   return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+','+String(ms).padStart(3,'0');
 }
 
+function parseSrtTimestamp(value){
+  const match=String(value||'').trim().match(/^(\d{2,}):(\d{2}):(\d{2}),(\d{3})$/);
+  if(!match) return null;
+  const h=Number(match[1]),m=Number(match[2]),sec=Number(match[3]),ms=Number(match[4]);
+  if(m>59||sec>59) return null;
+  return (((h*60+m)*60)+sec)*1000+ms;
+}
+
+function validateSrtText(text){
+  const raw=String(text||'').replace(/\r\n/g,'\n').trim();
+  const maxChars=Math.max(20,Math.min(84,Number(document.getElementById('subtitleMaxChars')?.value||42)));
+  if(!raw) return {ready:false,cues:0,durationMs:0,errors:['SRT đang trống.'],warnings:[]};
+
+  const blocks=raw.split(/\n{2,}/).map(x=>x.trim()).filter(Boolean);
+  const errors=[];
+  const warnings=[];
+  let previousEnd=-1;
+  let durationMs=0;
+
+  blocks.forEach((block,index)=>{
+    const lines=block.split('\n').map(x=>x.trimEnd());
+    const expected=index+1;
+    const cueNumber=Number(lines[0]);
+    if(!Number.isInteger(cueNumber) || cueNumber!==expected){
+      errors.push('Cue '+expected+': số thứ tự phải liên tục từ 1.');
+    }
+
+    const timing=String(lines[1]||'').match(/^(.+?)\s+-->\s+(.+)$/);
+    if(!timing){
+      errors.push('Cue '+expected+': thiếu timeline hợp lệ.');
+      return;
+    }
+    const startMs=parseSrtTimestamp(timing[1]);
+    const endMs=parseSrtTimestamp(timing[2]);
+    if(startMs===null||endMs===null){
+      errors.push('Cue '+expected+': timestamp sai định dạng HH:MM:SS,mmm.');
+      return;
+    }
+    if(endMs<=startMs) errors.push('Cue '+expected+': thời gian kết thúc phải lớn hơn bắt đầu.');
+    if(previousEnd>=0 && startMs<previousEnd) errors.push('Cue '+expected+': timeline bị chồng lên cue trước.');
+    const cueDuration=Math.max(0,endMs-startMs);
+    if(cueDuration>0 && cueDuration<500) warnings.push('Cue '+expected+': thời lượng dưới 0,5 giây.');
+    previousEnd=Math.max(previousEnd,endMs);
+    durationMs=Math.max(durationMs,endMs);
+
+    const textLines=lines.slice(2).filter(x=>x.trim());
+    if(!textLines.length){
+      errors.push('Cue '+expected+': thiếu nội dung phụ đề.');
+    }
+    textLines.forEach((line,lineIndex)=>{
+      if(line.length>maxChars){
+        warnings.push('Cue '+expected+' dòng '+(lineIndex+1)+': '+line.length+' ký tự > '+maxChars+'.');
+      }
+    });
+  });
+
+  return {
+    ready:errors.length===0,
+    cues:blocks.length,
+    durationMs,
+    errors,
+    warnings
+  };
+}
+
+function renderSubtitleQa({toastOnResult=false}={}){
+  const qa=validateSrtText(currentSrt);
+  const badge=document.getElementById('subtitleQaBadge');
+  const details=document.getElementById('subtitleQaDetails');
+  if(badge){
+    badge.classList.remove('ready','warn','fail');
+    if(!currentSrt){
+      badge.textContent='Chưa có SRT';
+    }else if(!qa.ready){
+      badge.textContent='SRT FAIL';
+      badge.classList.add('fail');
+    }else if(qa.warnings.length){
+      badge.textContent='PASS · '+qa.warnings.length+' cảnh báo';
+      badge.classList.add('warn');
+    }else{
+      badge.textContent='SRT PASS';
+      badge.classList.add('ready');
+    }
+  }
+  if(details){
+    const messages=[
+      ...qa.errors.map(x=>'FAIL · '+x),
+      ...qa.warnings.map(x=>'WARN · '+x)
+    ];
+    details.textContent=messages.length
+      ? messages.slice(0,12).join('\n')
+      : (currentSrt?'PASS · Timeline hợp lệ · '+qa.cues+' cue · '+formatSrtTime(qa.durationMs/1000):'');
+    details.classList.toggle('hidden',!currentSrt);
+  }
+  if(toastOnResult){
+    showToast(!qa.ready
+      ? 'SRT chưa hợp lệ · '+qa.errors.length+' lỗi.'
+      : ('SRT PASS · '+qa.cues+' cue'+(qa.warnings.length?' · '+qa.warnings.length+' cảnh báo':'')));
+  }
+  return qa;
+}
+
+function setSubtitleEditorValue(value,{updateMeta=false}={}){
+  currentSrt=String(value||'');
+  if(subtitlePreview) subtitlePreview.value=currentSrt;
+  const qa=renderSubtitleQa();
+  if(updateMeta && currentSrt){
+    subtitleMeta.textContent=qa.cues+' câu · '+formatSrtTime(qa.durationMs/1000);
+  }
+  return qa;
+}
+
 function splitSubtitleText(text,maxChars){
   const cleaned=String(text||'').replace(/\s+/g,' ').trim();
   if(!cleaned) return [];
+  const limit=Math.max(20,Math.min(84,Number(maxChars)||42));
   const sentences=cleaned.match(/[^.!?…]+[.!?…]?/g)||[cleaned];
   const chunks=[];
   for(const sentenceRaw of sentences){
     const sentence=sentenceRaw.trim();
     if(!sentence) continue;
-    if(sentence.length<=maxChars){chunks.push(sentence);continue;}
+    if(sentence.length<=limit){chunks.push(sentence);continue;}
     const words=sentence.split(' ');
     let line='';
     for(const word of words){
       const next=line?line+' '+word:word;
-      if(next.length>maxChars && line){chunks.push(line);line=word;}
+      if(next.length>limit && line){chunks.push(line);line=word;}
       else line=next;
     }
     if(line) chunks.push(line);
@@ -4040,15 +4153,24 @@ function splitSubtitleText(text,maxChars){
 
 function buildSrt(){
   if(!currentScenes.length){showToast('Cần chia cảnh trước khi tạo phụ đề.');return;}
-  const maxChars=Number(document.getElementById('subtitleMaxChars').value||42);
-  const gap=Number(document.getElementById('subtitleGap').value||0);
+  const maxChars=Math.max(20,Math.min(84,Number(document.getElementById('subtitleMaxChars').value||42)));
+  const gap=Math.max(0,Math.min(2,Number(document.getElementById('subtitleGap').value||0)));
+  const subtitleScenes=currentScenes.map(scene=>({
+    scene,
+    chunks:splitSubtitleText(scene.narration,maxChars)
+  })).filter(item=>item.chunks.length);
+
+  if(!subtitleScenes.length){
+    showToast('Không có narration để tạo phụ đề.');
+    return;
+  }
+
   let cursor=0;
   let cue=1;
   const blocks=[];
 
-  for(const scene of currentScenes){
-    const chunks=splitSubtitleText(scene.narration,maxChars);
-    if(!chunks.length) continue;
+  subtitleScenes.forEach((item,sceneIndex)=>{
+    const {scene,chunks}=item;
     const duration=Math.max(1,Number(scene.audio_duration_seconds||scene.duration_seconds||3));
     const weights=chunks.map(x=>Math.max(x.replace(/\s+/g,'').length,1));
     const totalWeight=weights.reduce((a,b)=>a+b,0);
@@ -4066,24 +4188,43 @@ function buildSrt(){
       sceneCursor=end;
     });
 
-    cursor+=duration+gap;
-  }
+    cursor+=duration;
+    if(sceneIndex<subtitleScenes.length-1) cursor+=gap;
+  });
 
-  currentSrt=blocks.join('\n\n')+'\n';
-  subtitlePreview.textContent=currentSrt;
-  subtitleMeta.textContent=(cue-1)+' câu · '+formatSrtTime(cursor)+' · '+currentScenes.length+' cảnh';
+  setSubtitleEditorValue(blocks.join('\n\n')+'\n',{updateMeta:true});
+  subtitleMeta.textContent=(cue-1)+' câu · '+formatSrtTime(cursor)+' · '+subtitleScenes.length+' cảnh';
   subtitleEmpty.classList.add('hidden');
   subtitleOutput.classList.remove('hidden');
   document.getElementById('subtitleSection').scrollIntoView({behavior:'smooth',block:'start'});
   updateRenderReadiness();
   renderAssetLibrary();
   scheduleAutosave();
-  showToast('Đã tạo phụ đề SRT từ '+currentScenes.length+' cảnh.');
+  const qa=renderSubtitleQa();
+  showToast(qa.ready
+    ? 'Đã tạo SRT · '+(cue-1)+' cue · QA PASS.'
+    : 'Đã tạo SRT nhưng cần sửa '+qa.errors.length+' lỗi trước khi render.');
 }
 
 subtitleBtn.addEventListener('click',buildSrt);
+subtitlePreview.addEventListener('input',()=>{
+  currentSrt=subtitlePreview.value;
+  const qa=renderSubtitleQa();
+  subtitleMeta.textContent=qa.cues
+    ? qa.cues+' câu · '+formatSrtTime(qa.durationMs/1000)+' · đã chỉnh sửa'
+    : 'SRT đang chỉnh sửa';
+  updateRenderReadiness();
+  renderAssetLibrary();
+  scheduleAutosave();
+});
+document.getElementById('validateSrtBtn').addEventListener('click',()=>renderSubtitleQa({toastOnResult:true}));
 document.getElementById('downloadSrtBtn').addEventListener('click',()=>{
   if(!currentSrt){showToast('Chưa có nội dung SRT để tải.');return;}
+  const qa=validateSrtText(currentSrt);
+  if(!qa.ready){
+    showToast('SRT có '+qa.errors.length+' lỗi cấu trúc. Hãy sửa trước khi tải.');
+    return;
+  }
   const blob=new Blob([currentSrt],{type:'application/x-subrip;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -4112,8 +4253,16 @@ function updateRenderReadiness(){
   setReadiness('script',hasScript,hasScript?'Sẵn sàng':'Chưa sẵn sàng');
   setReadiness('scenes',hasScenes,hasScenes?currentScenes.length+' cảnh':'Chưa sẵn sàng');
   setReadiness('images',imagesReady,hasScenes?imageCount+'/'+currentScenes.length+' ảnh':'Chưa sẵn sàng');
-  setReadiness('subtitles',Boolean(currentSrt),currentSrt?'Đã tạo SRT':'Tùy chọn');
-  document.getElementById('renderBtn').disabled=!(hasScript && hasScenes && imagesReady && renderWorkerAvailable);
+  const subtitleQa=validateSrtText(currentSrt);
+  const subtitlesReady=!currentSrt || subtitleQa.ready;
+  setReadiness(
+    'subtitles',
+    Boolean(currentSrt)&&subtitleQa.ready,
+    !currentSrt?'Tùy chọn':(subtitleQa.ready?'SRT hợp lệ':'SRT có '+subtitleQa.errors.length+' lỗi')
+  );
+  document.getElementById('renderBtn').disabled=!(
+    hasScript && hasScenes && imagesReady && subtitlesReady && renderWorkerAvailable
+  );
 }
 
 function buildRenderManifest(){
@@ -4135,6 +4284,7 @@ function buildRenderManifest(){
       maxClipDuration:maxDuration,
       subtitles:Boolean(currentSrt)
     },
+    subtitle_srt:currentSrt||'',
     scenes:currentScenes.map(scene=>({
       id:scene.id,
       order:scene.order,
