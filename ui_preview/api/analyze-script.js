@@ -270,6 +270,8 @@ function normalizeScenes(payload){
       visual_description:String(item?.visual_description||'').trim(),
       image_prompt:String(item?.image_prompt||'').trim(),
       locked:false,
+      visual_review_required:true,
+      continuity_review_required:true,
       qa_status:'pending'
     };
   }).filter(scene=>scene.narration && scene.visual_description && scene.image_prompt);
