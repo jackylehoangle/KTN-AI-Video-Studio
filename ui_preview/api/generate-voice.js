@@ -160,6 +160,43 @@ export default async function handler(req,res){
   const elevenKey=process.env.ELEVENLABS_API_KEY||'';
 
   if(req.method==='GET'){
+    const selftest=String(req.query?.selftest||'').toLowerCase();
+    if(selftest==='gemini'){
+      if(!geminiKey) return send(res,503,{ok:false,error:'GEMINI_API_KEY chưa cấu hình.',code:'provider_key_missing'});
+      const model=process.env.GEMINI_TTS_MODEL||GEMINI_TTS_MODEL_DEFAULT;
+      try{
+        const audio=await generateGeminiVoice(
+          geminiKey,
+          model,
+          'Đây là bản kiểm thử giọng đọc V1 của KTN AI Video Studio.',
+          'Kore',
+          'vi-VN',
+          'Đọc tự nhiên, rõ ràng, bình tĩnh.'
+        );
+        const bytes=Buffer.from(audio.b64_audio,'base64');
+        return send(res,200,{
+          ok:true,
+          service:'KTN Voice Generator Self-Test',
+          provider:'gemini',
+          model,
+          voice:'Kore',
+          mime_type:audio.mime_type,
+          bytes:bytes.length,
+          duration_seconds:audio.duration_seconds,
+          wav_magic:bytes.length>=4 && bytes.toString('ascii',0,4)==='RIFF',
+          createdAt:new Date().toISOString()
+        });
+      }catch(error){
+        return send(res,502,{
+          ok:false,
+          provider:'gemini',
+          model,
+          voice:'Kore',
+          error:String(error?.message||'Voice self-test failed.')
+        });
+      }
+    }
+
     return send(res,200,{
       ok:true,
       service:'KTN Voice Generator',
