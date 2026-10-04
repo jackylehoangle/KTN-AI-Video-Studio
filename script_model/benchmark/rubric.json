@@ -1,0 +1,58 @@
+{
+  "schema_version": "ktn-script-benchmark-rubric-v1",
+  "total": 100,
+  "dimensions": [
+    {
+      "id": "contract_adherence",
+      "label": "Instruction / contract adherence",
+      "max": 15
+    },
+    {
+      "id": "vietnamese_naturalness",
+      "label": "Vietnamese naturalness",
+      "max": 15
+    },
+    {
+      "id": "channel_dna",
+      "label": "Channel DNA adherence",
+      "max": 15
+    },
+    {
+      "id": "retention",
+      "label": "Hook / retention quality",
+      "max": 15
+    },
+    {
+      "id": "coherence",
+      "label": "Structure / coherence",
+      "max": 15
+    },
+    {
+      "id": "specificity",
+      "label": "Specificity / non-generic writing",
+      "max": 10
+    },
+    {
+      "id": "factual_discipline",
+      "label": "Factual discipline",
+      "max": 10
+    },
+    {
+      "id": "editorial_control",
+      "label": "Rewrite usefulness / editorial control",
+      "max": 5
+    }
+  ],
+  "hard_failures": [
+    "missing_required_output",
+    "wrong_language",
+    "ignores_channel_forbidden_rules",
+    "fabricated_fact_presented_as_source_fact",
+    "unusable_json_when_json_required"
+  ],
+  "winner_thresholds": {
+    "mean_score": 75,
+    "vietnamese_naturalness": 12,
+    "channel_dna": 12
+  }
+}
