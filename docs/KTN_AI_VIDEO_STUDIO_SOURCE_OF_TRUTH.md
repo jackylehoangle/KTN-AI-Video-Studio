@@ -396,13 +396,13 @@ V1 is **100% complete only when every gate below is PASS**:
 |---|---|---|
 | V1-G01 | Consolidate current product branches into one RC baseline | PASS — `release/v1-rc1` |
 | V1-G02 | Script Quality multi-pass workflow passes real Vietnamese Long + Short tests | BLOCKED_PROVIDER — Gemini high demand / Free Tier quota during 2026-10-04 real test |
-| V1-G03 | Scene Quality owner functional/visual acceptance | PENDING |
-| V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | PENDING |
-| V1-G05 | Image runtime live; create/regenerate image E2E PASS | PENDING |
-| V1-G06 | Subtitle workflow acceptance | PENDING |
-| V1-G07 | Render Worker live; final MP4 E2E + playback PASS | PENDING |
-| V1-G08 | Project save/restore/export/import regression PASS | PENDING |
-| V1-G09 | Provider/readiness/error-state regression PASS | PENDING |
+| V1-G03 | Scene Quality owner functional/visual acceptance | TECH PASS / OWNER VISUAL PENDING |
+| V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | TECH + REAL TTS PASS / OWNER BATCH + CLONE PENDING |
+| V1-G05 | Image runtime live; create/regenerate image E2E PASS | BLOCKED_PROVIDER/RUNTIME — Gemini Image Free Tier 0; KTN FLUX offline; OpenAI not configured |
+| V1-G06 | Subtitle workflow acceptance | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 |
+| V1-G07 | Render Worker live; final MP4 E2E + playback PASS | BLOCKED_RUNTIME — configured but ready=false; API key not configured |
+| V1-G08 | Project save/restore/export/import regression PASS | TECH PASS / BROWSER E2E PENDING |
+| V1-G09 | Provider/readiness/error-state regression PASS | TECH PASS |
 | V1-G10 | Golden end-to-end project from Brief → MP4 PASS | PENDING |
 | V1-G11 | Owner acceptance + freeze V1 RC | PENDING |
 | V1-G12 | Merge one approved RC to `main` + production smoke PASS | PENDING |
@@ -418,6 +418,22 @@ V1 is **100% complete only when every gate below is PASS**:
 - Real final script + QA >=80 + owner review could not be completed in this window.
 - Detailed evidence: `docs/V1_G02A_REAL_MULTIPASS_SCRIPT_TEST_2026-10-04.md`.
 - Gate remains **NOT PASS** until a real provider produces both Short and Long outputs and owner quality review passes.
+
+
+### V1 RC1 parallel gate note — 04/10/2026
+
+While V1-G02 is provider-blocked, non-Gemini gates continue in parallel.
+
+Verified:
+- V1-G03 technical Scene Quality regression PASS; owner visual acceptance pending.
+- V1-G04 Gemini TTS real generation PASS twice with valid WAV output; batch UI/clone owner acceptance pending.
+- V1-G05 real Gemini Image call BLOCKED by provider Free Tier (0 input tokens/min); KTN FLUX remains offline.
+- V1-G06 technical Subtitle editor/validator/exact-SRT-to-render contract PASS; final MP4 subtitle validation belongs to G07.
+- V1-G08 full Project read-back fingerprint/import validation technical PASS; browser IndexedDB E2E pending.
+- V1-G09 configured-vs-ready semantics technical PASS.
+- Current consolidated evidence: `docs/V1_RC1_GATE_STATUS_2026-10-04.md`.
+
+GitHub Actions currently reports no-step failures for standard CI jobs, with no retrievable job-log blob; this pattern also existed on an earlier Voice Studio PR. Exact CI infrastructure/account cause remains unresolved and must not be misreported as an application-code failure.
 
 ### Scope discipline
 
