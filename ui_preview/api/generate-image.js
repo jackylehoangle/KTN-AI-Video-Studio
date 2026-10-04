@@ -106,7 +106,7 @@ async function generateKtnImage(baseUrl,token,model,prompt,aspectRatio){
     body:JSON.stringify({
       model,
       prompt,
-      size:aspectRatio==='1:1'?'1024x1024':'1360x768',
+      size:aspectRatio==='1:1' ? '1024x1024' : (aspectRatio==='9:16' ? '768x1360' : '1360x768'),
       n:1,
       response_format:'b64_json'
     })
@@ -120,7 +120,7 @@ async function generateKtnImage(baseUrl,token,model,prompt,aspectRatio){
   return {b64_json:image.b64_json,mime_type:'image/jpeg'};
 }
 
-async function generateOpenAIImage(key,model,prompt){
+async function generateOpenAIImage(key,model,prompt,aspectRatio){
   const response=await fetch('https://api.openai.com/v1/images/generations',{
     method:'POST',
     headers:{
@@ -131,7 +131,7 @@ async function generateOpenAIImage(key,model,prompt){
       model,
       prompt,
       n:1,
-      size:'1536x1024',
+      size:aspectRatio==='1:1' ? '1024x1024' : (aspectRatio==='9:16' ? '1024x1536' : '1536x1024'),
       quality:'low',
       output_format:'jpeg'
     })
@@ -168,7 +168,7 @@ export default async function handler(req,res){
         gemini:{responseMimeType:'image/jpeg'},
         openai:{
           responseMimeType:'image/jpeg',
-          size:'1536x1024',
+          sizes:['1536x1024','1024x1536','1024x1024'],
           quality:'low'
         }
       }
@@ -181,7 +181,7 @@ export default async function handler(req,res){
   const provider=String(body.provider||'gemini').toLowerCase();
   const prompt=String(body.prompt||'').trim();
   const sceneId=String(body.sceneId||'').trim().slice(0,100);
-  const aspectRatio=body.aspectRatio==='1:1'?'1:1':'16:9';
+  const aspectRatio=['16:9','9:16','1:1'].includes(body.aspectRatio)?body.aspectRatio:'16:9';
 
   if(!PROVIDERS[provider]) return send(res,400,{error:'Nhà cung cấp ảnh chưa được hỗ trợ.'});
   if(!prompt) return send(res,400,{error:'Image prompt không được để trống.'});
@@ -218,7 +218,7 @@ export default async function handler(req,res){
     const image=provider==='gemini'
       ? await generateGeminiImage(key,model,finalPrompt,aspectRatio)
       : (provider==='openai'
-        ? await generateOpenAIImage(key,model,finalPrompt)
+        ? await generateOpenAIImage(key,model,finalPrompt,aspectRatio)
         : await generateKtnImage(gatewayUrl,gatewayToken,model,finalPrompt,aspectRatio));
 
     return send(res,200,{
