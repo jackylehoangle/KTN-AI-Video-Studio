@@ -395,7 +395,7 @@ V1 is **100% complete only when every gate below is PASS**:
 | Gate | Requirement | Status |
 |---|---|---|
 | V1-G01 | Consolidate current product branches into one RC baseline | PASS — `release/v1-rc1` |
-| V1-G02 | Script Quality multi-pass workflow passes real Vietnamese Long + Short tests | PENDING |
+| V1-G02 | Script Quality multi-pass workflow passes real Vietnamese Long + Short tests | BLOCKED_PROVIDER — Gemini high demand / Free Tier quota during 2026-10-04 real test |
 | V1-G03 | Scene Quality owner functional/visual acceptance | PENDING |
 | V1-G04 | Voice Studio real batch + retry/progress acceptance; clone acceptance when provider available | PENDING |
 | V1-G05 | Image runtime live; create/regenerate image E2E PASS | PENDING |
@@ -406,6 +406,18 @@ V1 is **100% complete only when every gate below is PASS**:
 | V1-G10 | Golden end-to-end project from Brief → MP4 PASS | PENDING |
 | V1-G11 | Owner acceptance + freeze V1 RC | PENDING |
 | V1-G12 | Merge one approved RC to `main` + production smoke PASS | PENDING |
+
+
+### V1-G02A real test note — 04/10/2026
+
+- Multi-pass implementation is deployed and structurally PASS.
+- Real YouTube Short test attempted against Gemini 3.8 / 3.7 / 3.6 and Gemini 3.1 Pro Preview.
+- 3.8 / 3.7 / 3.6 returned provider high-demand and/or Free Tier RPM pressure.
+- Gemini 3.1 Pro Preview reported hard Free Tier quota of 0 input tokens/minute.
+- Quota-aware retry was added: transient overload backs off; explicit retry-after is honored; hard quota stops immediately.
+- Real final script + QA >=80 + owner review could not be completed in this window.
+- Detailed evidence: `docs/V1_G02A_REAL_MULTIPASS_SCRIPT_TEST_2026-10-04.md`.
+- Gate remains **NOT PASS** until a real provider produces both Short and Long outputs and owner quality review passes.
 
 ### Scope discipline
 
