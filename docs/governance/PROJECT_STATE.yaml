@@ -1,0 +1,79 @@
+schema_version: 1
+project: KTN AI Video Studio
+updated_at: "2026-10-28T10:00:00+07:00"
+status: ACTIVE_RC_NOT_RELEASED
+
+canonical:
+  repository: jackylehoangle/KTN-AI-Video-Studio
+  rc_branch: release/v1-rc1
+  verified_rc_head_before_governance_recovery: aa4ef4d249ccee402c9f784193b37d8c5bbf6420
+  release_pr: 13
+  release_pr_state: OPEN_DRAFT_DO_NOT_MERGE
+  production_branch: main
+  verified_production_head: 570e329118842dca86167bd56b3d9bde911d44a4
+  rc_ahead_of_production_commits: 52
+
+branch_control:
+  permitted_rc_baseline: release/v1-rc1
+  v1_completion_01: FROZEN_DIVERGED_PENDING_RECONCILIATION
+  v1_completion_01_ahead_of_rc: 5
+  v1_completion_01_behind_rc: 51
+  script_model_01: FROZEN_V2
+  destructive_branch_action_authorized: false
+
+gates:
+  V1-G01: PASS
+  V1-G02: BLOCKED_PROVIDER
+  V1-G03: PASS
+  V1-G04: OWNER_BATCH_PASS_CLONE_CONSENT_AUDIO_PENDING
+  V1-G05: BLOCKED_PROVIDER_RUNTIME
+  V1-G06: TECH_PASS_FINAL_MP4_VERIFICATION_DEFERRED_TO_G07
+  V1-G07: BLOCKED_RUNTIME
+  V1-G08: TECH_PASS_BROWSER_E2E_BLOCKED_PENDING
+  V1-G09: TECH_PASS
+  V1-G10: PENDING
+  V1-G11: PENDING
+  V1-G12: PENDING
+
+g08_recovered_evidence:
+  project_a_import: PASS_ONCE
+  project_ab_isolation: PASS_IN_PRIOR_BROWSER_RUN
+  reload_restore: PASS_IN_PRIOR_BROWSER_RUN
+  export_import_fingerprint: NOT_VERIFIED
+  delete_recover: NOT_VERIFIED
+  blocker_cloud_browser: FILE_CHOOSER_HANG_RESET_SESSION
+  blocker_local_playwright: CHROMIUM_DOWNLOAD_FAILED_TRUNCATED_ARCHIVE
+  close_gate_authorized: false
+
+next_actions:
+  primary: V1-G08B_EXPORT_IMPORT_DELETE_RECOVER_FINGERPRINT
+  parallel:
+    - RESTORE_IMAGE_PROVIDER_RUNTIME_FOR_G05
+    - RESTORE_RENDER_WORKER_AND_API_KEY_FOR_G07
+  after_runtime:
+    - V1-G10_GOLDEN_BRIEF_TO_MP4
+    - V1-G11_OWNER_ACCEPTANCE_AND_RC_FREEZE
+    - V1-G12_MERGE_MAIN_AND_PRODUCTION_SMOKE
+
+authority:
+  code_and_committed_evidence: GITHUB
+  user_deliverables_and_secondary_archive: CHATGPT_LIBRARY
+  browser_project_data: INDEXEDDB_PER_ORIGIN
+  chat_work_codex_memory: NON_AUTHORITATIVE
+  temporary_workspace: EPHEMERAL
+
+required_session_protocol:
+  start:
+    - FETCH_CANONICAL_BRANCH
+    - VERIFY_HEAD
+    - READ_PROJECT_STATE
+    - READ_SESSION_HANDOFF
+    - READ_SOURCE_OF_TRUTH
+    - READ_RELEVANT_GATE_EVIDENCE
+  finish:
+    - UPDATE_PROJECT_STATE
+    - UPDATE_SESSION_HANDOFF
+    - UPDATE_EVIDENCE_INDEX
+    - COMMIT_AND_PUSH
+    - REPORT_EXACT_COMMIT
+  uncommitted_session_is_handed_over: false
