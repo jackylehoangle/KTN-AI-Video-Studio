@@ -7,6 +7,7 @@ canonical:
   repository: jackylehoangle/KTN-AI-Video-Studio
   rc_branch: release/v1-rc1
   verified_rc_head_before_governance_recovery: aa4ef4d249ccee402c9f784193b37d8c5bbf6420
+  governance_recovery_evidence_commit: 5fa456e6810837495ca808908e8f33c6080e1ffd
   release_pr: 13
   release_pr_state: OPEN_DRAFT_DO_NOT_MERGE
   production_branch: main
