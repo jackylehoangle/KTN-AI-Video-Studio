@@ -202,3 +202,15 @@ Therefore the available evidence does **not** attribute the CI failure to applic
 4. Full Project persistence browser E2E beyond the G04 voice reload path.
 5. Golden Brief → MP4 E2E.
 6. GitHub Actions no-step failure diagnosis.
+
+
+## Governance recovery addendum - 2026-10-28
+
+- Canonical RC remains `release/v1-rc1`; PR #13 remains Draft / Do Not Merge.
+- G03 owner/browser acceptance is PASS.
+- G04 real Voice Batch owner/browser acceptance is PASS; clone consent audio remains pending.
+- G08 remains `TECH PASS / BROWSER E2E BLOCKED-PENDING`.
+- Recovered G08 evidence confirms Project A import once, prior A/B isolation and reload restore.
+- Export/import fingerprint and delete/recover remain unverified.
+- Current machine-readable status is `docs/governance/PROJECT_STATE.yaml`.
+- Current cross-session handoff is `docs/governance/SESSION_HANDOFF.md`.
