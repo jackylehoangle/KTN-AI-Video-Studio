@@ -1,9 +1,9 @@
 # KTN AI VIDEO STUDIO — SOURCE OF TRUTH
 
-**Cập nhật:** 27/09/2026 (GMT+7)  
+**Cập nhật:** 28/10/2026 (GMT+7)  
 **Repository:** `jackylehoangle/KTN-AI-Video-Studio`  
-**Nhánh đang nghiệm thu:** `ui-vn-01-vietnamese-baseline`  
-**Trạng thái milestone:** `VIDEO-E2E-01D.2B.5A — MANUAL PYTHON 3.13 COMPATIBILITY GATE — PASS`
+**Nhánh đang nghiệm thu:** `release/v1-rc1`  
+**Trạng thái milestone:** `V1-GOV-RECOVERY-01 — CENTRAL STATE DISCIPLINE — PASS; V1-G08 remains open`
 
 > Tài liệu này là nguồn chuẩn kỹ thuật cho trạng thái hiện tại của KTN AI Video Studio trên nhánh nghiệm thu. Không lưu secret/token runtime trong tài liệu.
 
@@ -514,3 +514,23 @@ Until V1-G12 is PASS:
 - Consolidated V1 RC baseline: `release/v1-rc1`
 - Active V1 completion development: `v1-completion-01`
 - Custom Script Model / V2 work: `script-model-01` — **FROZEN until V1 completion**
+
+
+## 15. Governance recovery - 2026-10-28
+
+The project now uses a committed cross-session control set:
+
+- `docs/governance/PROJECT_STATE.yaml`
+- `docs/governance/OPERATING_RULES.md`
+- `docs/governance/SESSION_HANDOFF.md`
+- `docs/governance/DECISION_LOG.md`
+- `docs/governance/EVIDENCE_INDEX.md`
+
+Rules locked:
+- GitHub committed state is authoritative.
+- Chat, Work and Codex memory is non-authoritative.
+- A session is not handed over until state, handoff and evidence are committed and pushed.
+- `release/v1-rc1` is the canonical V1 RC baseline.
+- `v1-completion-01` is frozen because it diverged from the RC.
+- PR #13 remains Draft / Do Not Merge.
+- G08 remains open until export/import fingerprint and delete/recover pass in a reproducible browser run.
