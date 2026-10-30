@@ -16,7 +16,7 @@
 | V1-G05 | Image generation E2E | BLOCKED_PROVIDER | Gemini Image Free Tier reports 0 input tokens/min; KTN FLUX runtime offline; OpenAI image not configured |
 | V1-G06 | Subtitle workflow | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 | Editable/validated SRT is forwarded exactly to render worker |
 | V1-G07 | Render Worker → final MP4 | BLOCKED_RUNTIME | Render configured but live probe `ready=false`; API key not configured |
-| V1-G08 | Project save/restore/export/import | TECH PASS / BROWSER E2E PENDING | Full content fingerprint + read-back verification + import validation |
+| V1-G08 | Project save/restore/export/import | TECH PASS / BROWSER E2E BLOCKED AT IMPORT RECOVERY | A/B isolation, reload, export and delete passed; durable import recovery/fingerprint did not |
 | V1-G09 | Provider/readiness/error-state | TECH PASS | Configured and live-ready states separated; image/render use live readiness |
 | V1-G10 | Golden Brief → MP4 | PENDING | Depends on G02/G05/G07 |
 | V1-G11 | Owner acceptance + RC freeze | PENDING | Requires owner visual/function acceptance |
@@ -169,7 +169,7 @@ Import now:
 - clears stale render material keys;
 - restores → saves → read-back verifies before reporting PASS.
 
-Browser/IndexedDB interaction cannot be closed automatically because the connected browser is currently unavailable; owner acceptance remains pending.
+Connected-Chrome continuation on 2026-10-30 passed A/B isolation, reload restore, per-project persistence diagnostics, export confirmation and delete isolation. Durable import recovery did not pass: a clean verification tab still showed only Project B after reload. G08 remains open.
 
 ## V1-G09 Readiness semantics
 
@@ -214,3 +214,16 @@ Therefore the available evidence does **not** attribute the CI failure to applic
 - Export/import fingerprint and delete/recover remain unverified.
 - Current machine-readable status is `docs/governance/PROJECT_STATE.yaml`.
 - Current cross-session handoff is `docs/governance/SESSION_HANDOFF.md`.
+
+
+## 2026-10-30 continuation checkpoint
+
+- G08 A/B isolation: PASS.
+- G08 reload restore: PASS.
+- G08 persistence diagnostic for A and B: PASS.
+- G08 export: file existence owner-confirmed.
+- G08 delete isolation: PASS with action-time confirmation.
+- G08 import/delete-recover/fingerprint: NOT PASS; clean-tab reload showed only Project B.
+- Gemini catalog/configuration: visible, but a real multi-pass script request did not complete in the observed window.
+- KTN FLUX and MoneyPrinterTurbo Worker: configured-but-not-connected in the product UI.
+- No gate was closed and PR #13 must remain Draft / Do Not Merge.
