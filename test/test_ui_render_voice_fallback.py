@@ -1,4 +1,6 @@
 import json
+import hashlib
+import hmac
 import shutil
 import subprocess
 from pathlib import Path
@@ -8,6 +10,7 @@ import pytest
 
 NODE = shutil.which("node")
 RENDER_API = Path(__file__).parents[1] / "ui_preview" / "api" / "render-video.js"
+APP_JS = Path(__file__).parents[1] / "ui_preview" / "app.js"
 
 
 @pytest.mark.skipif(NODE is None, reason="Node.js is required for the UI API contract test")
@@ -97,3 +100,77 @@ context.resultPromise.then(result => {{
         "https://worker.test/api/v1/musics",
     ]
     assert output["calls"][1]["headers"] == {"x-api-key": "worker-secret"}
+
+
+@pytest.mark.skipif(NODE is None, reason="Node.js is required for the UI API contract test")
+def test_render_returns_short_lived_signed_task_download_url():
+    script = f"""
+const fs = require('fs');
+const vm = require('vm');
+let source = fs.readFileSync({json.dumps(str(RENDER_API))}, 'utf8');
+source = source.replace('export default async function handler', 'async function handler');
+source += `\nresultPromise = signedVideoUrl(
+  {{baseUrl:'https://worker.test',apiKey:'render-secret'}},
+  '/tasks/task-123/final-1.mp4',
+  1000
+);`;
+const context = {{process:{{env:{{}}}}, console, URL}};
+vm.createContext(context);
+vm.runInContext(source, context, {{importModuleDynamically: specifier => import(specifier)}});
+context.resultPromise.then(result => process.stdout.write(result));
+"""
+    completed = subprocess.run(
+        [NODE, "--experimental-vm-modules", "-e", script],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    expected = hmac.new(
+        b"render-secret",
+        b"/tasks/task-123/final-1.mp4\n4600",
+        hashlib.sha256,
+    ).hexdigest()
+
+    assert completed.stdout == (
+        "https://worker.test/tasks/task-123/final-1.mp4"
+        f"?expires=4600&signature={expected}&download=1"
+    )
+
+
+@pytest.mark.skipif(NODE is None, reason="Node.js is required for the UI contract test")
+def test_completed_render_triggers_a_local_mp4_download():
+    script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const source = fs.readFileSync({json.dumps(str(APP_JS))}, 'utf8');
+const start = source.indexOf('function renderedVideoFilename');
+const end = source.indexOf('async function pollRenderTask');
+const helperSource = source.slice(start, end);
+const calls = [];
+const anchor = {{
+  style: {{}},
+  click() {{ calls.push('click'); }},
+  remove() {{ calls.push('remove'); }}
+}};
+const documentRef = {{
+  createElement(tag) {{ calls.push(tag); return anchor; }},
+  body: {{appendChild() {{ calls.push('append'); }}}}
+}};
+const context = {{calls, anchor, documentRef}};
+vm.createContext(context);
+vm.runInContext(helperSource + `\ntriggerRenderedVideoDownload(
+  'https://worker.test/tasks/task-123/final-1.mp4?signature=signed',
+  'task-123',
+  documentRef
+); result = {{calls,href:anchor.href,download:anchor.download}};`, context);
+process.stdout.write(JSON.stringify(context.result));
+"""
+    completed = subprocess.run(
+        [NODE, "-e", script], check=True, capture_output=True, text=True
+    )
+
+    assert json.loads(completed.stdout) == {
+        "calls": ["a", "append", "click", "remove"],
+        "href": "https://worker.test/tasks/task-123/final-1.mp4?signature=signed",
+        "download": "ktn-ai-video-task-123.mp4",
+    }
