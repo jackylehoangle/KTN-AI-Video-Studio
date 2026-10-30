@@ -70,3 +70,32 @@ Blockers observed:
 - Chromium installation repeatedly failed because the downloaded archive was truncated.
 
 **Decision:** G08 remains open. Recovered partial evidence must not be interpreted as a full browser E2E PASS.
+
+
+## Browser E2E continuation record - 2026-10-30
+
+Preview tested:
+`https://ktn-ai-video-studio-ntppjsm2p-jackylehoangles-projects.vercel.app/`
+
+PASS observed in the current connected Chrome session:
+- Created `G08 Project A` and `G08 Project B` with distinct topic and audience values.
+- Project Library showed A/B as separate IndexedDB records.
+- Full browser reload restored both records.
+- Opened each project and ran `Kiểm tra lưu`; both returned `PASS · nội dung khớp`.
+- Exported Project A; owner confirmed `G08-Project-A.json` existed in Downloads.
+- Deleted Project A only after action-time owner confirmation.
+- Project B remained after deletion and reload.
+
+NOT PASS:
+- Two manual import attempts did not produce a durable Project A record.
+- Independent verification in a clean controllable tab, followed by reload, showed exactly one project: `G08 Project B`.
+- Therefore delete/recover and post-import fingerprint verification are not complete.
+- Browser file chooser automation hung during upload; the application handler itself is designed to restore, save, read back and only then show PASS, but that success state was not independently observed in this run.
+
+Provider/runtime observation made while continuing toward G10:
+- Gemini is configured and its model catalog loads, but a real multi-pass script request remained in the processing state for several minutes and was aborted by reload.
+- KTN FLUX reports configured-but-not-connected.
+- MoneyPrinterTurbo Worker reports configured-but-not-connected.
+- `MPT_RENDER_API_KEY` was not present in the inspected Vercel project environment-name inventory.
+
+**Decision:** G08 remains open. Next reproducible step is to inspect the exported JSON artifact, then repeat import and require Project A to remain present after a clean-tab reload before fingerprint comparison.
