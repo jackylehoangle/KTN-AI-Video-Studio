@@ -10,7 +10,7 @@
 - G03 Scene Quality: PASS.
 - G04 real Voice Batch: PASS; clone acceptance still needs owner-approved reference and consent audio.
 - G08 implementation contract: TECH PASS.
-- G08 browser closure: BLOCKED at durable import recovery/fingerprint verification.
+- G08 browser closure: PASS / CLOSED on 2026-10-30.
 - G02, G05 and G07 remain provider/runtime blocked.
 - G10, G11 and G12 remain pending.
 
@@ -39,13 +39,13 @@ This evidence was not previously committed because the temporary workspace was p
 - `Kiểm tra lưu` for both projects: PASS.
 - Export Project A file existence: owner-confirmed.
 - Delete A while preserving B: PASS.
-- Import recovery: NOT PASS. Independent clean-tab reload showed only Project B.
+- Import recovery: PASS after the manual import completed asynchronously; clean reload showed A and B.
 - Real Gemini multi-pass request did not complete during observation.
 - KTN FLUX and MoneyPrinterTurbo Worker remained not connected.
 
 ## Exact next action
 
-`INSPECT G08-Project-A.json -> REPEAT IMPORT -> CLEAN-TAB RELOAD -> FINGERPRINT VERIFY -> PASS/CLOSE G08`
+`RESTORE G05 IMAGE RUNTIME + G07 AUTHENTICATED RENDER WORKER -> RUN G10 GOLDEN BRIEF TO MP4`
 
 Parallel runtime track:
 
@@ -68,3 +68,8 @@ Parallel runtime track:
 - Gemini image self-test is blocked by a Free Tier limit of 0 requests/day.
 - Render bridge has a base URL but no API key and reports `ready=false`.
 - Therefore steps 3-7 cannot truthfully proceed until image and render runtime credentials/services are restored.
+
+
+## G08 closure note
+
+Final clean-reload verification showed both projects. A retained its exported name/topic/audience/platform values; B remained unchanged. A persistence diagnostic passed. G08 is closed.
