@@ -4542,6 +4542,22 @@ async function submitRender(){
   }
 }
 
+function renderedVideoFilename(taskId){
+  const safeTaskId=String(taskId||'video').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,80)||'video';
+  return 'ktn-ai-video-'+safeTaskId+'.mp4';
+}
+
+function triggerRenderedVideoDownload(videoUrl,taskId,documentRef=document){
+  const download=documentRef.createElement('a');
+  download.href=videoUrl;
+  download.download=renderedVideoFilename(taskId);
+  download.rel='noopener noreferrer';
+  download.style.display='none';
+  documentRef.body.appendChild(download);
+  download.click();
+  download.remove();
+}
+
 async function pollRenderTask(taskId){
   const label=document.getElementById('renderProgressLabel');
   const value=document.getElementById('renderProgressValue');
@@ -4569,13 +4585,17 @@ async function pollRenderTask(taskId){
       value.textContent='100%'; bar.style.width='100%';
       label.textContent='Hoàn tất MP4';
       if(data.video_url){
+        const message=document.createElement('span');
+        message.textContent='MP4 đã hoàn tất. Trình duyệt đang tải file về máy. ';
         const link=document.createElement('a');
         link.href=data.video_url;
-        link.target='_blank';
         link.rel='noopener noreferrer';
-        link.textContent='Mở video MP4';
+        link.download=renderedVideoFilename(taskId);
+        link.textContent='Tải lại MP4';
         result.innerHTML='';
+        result.appendChild(message);
         result.appendChild(link);
+        triggerRenderedVideoDownload(data.video_url,taskId);
       }else{
         result.textContent='Task hoàn tất nhưng chưa có URL video.';
       }
