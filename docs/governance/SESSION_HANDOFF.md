@@ -89,6 +89,7 @@ Final clean-reload verification showed both projects. A retained its exported na
 
 ## Live runtime continuation - 2026-10-30
 
+- Live evidence and regression commit: `4d53b52de78b8ef2127cd3f0ac408c0ebb2efa89`.
 - `COLAB-BOOT-02` completed on T4 in 5.5 minutes; FLUX model size was 16.05 GB.
 - Four fresh runtime values were applied to Vercel Preview.
 - Deployment `dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc` is READY.

@@ -73,6 +73,7 @@ Final verification completed after the asynchronous manual import finished. Comb
 
 | Evidence | Result |
 |---|---|
+| Evidence/regression commit | `4d53b52de78b8ef2127cd3f0ac408c0ebb2efa89` |
 | Colab T4 one-click restore | PASS in 5.5 minutes |
 | FLUX model | READY, 16.05 GB |
 | Direct FLUX generation | PASS, two images, `HTTP 200` twice |

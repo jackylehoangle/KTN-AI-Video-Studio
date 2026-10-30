@@ -6,7 +6,7 @@ status: ACTIVE_RC_NOT_RELEASED
 canonical:
   repository: jackylehoangle/KTN-AI-Video-Studio
   rc_branch: release/v1-rc1
-  current_verified_rc_head: 71af1ad6ce509cca9f6a51d96277351231553725
+  current_verified_rc_head: 4d53b52de78b8ef2127cd3f0ac408c0ebb2efa89
   verified_rc_head_before_governance_recovery: aa4ef4d249ccee402c9f784193b37d8c5bbf6420
   governance_recovery_evidence_commit: 5fa456e6810837495ca808908e8f33c6080e1ffd
   release_pr: 13
@@ -70,6 +70,7 @@ next_actions:
 
 runtime_recovery_patch:
   commit: 71af1ad6ce509cca9f6a51d96277351231553725
+  live_evidence_commit: 4d53b52de78b8ef2127cd3f0ac408c0ebb2efa89
   vercel_preview_deployment: dpl_DWYWjZMUev49r6uPmrDUz4KLHasA
   vercel_preview_state: READY
   colab_branch: release/v1-rc1
