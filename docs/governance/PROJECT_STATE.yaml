@@ -1,6 +1,6 @@
 schema_version: 1
 project: KTN AI Video Studio
-updated_at: "2026-10-28T10:00:00+07:00"
+updated_at: "2026-10-30T17:00:00+07:00"
 status: ACTIVE_RC_NOT_RELEASED
 
 canonical:
@@ -30,21 +30,30 @@ gates:
   V1-G05: BLOCKED_PROVIDER_RUNTIME
   V1-G06: TECH_PASS_FINAL_MP4_VERIFICATION_DEFERRED_TO_G07
   V1-G07: BLOCKED_RUNTIME
-  V1-G08: TECH_PASS_BROWSER_E2E_BLOCKED_PENDING
+  V1-G08: TECH_PASS_BROWSER_E2E_BLOCKED_IMPORT_RECOVERY
   V1-G09: TECH_PASS
   V1-G10: PENDING
   V1-G11: PENDING
   V1-G12: PENDING
 
-g08_recovered_evidence:
-  project_a_import: PASS_ONCE
-  project_ab_isolation: PASS_IN_PRIOR_BROWSER_RUN
-  reload_restore: PASS_IN_PRIOR_BROWSER_RUN
+g08_current_browser_evidence:
+  run_date: "2026-10-30"
+  project_ab_isolation: PASS
+  reload_restore: PASS
+  project_a_persistence_diagnostic: PASS
+  project_b_persistence_diagnostic: PASS
+  project_a_export_file: OWNER_CONFIRMED_IN_DOWNLOADS
+  project_a_delete_isolation: PASS
+  project_a_import_recovery: NOT_DURABLE_CLEAN_TAB_SHOWED_ONLY_PROJECT_B
   export_import_fingerprint: NOT_VERIFIED
-  delete_recover: NOT_VERIFIED
-  blocker_cloud_browser: FILE_CHOOSER_HANG_RESET_SESSION
-  blocker_local_playwright: CHROMIUM_DOWNLOAD_FAILED_TRUNCATED_ARCHIVE
+  blocker_browser_upload: FILE_CHOOSER_AUTOMATION_HUNG_MANUAL_IMPORT_NOT_DURABLE
   close_gate_authorized: false
+runtime_current_observation:
+  gemini_catalog: CONFIGURED
+  gemini_real_multipass_script: DID_NOT_COMPLETE_ABORTED_BY_RELOAD
+  ktn_flux: CONFIGURED_NOT_CONNECTED
+  mpt_render_worker: CONFIGURED_NOT_CONNECTED
+  mpt_render_api_key_env_name: NOT_OBSERVED
 
 next_actions:
   primary: V1-G08B_EXPORT_IMPORT_DELETE_RECOVER_FINGERPRINT
