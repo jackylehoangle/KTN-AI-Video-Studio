@@ -17,14 +17,23 @@ function headers(cfg,extra={}){
 }
 
 
-function mptVoiceName(voiceConfig={}){
+const DEFAULT_MPT_EDGE_VOICE='vi-VN-HoaiMyNeural';
+
+function envEnabled(value){
+  return ['1','true','yes','on'].includes(String(value||'').trim().toLowerCase());
+}
+
+function mptVoiceName(voiceConfig={},env=process.env){
   const provider=String(voiceConfig?.provider||'').trim().toLowerCase();
   const voice=String(voiceConfig?.voice||'').trim();
-  if(!voice) return 'vi-VN-HoaiMyNeural';
+  const edgeVoice=String(env?.MPT_RENDER_EDGE_VOICE||'').trim()||DEFAULT_MPT_EDGE_VOICE;
+  if(!voice) return edgeVoice;
   if(provider==='gemini'){
+    if(!envEnabled(env?.MPT_RENDER_GEMINI_TTS_ENABLED)) return edgeVoice;
     return voice.startsWith('gemini:')?voice:('gemini:'+voice);
   }
   if(provider==='elevenlabs'){
+    if(!envEnabled(env?.MPT_RENDER_ELEVENLABS_TTS_ENABLED)) return edgeVoice;
     return voice.startsWith('elevenlabs:')?voice:('elevenlabs:'+voice+':KTN');
   }
   return voice;
