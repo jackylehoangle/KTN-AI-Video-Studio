@@ -68,3 +68,18 @@ Final verification completed after the asynchronous manual import finished. Comb
 | JS/Python/notebook syntax checks | PASS |
 | Vercel deployment | `dpl_DWYWjZMUev49r6uPmrDUz4KLHasA` READY |
 | Live Colab runtime execution | Pending owner GPU session |
+
+## Live provider/runtime evidence - 2026-10-30
+
+| Evidence | Result |
+|---|---|
+| Colab T4 one-click restore | PASS in 5.5 minutes |
+| FLUX model | READY, 16.05 GB |
+| Direct FLUX generation | PASS, two images, `HTTP 200` twice |
+| Vercel Preview deployment | `dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc` READY |
+| Render worker readiness | PASS, authenticated, `workerStatus=200` |
+| Gemini 3.8 real multi-pass | BLOCKED by high demand; controlled retry logged |
+| Gemini 3.7 rerun | Did not complete in observation window |
+| Focused regression tests | 13 PASS, one deprecation warning |
+
+G05 and G07 are not closed by readiness alone. G05 still requires application generate/regenerate persistence evidence; G07 still requires a completed MP4 task and playback.

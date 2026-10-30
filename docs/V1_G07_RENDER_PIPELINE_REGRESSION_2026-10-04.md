@@ -55,3 +55,18 @@ Observed:
 ## Recovery implementation - 2026-10-30
 
 Commit `71af1ad6ce509cca9f6a51d96277351231553725` updates `COLAB-BOOT-02` to generate/reuse `MPT_RENDER_API_KEY`, write it to worker `config.toml`, and print it with the Vercel variables. The Vercel readiness route now probes authenticated `/api/v1/tasks` rather than public `/docs`. Focused tests passed 7/7 and the preview deployment is READY. G07 remains blocked until Colab is running and the live authenticated probe returns READY.
+
+## Authenticated live runtime evidence - 2026-10-30
+
+Preview deployment `dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc` returned:
+
+- `configured=true`
+- `ready=true`
+- `authenticated=true`
+- `workerStatus=200`
+- `baseUrlConfigured=true`
+- `apiKeyConfigured=true`
+
+The public worker OpenAPI page also loaded from the new Cloudflare tunnel. A regression fix now requires a successful HTTP response during bootstrap; authentication failures are no longer accepted as readiness.
+
+**Decision:** authenticated worker readiness is PASS. G07 remains open only for a real assets-to-MP4 task, polling completion and playback verification.

@@ -22,3 +22,13 @@ This log is append-only. Corrections must be added as new entries.
 - Mock or static evidence cannot close real provider/runtime gates.
 - Configured does not equal ready.
 - Product UI remains `ui_preview/`; Engine/Admin Console remains `webui/Main.py`.
+
+## 2026-10-30 - GOV-02 G08 closure and runtime recovery
+
+**Decision:** the later complete browser run supersedes the historical open-G08 note in GOV-01.
+
+- G08 is PASS / CLOSED after A/B isolation, reload restore, export/import, delete/recover and fingerprint verification.
+- Live FLUX runtime is proven by two real `HTTP 200` image generations; G05 still needs application UI persistence evidence.
+- Authenticated MPT readiness is proven with `workerStatus=200`; G07 still needs completed MP4 playback evidence.
+- Gemini high demand keeps G02 blocked; partial requests do not count as acceptance evidence.
+- Colab Quick Tunnels are temporary acceptance infrastructure, not production hosting.

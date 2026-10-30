@@ -1,6 +1,6 @@
 schema_version: 1
 project: KTN AI Video Studio
-updated_at: "2026-10-30T17:00:00+07:00"
+updated_at: "2026-10-30T14:25:00+07:00"
 status: ACTIVE_RC_NOT_RELEASED
 
 canonical:
@@ -25,12 +25,12 @@ branch_control:
 
 gates:
   V1-G01: PASS
-  V1-G02: BLOCKED_PROVIDER
+  V1-G02: BLOCKED_PROVIDER_HIGH_DEMAND
   V1-G03: PASS
   V1-G04: OWNER_BATCH_PASS_CLONE_CONSENT_AUDIO_PENDING
-  V1-G05: BLOCKED_PROVIDER_RUNTIME
+  V1-G05: RUNTIME_PASS_APP_E2E_PENDING
   V1-G06: TECH_PASS_FINAL_MP4_VERIFICATION_DEFERRED_TO_G07
-  V1-G07: BLOCKED_RUNTIME
+  V1-G07: AUTHENTICATED_READINESS_PASS_MP4_E2E_PENDING
   V1-G08: PASS
   V1-G09: TECH_PASS
   V1-G10: PENDING
@@ -51,18 +51,18 @@ g08_current_browser_evidence:
   close_gate_authorized: true
 runtime_current_observation:
   gemini_script_catalog: CONFIGURED_DEFAULT_GEMINI_3_8_FLASH
-  gemini_real_multipass_script: DID_NOT_COMPLETE_ABORTED_BY_RELOAD
+  gemini_real_multipass_script: BLOCKED_HIGH_DEMAND_3_8_AND_3_7_RERUN_PENDING
   gemini_image_selftest_16_9: BLOCKED_FREE_TIER_ZERO_REQUESTS_PER_DAY
-  ktn_flux: CONFIGURED_NOT_CONNECTED
-  mpt_render_base_url: CONFIGURED
-  mpt_render_api_key: NOT_CONFIGURED
-  mpt_render_worker: NOT_READY
+  ktn_flux: LIVE_T4_TWO_REAL_IMAGES_HTTP_200
+  mpt_render_base_url: LIVE_CLOUDFLARE_TUNNEL
+  mpt_render_api_key: CONFIGURED_BRANCH_SCOPED_PREVIEW
+  mpt_render_worker: READY_AUTHENTICATED_HTTP_200
 
 next_actions:
-  primary: RUN_COLAB_BOOT_02_AND_UPDATE_VERCEL_RUNTIME_VARIABLES
+  primary: RUN_APP_IMAGE_E2E_AND_MPT_MP4_E2E_AFTER_G02_SCENES
   parallel:
-    - RESTORE_IMAGE_PROVIDER_RUNTIME_FOR_G05
-    - RESTORE_RENDER_WORKER_AND_API_KEY_FOR_G07
+    - RERUN_G02_WHEN_GEMINI_CAPACITY_IS_AVAILABLE
+    - PRESERVE_COLAB_SESSION_AND_TUNNELS
   after_runtime:
     - V1-G10_GOLDEN_BRIEF_TO_MP4
     - V1-G11_OWNER_ACCEPTANCE_AND_RC_FREEZE
@@ -76,8 +76,14 @@ runtime_recovery_patch:
   render_key_generation: IMPLEMENTED
   render_key_written_to_worker_config: IMPLEMENTED
   render_readiness_authenticated_probe: IMPLEMENTED
-  local_tests: 7_PASS
-  runtime_execution: WAITING_FOR_COLAB_GPU_SESSION
+  live_vercel_preview_deployment: dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc
+  live_vercel_preview_url: ktn-ai-video-studio-qgva9ygzu-jackylehoangles-projects.vercel.app
+  local_tests: 13_PASS_1_WARNING
+  runtime_execution: PASS_COLAB_T4_READY_5_5_MINUTES
+  flux_smoke: PASS_TWO_IMAGES_HTTP_200
+  render_readiness: PASS_AUTHENTICATED_WORKER_STATUS_200
+  remaining_g05_condition: APP_UI_GENERATE_REGENERATE_E2E
+  remaining_g07_condition: REAL_MP4_RENDER_PLAYBACK_E2E
 
 authority:
   code_and_committed_evidence: GITHUB

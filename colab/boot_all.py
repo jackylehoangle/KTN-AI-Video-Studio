@@ -54,15 +54,19 @@ def run(cmd, *, cwd=None, env=None, quiet=False, check=True):
 
 def wait_http(url: str, *, seconds: int, headers=None) -> requests.Response:
     last_error = None
+    last_status = None
     for _ in range(seconds):
         try:
             response = requests.get(url, headers=headers or {}, timeout=5)
-            if response.status_code < 500:
+            last_status = response.status_code
+            if response.ok:
                 return response
         except Exception as exc:
             last_error = exc
         time.sleep(1)
-    raise RuntimeError(f"Timeout waiting for {url}. Last error: {last_error}")
+    raise RuntimeError(
+        f"Timeout waiting for {url}. Last status: {last_status}. Last error: {last_error}"
+    )
 
 
 def kill(pattern: str) -> None:

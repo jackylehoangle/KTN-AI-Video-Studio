@@ -11,7 +11,9 @@
 - G04 real Voice Batch: PASS; clone acceptance still needs owner-approved reference and consent audio.
 - G08 implementation contract: TECH PASS.
 - G08 browser closure: PASS / CLOSED on 2026-10-30.
-- G02, G05 and G07 remain provider/runtime blocked.
+- G02 remains blocked by Gemini high demand.
+- G05 has a proven live FLUX runtime; application generate/regenerate E2E remains.
+- G07 authenticated readiness is PASS; real MP4 completion/playback remains.
 - G10, G11 and G12 remain pending.
 
 ## Historical recovered G08 evidence
@@ -45,12 +47,12 @@ This section is retained as history. It was superseded by the complete 2026-10-3
 
 ## Exact next action
 
-`RESTORE G05 IMAGE RUNTIME + G07 AUTHENTICATED RENDER WORKER -> RUN G10 GOLDEN BRIEF TO MP4`
+`RERUN G02 WHEN GEMINI IS AVAILABLE -> APP IMAGE E2E -> REAL MPT MP4 E2E -> G10 GOLDEN BRIEF TO MP4`
 
 Parallel runtime track:
 
-- Restore a real image provider/runtime for G05.
-- Restore authenticated Render Worker readiness for G07.
+- Keep the current Colab T4 runtime and both tunnels alive.
+- Complete application image generation/regeneration and real MP4 rendering once scenes exist.
 
 ## Start checklist for the next agent
 
@@ -83,4 +85,15 @@ Final clean-reload verification showed both projects. A retained its exported na
 - The key is written into worker `config.toml` and printed with the other Vercel variables.
 - Render readiness now probes authenticated `/api/v1/tasks`, not public `/docs`.
 - Focused tests: 7 PASS.
-- Remaining owner action: open the Colab notebook with GPU and run `COLAB-BOOT-02`; then update the four existing Vercel Preview variables from its output.
+- At that checkpoint, the remaining owner action was to run `COLAB-BOOT-02` on a Colab GPU and update the four Vercel Preview variables. The continuation below records that this action is complete.
+
+## Live runtime continuation - 2026-10-30
+
+- `COLAB-BOOT-02` completed on T4 in 5.5 minutes; FLUX model size was 16.05 GB.
+- Four fresh runtime values were applied to Vercel Preview.
+- Deployment `dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc` is READY.
+- `GET /api/render-video` returned authenticated readiness with `workerStatus=200`.
+- Direct FLUX smoke generation produced two real images with `HTTP 200`.
+- Notebook smoke compatibility and strict readiness regression fixes pass 13 focused tests; one Starlette deprecation warning remains.
+- Gemini 3.8 logged high demand and a controlled retry; 3.7 did not complete in the observation window.
+- Exact remaining runtime work: application image persistence E2E, then assets-to-MP4 completion and playback.

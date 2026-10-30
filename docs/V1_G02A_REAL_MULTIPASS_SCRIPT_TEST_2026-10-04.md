@@ -146,6 +146,15 @@ PASS requires:
 4. QA >= 80 after optional repair;
 5. owner quality acceptance.
 
+## 10. Live rerun - 2026-10-30
+
+- Gemini 3.8 Flash entered the real multi-pass workflow.
+- Vercel logged a controlled retry with `reason=transient_backoff` because the model was experiencing high demand.
+- The browser run was reloaded after prolonged waiting, preserving the project in IndexedDB.
+- A second run was started with Gemini 3.7 Flash; it also did not complete within the observation window.
+
+**Decision:** G02 remains `BLOCKED_PROVIDER_HIGH_DEMAND`. No static or partial output is accepted as PASS.
+
 
 ## 9. V1-G02A.1 rerun — 2026-10-04 13:59 GMT+7
 

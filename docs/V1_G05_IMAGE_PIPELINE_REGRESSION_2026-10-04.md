@@ -41,3 +41,15 @@ Observed:
 ## Recovery implementation - 2026-10-30
 
 Commit `71af1ad6ce509cca9f6a51d96277351231553725` corrects `COLAB-BOOT-02` to clone `release/v1-rc1` and restore the FLUX gateway from the canonical RC. Vercel deployment is READY. G05 remains blocked until the notebook is actually run on a Colab GPU and one real image generation/regeneration passes.
+
+## Live FLUX runtime evidence - 2026-10-30
+
+- `COLAB-BOOT-02` completed on a T4 in 5.5 minutes.
+- FLUX.1-schnell FP8 model loaded at 16.05 GB.
+- ComfyUI, KTN Image Gateway and the public image tunnel reported ready.
+- Direct smoke generation returned `HTTP 200` twice and displayed the generated images in Colab.
+- The Vercel Preview image route is configured against the same live gateway.
+
+The first smoke attempt exposed an obsolete notebook-cell dependency on `public_url/token`; the corrected cell now reads `/content/ktn_colab_runtime.json`. Bootstrap readiness was also tightened so `401/403` cannot be mistaken for success.
+
+**Decision:** the real KTN FLUX provider runtime is proven. G05 is now `RUNTIME_PASS_APP_E2E_PENDING`; closure still requires generate/regenerate through the application UI with project persistence evidence.
