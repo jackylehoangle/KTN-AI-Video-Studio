@@ -51,3 +51,7 @@ Observed:
 - `ready=false`
 
 **Decision:** G07 remains `BLOCKED_RUNTIME`. The worker cannot be authenticated or declared ready until `MPT_RENDER_API_KEY` is configured and the live readiness probe passes.
+
+## Recovery implementation - 2026-10-30
+
+Commit `71af1ad6ce509cca9f6a51d96277351231553725` updates `COLAB-BOOT-02` to generate/reuse `MPT_RENDER_API_KEY`, write it to worker `config.toml`, and print it with the Vercel variables. The Vercel readiness route now probes authenticated `/api/v1/tasks` rather than public `/docs`. Focused tests passed 7/7 and the preview deployment is READY. G07 remains blocked until Colab is running and the live authenticated probe returns READY.

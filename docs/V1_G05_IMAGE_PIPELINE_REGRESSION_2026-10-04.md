@@ -37,3 +37,7 @@ Observed:
 - Free Tier limit: `0 requests per day`
 
 **Decision:** G05 remains `BLOCKED_PROVIDER_RUNTIME`. A configured key is not a usable image runtime.
+
+## Recovery implementation - 2026-10-30
+
+Commit `71af1ad6ce509cca9f6a51d96277351231553725` corrects `COLAB-BOOT-02` to clone `release/v1-rc1` and restore the FLUX gateway from the canonical RC. Vercel deployment is READY. G05 remains blocked until the notebook is actually run on a Colab GPU and one real image generation/regeneration passes.

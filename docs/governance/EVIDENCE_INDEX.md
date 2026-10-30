@@ -37,7 +37,7 @@
 | Cloud browser file chooser | Hung and reset session | Blocker evidence |
 | Local Chromium installation | Failed on truncated archive | Blocker evidence |
 
-Recovered evidence cannot close G08. The missing checks require a new reproducible browser run.
+This historical recovered evidence could not close G08 by itself. It is superseded by the complete connected-Chrome run below.
 
 
 ## G08 connected-Chrome evidence - 2026-10-30
@@ -55,3 +55,16 @@ Recovered evidence cannot close G08. The missing checks require a new reproducib
 | KTN FLUX / MPT worker readiness | Not connected | Product readiness UI |
 
 Final verification completed after the asynchronous manual import finished. Combined with G04B fresh-tab restoration of 3/3 audio assets, this evidence authorizes G08 PASS / CLOSED.
+
+## Runtime recovery implementation - 2026-10-30
+
+| Evidence | Result |
+|---|---|
+| RC commit | `71af1ad6ce509cca9f6a51d96277351231553725` |
+| Colab branch selection | `release/v1-rc1` |
+| Render API key generation/config write | Implemented |
+| Authenticated readiness probe | `/api/v1/tasks?page=1&page_size=1` |
+| Focused Python tests | 7 PASS |
+| JS/Python/notebook syntax checks | PASS |
+| Vercel deployment | `dpl_DWYWjZMUev49r6uPmrDUz4KLHasA` READY |
+| Live Colab runtime execution | Pending owner GPU session |

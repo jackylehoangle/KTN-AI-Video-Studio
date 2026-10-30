@@ -14,7 +14,7 @@
 - G02, G05 and G07 remain provider/runtime blocked.
 - G10, G11 and G12 remain pending.
 
-## Recovered G08 browser evidence
+## Historical recovered G08 evidence
 
 Evidence recovered from the interrupted working session:
 
@@ -24,9 +24,9 @@ Evidence recovered from the interrupted working session:
 - Delete/recover was not performed.
 - Cloud browser file chooser hung and reset the browser session.
 - A local Playwright fallback could not install Chromium because the downloaded archive was truncated.
-- No evidence permits closing G08.
+- At that historical checkpoint, no evidence permitted closing G08.
 
-This evidence was not previously committed because the temporary workspace was pruned. It is now recorded as recovered session evidence, not upgraded to a full gate PASS.
+This section is retained as history. It was superseded by the complete 2026-10-30 run below, which closed G08.
 
 ## Branch warning
 
@@ -59,7 +59,7 @@ Parallel runtime track:
 3. Read `docs/governance/PROJECT_STATE.yaml`.
 4. Read this handoff.
 5. Read the Source of Truth and G08 evidence.
-6. Do not close G08 without export/import fingerprint and delete/recover proof.
+6. Preserve the closed G08 evidence and continue with runtime recovery/G10.
 
 
 ## Direct runtime recheck - 2026-10-30
@@ -73,3 +73,14 @@ Parallel runtime track:
 ## G08 closure note
 
 Final clean-reload verification showed both projects. A retained its exported name/topic/audience/platform values; B remained unchanged. A persistence diagnostic passed. G08 is closed.
+
+## Runtime recovery patch - 2026-10-30
+
+- RC commit: `71af1ad6ce509cca9f6a51d96277351231553725`.
+- Vercel preview deployment `dpl_DWYWjZMUev49r6uPmrDUz4KLHasA`: READY.
+- Colab one-click now clones `release/v1-rc1`, not the obsolete baseline branch.
+- It reuses a Colab `MPT_RENDER_API_KEY` secret or generates a temporary key.
+- The key is written into worker `config.toml` and printed with the other Vercel variables.
+- Render readiness now probes authenticated `/api/v1/tasks`, not public `/docs`.
+- Focused tests: 7 PASS.
+- Remaining owner action: open the Colab notebook with GPU and run `COLAB-BOOT-02`; then update the four existing Vercel Preview variables from its output.

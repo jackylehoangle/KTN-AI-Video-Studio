@@ -6,6 +6,7 @@ status: ACTIVE_RC_NOT_RELEASED
 canonical:
   repository: jackylehoangle/KTN-AI-Video-Studio
   rc_branch: release/v1-rc1
+  current_verified_rc_head: 71af1ad6ce509cca9f6a51d96277351231553725
   verified_rc_head_before_governance_recovery: aa4ef4d249ccee402c9f784193b37d8c5bbf6420
   governance_recovery_evidence_commit: 5fa456e6810837495ca808908e8f33c6080e1ffd
   release_pr: 13
@@ -58,7 +59,7 @@ runtime_current_observation:
   mpt_render_worker: NOT_READY
 
 next_actions:
-  primary: V1-G08B_EXPORT_IMPORT_DELETE_RECOVER_FINGERPRINT
+  primary: RUN_COLAB_BOOT_02_AND_UPDATE_VERCEL_RUNTIME_VARIABLES
   parallel:
     - RESTORE_IMAGE_PROVIDER_RUNTIME_FOR_G05
     - RESTORE_RENDER_WORKER_AND_API_KEY_FOR_G07
@@ -66,6 +67,17 @@ next_actions:
     - V1-G10_GOLDEN_BRIEF_TO_MP4
     - V1-G11_OWNER_ACCEPTANCE_AND_RC_FREEZE
     - V1-G12_MERGE_MAIN_AND_PRODUCTION_SMOKE
+
+runtime_recovery_patch:
+  commit: 71af1ad6ce509cca9f6a51d96277351231553725
+  vercel_preview_deployment: dpl_DWYWjZMUev49r6uPmrDUz4KLHasA
+  vercel_preview_state: READY
+  colab_branch: release/v1-rc1
+  render_key_generation: IMPLEMENTED
+  render_key_written_to_worker_config: IMPLEMENTED
+  render_readiness_authenticated_probe: IMPLEMENTED
+  local_tests: 7_PASS
+  runtime_execution: WAITING_FOR_COLAB_GPU_SESSION
 
 authority:
   code_and_committed_evidence: GITHUB
