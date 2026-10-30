@@ -16,7 +16,7 @@
 | V1-G05 | Image generation E2E | BLOCKED_PROVIDER | Gemini Image Free Tier reports 0 input tokens/min; KTN FLUX runtime offline; OpenAI image not configured |
 | V1-G06 | Subtitle workflow | TECH PASS / FINAL MP4 VERIFICATION DEFERRED TO G07 | Editable/validated SRT is forwarded exactly to render worker |
 | V1-G07 | Render Worker → final MP4 | BLOCKED_RUNTIME | Render configured but live probe `ready=false`; API key not configured |
-| V1-G08 | Project save/restore/export/import | TECH PASS / BROWSER E2E BLOCKED AT IMPORT RECOVERY | A/B isolation, reload, export and delete passed; durable import recovery/fingerprint did not |
+| V1-G08 | Project save/restore/export/import | PASS | A/B isolation, reload, export, delete/recover, clean reload and fingerprint verified |
 | V1-G09 | Provider/readiness/error-state | TECH PASS | Configured and live-ready states separated; image/render use live readiness |
 | V1-G10 | Golden Brief → MP4 | PENDING | Depends on G02/G05/G07 |
 | V1-G11 | Owner acceptance + RC freeze | PENDING | Requires owner visual/function acceptance |
@@ -236,3 +236,8 @@ Therefore the available evidence does **not** attribute the CI failure to applic
 - Render readiness: `baseUrlConfigured=true`, `apiKeyConfigured=false`, `configured=false`, `ready=false`.
 
 These results keep G02, G05 and G07 blocked and prevent starting the Golden Brief to final MP4 acceptance.
+
+
+## V1-G08 final closure - 2026-10-30
+
+The delayed manual import finished successfully. A clean reload then showed Project A and B together. Project A retained its exported name/topic/audience/platform fingerprint, Project B retained its separate B values, and Project A persistence diagnostic returned PASS. Combined with G04B fresh-tab `3/3 audio` restoration evidence, V1-G08 is PASS / CLOSED.
