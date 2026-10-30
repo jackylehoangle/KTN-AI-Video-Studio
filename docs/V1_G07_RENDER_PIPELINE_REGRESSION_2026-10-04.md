@@ -37,3 +37,17 @@ Current blocker:
 - Render worker is not production READY.
 
 **Decision:** technical contract PASS; gate closes only after authenticated worker is live and one real Brief→assets→MP4 playback E2E passes.
+
+
+## Live recheck - 2026-10-30
+
+Endpoint:
+`GET /api/render-video`
+
+Observed:
+- `baseUrlConfigured=true`
+- `apiKeyConfigured=false`
+- `configured=false`
+- `ready=false`
+
+**Decision:** G07 remains `BLOCKED_RUNTIME`. The worker cannot be authenticated or declared ready until `MPT_RENDER_API_KEY` is configured and the live readiness probe passes.
