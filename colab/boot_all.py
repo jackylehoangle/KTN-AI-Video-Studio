@@ -35,6 +35,7 @@ RENDER_ENV = Path("/content/mpt-render-uv311")
 IMAGE_PORT = 8189
 COMFY_PORT = 8188
 RENDER_PORT = 8090
+RC_BRANCH = os.environ.get("KTN_RC_BRANCH", "release/v1-rc1").strip() or "release/v1-rc1"
 
 
 def run(cmd, *, cwd=None, env=None, quiet=False, check=True):
@@ -85,7 +86,7 @@ def ensure_repo() -> None:
         raise RuntimeError(
             f"Không thấy repo tại {REPO}. Cell bootstrap phải clone repo trước khi chạy script này."
         )
-    run(["git", "-C", str(REPO), "checkout", "ui-vn-01-vietnamese-baseline"], quiet=True)
+    run(["git", "-C", str(REPO), "checkout", RC_BRANCH], quiet=True)
     run(
         [
             "git",
@@ -94,7 +95,7 @@ def ensure_repo() -> None:
             "pull",
             "--ff-only",
             "origin",
-            "ui-vn-01-vietnamese-baseline",
+            RC_BRANCH,
         ],
         quiet=True,
     )
@@ -189,6 +190,19 @@ def gateway_token() -> str:
     return token or secrets.token_urlsafe(32)
 
 
+def render_api_key() -> str:
+    key = os.environ.get("MPT_RENDER_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        from google.colab import userdata
+
+        key = str(userdata.get("MPT_RENDER_API_KEY") or "").strip()
+    except Exception:
+        key = ""
+    return key or secrets.token_urlsafe(32)
+
+
 def start_image_engine(token: str) -> None:
     print("\n[6/9] Image Engine")
     kill("main.py --listen 127.0.0.1 --port 8188")
@@ -258,7 +272,7 @@ def ensure_uv() -> str:
     raise RuntimeError("Không tìm thấy uv sau khi cài.")
 
 
-def patch_render_config() -> None:
+def patch_render_config(api_key: str) -> None:
     example = REPO / "config.example.toml"
     config = REPO / "config.toml"
     shutil.copyfile(example, config)
@@ -275,10 +289,18 @@ def patch_render_config() -> None:
         text,
         count=1,
     )
+    text, replacements = re.subn(
+        r'(?ms)(^\[app\]\s*.*?^api_key\s*=\s*)"[^"]*"',
+        lambda match: match.group(1) + '"' + api_key + '"',
+        text,
+        count=1,
+    )
+    if replacements != 1:
+        raise RuntimeError("Không cấu hình được app.api_key cho Render Worker.")
     config.write_text(text, encoding="utf-8")
 
 
-def start_render_worker() -> None:
+def start_render_worker(api_key: str) -> None:
     print("\n[7/9] MoneyPrinterTurbo Render Worker")
     uv = ensure_uv()
     run([uv, "python", "install", "3.11"], quiet=True)
@@ -305,14 +327,17 @@ def start_render_worker() -> None:
         quiet=True,
     )
 
-    patch_render_config()
+    patch_render_config(api_key)
     kill("/content/mpt-render-uv311/bin/python.*main.py")
     time.sleep(1)
 
     render_log = open("/content/mpt_render_worker.log", "w", encoding="utf-8")
+    render_env = os.environ.copy()
+    render_env["MPT_RENDER_API_KEY"] = api_key
     subprocess.Popen(
         [str(python_bin), "main.py"],
         cwd=str(REPO),
+        env=render_env,
         stdout=render_log,
         stderr=subprocess.STDOUT,
     )
@@ -350,7 +375,7 @@ def quick_tunnel(local_url: str, log_path: str) -> tuple[subprocess.Popen, str]:
     raise RuntimeError(f"Không lấy được Cloudflare URL. Xem {log_path}")
 
 
-def start_tunnels() -> tuple[str, str]:
+def start_tunnels(render_key: str) -> tuple[str, str]:
     print("\n[8/9] Cloudflare Quick Tunnels")
     kill("cloudflared.*127.0.0.1:8189")
     kill("cloudflared.*127.0.0.1:8090")
@@ -366,19 +391,24 @@ def start_tunnels() -> tuple[str, str]:
     )
 
     wait_http(image_url + "/health", seconds=60)
-    wait_http(render_url + "/docs", seconds=60)
+    wait_http(
+        render_url + "/api/v1/tasks?page=1&page_size=1",
+        seconds=60,
+        headers={"x-api-key": render_key},
+    )
     print("✅ Image tunnel:", image_url)
     print("✅ Render tunnel:", render_url)
     return image_url, render_url
 
 
-def save_state(image_url: str, render_url: str, token: str) -> None:
+def save_state(image_url: str, render_url: str, token: str, render_key: str) -> None:
     import json
 
     state = {
         "image_gateway_url": image_url,
         "render_base_url": render_url,
         "image_gateway_token": token,
+        "render_api_key": render_key,
         "comfyui": f"http://127.0.0.1:{COMFY_PORT}",
         "image_gateway": f"http://127.0.0.1:{IMAGE_PORT}",
         "render_worker": f"http://127.0.0.1:{RENDER_PORT}",
@@ -402,10 +432,11 @@ def main() -> None:
     ensure_comfy()
     ensure_model()
     token = gateway_token()
+    render_key = render_api_key()
     start_image_engine(token)
-    start_render_worker()
-    image_url, render_url = start_tunnels()
-    save_state(image_url, render_url, token)
+    start_render_worker(render_key)
+    image_url, render_url = start_tunnels(render_key)
+    save_state(image_url, render_url, token, render_key)
 
     print("\n[9/9] READY")
     print("=" * 78)
@@ -417,7 +448,7 @@ def main() -> None:
     print("KTN_IMAGE_GATEWAY_URL=" + image_url)
     print("KTN_IMAGE_GATEWAY_TOKEN=" + token)
     print("MPT_RENDER_BASE_URL=" + render_url)
-    print("MPT_RENDER_API_KEY=")
+    print("MPT_RENDER_API_KEY=" + render_key)
     print()
     print("Local services:")
     print(f"  ComfyUI            http://127.0.0.1:{COMFY_PORT}")

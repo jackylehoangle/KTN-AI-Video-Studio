@@ -59,7 +59,7 @@ Script:
 One-click restore phải:
 
 1. Xác nhận NVIDIA GPU.
-2. Clone/pull đúng branch `ui-vn-01-vietnamese-baseline`.
+2. Clone/pull đúng branch `release/v1-rc1`.
 3. Cài/check FFmpeg + cloudflared.
 4. Dựng ComfyUI.
 5. Tải/check FLUX.1-schnell FP8.
@@ -83,7 +83,7 @@ Vercel Preview sử dụng:
 - `KTN_IMAGE_GATEWAY_URL`
 - `KTN_IMAGE_GATEWAY_TOKEN`
 - `MPT_RENDER_BASE_URL`
-- `MPT_RENDER_API_KEY` — để trống trong Colab acceptance hiện tại
+- `MPT_RENDER_API_KEY` — one-click restore dùng Colab secret nếu có, nếu không sẽ sinh key tạm mới
 
 **Không ghi giá trị token vào Source of Truth.**
 

@@ -58,10 +58,22 @@ export default async function handler(req,res){
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),8000);
     try{
-      const response=await fetch(cfg.baseUrl+'/docs',{headers:headers(cfg),signal:controller.signal,cache:'no-store'});
-      return send(res,200,{ok:true,configured:true,ready:response.ok,baseUrlConfigured:true,apiKeyConfigured:true});
+      const response=await fetch(cfg.baseUrl+'/api/v1/tasks?page=1&page_size=1',{
+        headers:headers(cfg),
+        signal:controller.signal,
+        cache:'no-store'
+      });
+      return send(res,200,{
+        ok:true,
+        configured:true,
+        ready:response.ok,
+        authenticated:response.ok,
+        workerStatus:response.status,
+        baseUrlConfigured:true,
+        apiKeyConfigured:true
+      });
     }catch{
-      return send(res,200,{ok:true,configured:true,ready:false,baseUrlConfigured:true,apiKeyConfigured:true});
+      return send(res,200,{ok:true,configured:true,ready:false,authenticated:false,baseUrlConfigured:true,apiKeyConfigured:true});
     }finally{
       clearTimeout(timer);
     }
