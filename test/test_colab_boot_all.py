@@ -31,6 +31,12 @@ def test_render_api_key_reuses_configured_environment(monkeypatch):
     assert boot_all.render_api_key() == "existing-render-secret"
 
 
+def test_gemini_api_key_reuses_configured_environment(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "existing-gemini-secret")
+
+    assert boot_all.gemini_api_key() == "existing-gemini-secret"
+
+
 def test_wait_http_does_not_accept_auth_failure(monkeypatch):
     responses = iter([FakeResponse(401), FakeResponse(200)])
     monkeypatch.setattr(boot_all.requests, "get", lambda *args, **kwargs: next(responses))
