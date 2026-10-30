@@ -49,11 +49,13 @@ g08_current_browser_evidence:
   blocker_browser_upload: FILE_CHOOSER_AUTOMATION_HUNG_MANUAL_IMPORT_NOT_DURABLE
   close_gate_authorized: false
 runtime_current_observation:
-  gemini_catalog: CONFIGURED
+  gemini_script_catalog: CONFIGURED_DEFAULT_GEMINI_3_8_FLASH
   gemini_real_multipass_script: DID_NOT_COMPLETE_ABORTED_BY_RELOAD
+  gemini_image_selftest_16_9: BLOCKED_FREE_TIER_ZERO_REQUESTS_PER_DAY
   ktn_flux: CONFIGURED_NOT_CONNECTED
-  mpt_render_worker: CONFIGURED_NOT_CONNECTED
-  mpt_render_api_key_env_name: NOT_OBSERVED
+  mpt_render_base_url: CONFIGURED
+  mpt_render_api_key: NOT_CONFIGURED
+  mpt_render_worker: NOT_READY
 
 next_actions:
   primary: V1-G08B_EXPORT_IMPORT_DELETE_RECOVER_FINGERPRINT
