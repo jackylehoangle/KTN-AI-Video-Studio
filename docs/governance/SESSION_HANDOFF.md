@@ -60,3 +60,11 @@ Parallel runtime track:
 4. Read this handoff.
 5. Read the Source of Truth and G08 evidence.
 6. Do not close G08 without export/import fingerprint and delete/recover proof.
+
+
+## Direct runtime recheck - 2026-10-30
+
+- Gemini script catalog is configured, but the observed real multi-pass run did not complete.
+- Gemini image self-test is blocked by a Free Tier limit of 0 requests/day.
+- Render bridge has a base URL but no API key and reports `ready=false`.
+- Therefore steps 3-7 cannot truthfully proceed until image and render runtime credentials/services are restored.
