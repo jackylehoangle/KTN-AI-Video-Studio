@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-04  
 **Branch:** `release/v1-rc1`  
-**Status:** **TECH PASS / BROWSER E2E BLOCKED-PENDING**
+**Status:** **PASS / CLOSED**
 
 ## Verified implementation
 
@@ -99,3 +99,23 @@ Provider/runtime observation made while continuing toward G10:
 - `MPT_RENDER_API_KEY` was not present in the inspected Vercel project environment-name inventory.
 
 **Decision:** G08 remains open. Next reproducible step is to inspect the exported JSON artifact, then repeat import and require Project A to remain present after a clean-tab reload before fingerprint comparison.
+
+
+## Final G08B closure - 2026-10-30
+
+The manual import completed asynchronously after the earlier clean-tab observation. Final independent verification:
+
+- Clean reload showed both `G08 Project A` and `G08 Project B`.
+- Project A remained active after reload.
+- Imported Project A fingerprint fields matched the exported source:
+  - name: `G08 Project A`;
+  - topic: `G08-A: Dữ liệu riêng của Project A`;
+  - audience: `Nhóm kiểm thử A`;
+  - platform: YouTube Long.
+- Project B remained isolated and unchanged:
+  - topic: `G08-B: Dữ liệu riêng của Project B`;
+  - audience: `Nhóm kiểm thử B`.
+- Imported Project A `Kiểm tra lưu` returned `PASS · nội dung khớp · 0 scene · 0 ảnh · 0 audio`.
+- Binary asset restore is additionally covered by G04B browser evidence: fresh-tab reload restored `3/3 audio` and all audio QA approvals.
+
+**Decision:** V1-G08 PASS / CLOSED. The browser path now covers A/B isolation, reload restore, export, delete, import recovery, clean reload and post-import fingerprint verification.
