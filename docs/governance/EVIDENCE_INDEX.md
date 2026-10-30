@@ -49,9 +49,9 @@ Recovered evidence cannot close G08. The missing checks require a new reproducib
 | Persistence diagnostic for A and B | PASS | Product read-back diagnostic |
 | Export Project A file | Owner-confirmed present | Owner observation |
 | Delete A while preserving B | PASS | Browser DOM + clean reload |
-| Import A and durable recovery | NOT PASS | Clean verification tab showed only B |
-| Post-import fingerprint | Not verified | Blocked by missing durable recovery |
+| Import A and durable recovery | PASS | Manual import completed asynchronously; clean reload showed A and B |
+| Post-import fingerprint | PASS | Name, topic, audience and platform matched; persistence diagnostic PASS |
 | Real Gemini multi-pass script | Did not complete | Browser observation; aborted by reload |
 | KTN FLUX / MPT worker readiness | Not connected | Product readiness UI |
 
-This run narrows G08 to import recovery and fingerprint verification. It does not authorize gate closure.
+Final verification completed after the asynchronous manual import finished. Combined with G04B fresh-tab restoration of 3/3 audio assets, this evidence authorizes G08 PASS / CLOSED.
