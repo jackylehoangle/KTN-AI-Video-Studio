@@ -227,3 +227,12 @@ Therefore the available evidence does **not** attribute the CI failure to applic
 - Gemini catalog/configuration: visible, but a real multi-pass script request did not complete in the observed window.
 - KTN FLUX and MoneyPrinterTurbo Worker: configured-but-not-connected in the product UI.
 - No gate was closed and PR #13 must remain Draft / Do Not Merge.
+
+
+## Direct endpoint recheck - 2026-10-30
+
+- Script catalog: Gemini configured with default model `gemini-3.8-flash`; OpenAI, Anthropic and xAI not configured.
+- Image catalog: Gemini and KTN paths configured, but Gemini real 16:9 self-test failed because Free Tier limit is `0 requests per day`.
+- Render readiness: `baseUrlConfigured=true`, `apiKeyConfigured=false`, `configured=false`, `ready=false`.
+
+These results keep G02, G05 and G07 blocked and prevent starting the Golden Brief to final MP4 acceptance.
