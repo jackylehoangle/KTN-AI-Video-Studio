@@ -51,6 +51,22 @@ function publicVideoUrl(baseUrl,value){
   return baseUrl+'/'+String(value).replace(/^\//,'');
 }
 
+async function signedVideoUrl(cfg,value,nowSeconds=Math.floor(Date.now()/1000)){
+  const publicUrl=publicVideoUrl(cfg.baseUrl,value);
+  if(!publicUrl || !cfg.apiKey) return publicUrl;
+  const url=new URL(publicUrl);
+  if(url.origin!==new URL(cfg.baseUrl).origin || !url.pathname.startsWith('/tasks/')) return publicUrl;
+  const expires=nowSeconds+3600;
+  const {createHmac}=await import('node:crypto');
+  const signature=createHmac('sha256',cfg.apiKey)
+    .update(url.pathname+'\n'+expires)
+    .digest('hex');
+  url.searchParams.set('expires',String(expires));
+  url.searchParams.set('signature',signature);
+  url.searchParams.set('download','1');
+  return url.toString();
+}
+
 function findGeminiAudio(payload){
   const steps=Array.isArray(payload?.steps)?payload.steps:[];
   for(let i=steps.length-1;i>=0;i--){
@@ -178,7 +194,7 @@ export default async function handler(req,res){
         state_label:failed?'Render thất bại':complete?'Hoàn tất MP4':'MoneyPrinterTurbo đang render...',
         progress:Number(task.progress)||0,
         error:task.error||'',
-        video_url:videos.length?publicVideoUrl(cfg.baseUrl,videos[0]):''
+        video_url:videos.length?await signedVideoUrl(cfg,videos[0]):''
       });
     }catch(error){
       return send(res,502,{error:'Không đọc được MPT task: '+(error?.message||'Lỗi không xác định')});
