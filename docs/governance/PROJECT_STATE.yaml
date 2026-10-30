@@ -30,7 +30,7 @@ gates:
   V1-G05: BLOCKED_PROVIDER_RUNTIME
   V1-G06: TECH_PASS_FINAL_MP4_VERIFICATION_DEFERRED_TO_G07
   V1-G07: BLOCKED_RUNTIME
-  V1-G08: TECH_PASS_BROWSER_E2E_BLOCKED_IMPORT_RECOVERY
+  V1-G08: PASS
   V1-G09: TECH_PASS
   V1-G10: PENDING
   V1-G11: PENDING
@@ -44,10 +44,10 @@ g08_current_browser_evidence:
   project_b_persistence_diagnostic: PASS
   project_a_export_file: OWNER_CONFIRMED_IN_DOWNLOADS
   project_a_delete_isolation: PASS
-  project_a_import_recovery: NOT_DURABLE_CLEAN_TAB_SHOWED_ONLY_PROJECT_B
-  export_import_fingerprint: NOT_VERIFIED
-  blocker_browser_upload: FILE_CHOOSER_AUTOMATION_HUNG_MANUAL_IMPORT_NOT_DURABLE
-  close_gate_authorized: false
+  project_a_import_recovery: PASS_AFTER_ASYNC_MANUAL_IMPORT
+  export_import_fingerprint: PASS_VISIBLE_NAME_TOPIC_AUDIENCE_PLATFORM
+  browser_upload_note: AUTOMATION_HUNG_MANUAL_IMPORT_COMPLETED_ASYNCHRONOUSLY
+  close_gate_authorized: true
 runtime_current_observation:
   gemini_script_catalog: CONFIGURED_DEFAULT_GEMINI_3_8_FLASH
   gemini_real_multipass_script: DID_NOT_COMPLETE_ABORTED_BY_RELOAD
@@ -89,3 +89,10 @@ required_session_protocol:
     - COMMIT_AND_PUSH
     - REPORT_EXACT_COMMIT
   uncommitted_session_is_handed_over: false
+
+g08_closure:
+  closed_at: "2026-10-30"
+  clean_reload_projects: 2
+  project_a_readback: PASS
+  project_b_isolation_after_import: PASS
+  binary_asset_restore_supporting_evidence: G04B_FRESH_TAB_3_OF_3_AUDIO
