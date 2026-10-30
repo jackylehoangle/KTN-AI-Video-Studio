@@ -207,6 +207,19 @@ def render_api_key() -> str:
     return key or secrets.token_urlsafe(32)
 
 
+def gemini_api_key() -> str:
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        from google.colab import userdata
+
+        key = str(userdata.get("GEMINI_API_KEY") or "").strip()
+    except Exception:
+        key = ""
+    return key
+
+
 def start_image_engine(token: str) -> None:
     print("\n[6/9] Image Engine")
     kill("main.py --listen 127.0.0.1 --port 8188")
@@ -304,7 +317,7 @@ def patch_render_config(api_key: str) -> None:
     config.write_text(text, encoding="utf-8")
 
 
-def start_render_worker(api_key: str) -> None:
+def start_render_worker(api_key: str, gemini_key: str = "") -> None:
     print("\n[7/9] MoneyPrinterTurbo Render Worker")
     uv = ensure_uv()
     run([uv, "python", "install", "3.11"], quiet=True)
@@ -338,6 +351,8 @@ def start_render_worker(api_key: str) -> None:
     render_log = open("/content/mpt_render_worker.log", "w", encoding="utf-8")
     render_env = os.environ.copy()
     render_env["MPT_RENDER_API_KEY"] = api_key
+    if gemini_key:
+        render_env["GEMINI_API_KEY"] = gemini_key
     subprocess.Popen(
         [str(python_bin), "main.py"],
         cwd=str(REPO),
@@ -405,7 +420,13 @@ def start_tunnels(render_key: str) -> tuple[str, str]:
     return image_url, render_url
 
 
-def save_state(image_url: str, render_url: str, token: str, render_key: str) -> None:
+def save_state(
+    image_url: str,
+    render_url: str,
+    token: str,
+    render_key: str,
+    gemini_tts_configured: bool = False,
+) -> None:
     import json
 
     state = {
@@ -417,6 +438,7 @@ def save_state(image_url: str, render_url: str, token: str, render_key: str) -> 
         "image_gateway": f"http://127.0.0.1:{IMAGE_PORT}",
         "render_worker": f"http://127.0.0.1:{RENDER_PORT}",
         "edge_tts_timeout": 240,
+        "gemini_tts_configured": gemini_tts_configured,
     }
     Path("/content/ktn_colab_runtime.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2),
@@ -437,10 +459,17 @@ def main() -> None:
     ensure_model()
     token = gateway_token()
     render_key = render_api_key()
+    gemini_key = gemini_api_key()
     start_image_engine(token)
-    start_render_worker(render_key)
+    start_render_worker(render_key, gemini_key)
     image_url, render_url = start_tunnels(render_key)
-    save_state(image_url, render_url, token, render_key)
+    save_state(
+        image_url,
+        render_url,
+        token,
+        render_key,
+        gemini_tts_configured=bool(gemini_key),
+    )
 
     print("\n[9/9] READY")
     print("=" * 78)
@@ -453,6 +482,7 @@ def main() -> None:
     print("KTN_IMAGE_GATEWAY_TOKEN=" + token)
     print("MPT_RENDER_BASE_URL=" + render_url)
     print("MPT_RENDER_API_KEY=" + render_key)
+    print("MPT Gemini TTS configured:", bool(gemini_key))
     print()
     print("Local services:")
     print(f"  ComfyUI            http://127.0.0.1:{COMFY_PORT}")
