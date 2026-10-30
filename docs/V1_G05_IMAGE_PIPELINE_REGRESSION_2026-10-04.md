@@ -23,3 +23,17 @@ Real tests on 2026-10-04:
 - OpenAI Image: not configured.
 
 **Decision:** image code/contract PASS; V1-G05 cannot close until at least one real image provider produces/regenerates images successfully E2E.
+
+
+## Live recheck - 2026-10-30
+
+Endpoint:
+`GET /api/generate-image?selftest=gemini&aspect=16:9`
+
+Observed:
+- `ok=false`
+- provider: `gemini`
+- model: `gemini-3.1-flash-image`
+- Free Tier limit: `0 requests per day`
+
+**Decision:** G05 remains `BLOCKED_PROVIDER_RUNTIME`. A configured key is not a usable image runtime.
