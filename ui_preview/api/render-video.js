@@ -51,6 +51,66 @@ function publicVideoUrl(baseUrl,value){
   return baseUrl+'/'+String(value).replace(/^\//,'');
 }
 
+function findGeminiAudio(payload){
+  const steps=Array.isArray(payload?.steps)?payload.steps:[];
+  for(let i=steps.length-1;i>=0;i--){
+    const content=Array.isArray(steps[i]?.content)?steps[i].content:[];
+    for(let j=content.length-1;j>=0;j--){
+      const item=content[j];
+      if(item?.type==='audio' && typeof item?.data==='string' && item.data.length>100){
+        return {data:item.data,mimeType:String(item.mime_type||item.mimeType||'audio/wav')};
+      }
+    }
+  }
+  return null;
+}
+
+async function stageGeminiVoiceover(cfg,{script,voice,languageCode,stylePreset}){
+  const key=String(process.env.GEMINI_API_KEY||'').trim();
+  if(!key) throw new Error('GEMINI_API_KEY chưa cấu hình cho voiceover render.');
+  const model=String(process.env.GEMINI_TTS_MODEL||'gemini-3.8-flash-lite-tts').trim();
+  const voiceName=String(voice||'Kore').trim();
+  const language=String(languageCode||'vi-VN').trim();
+  const style=language==='vi-VN'
+    ? 'Đọc tiếng Việt tự nhiên, rõ ràng, có nhịp kể chuyện như người thật, phát âm chính xác và không thêm bất kỳ lời nào ngoài bản chép lời.'
+    : 'Natural, clear professional video narration. Do not add words beyond the transcript.';
+  const styledPrompt=[style,String(stylePreset||'').trim()].filter(Boolean).join(' ');
+
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-goog-api-key':key},
+    body:JSON.stringify({
+      model,
+      input:[{type:'user_input',content:[{type:'text',text:script,annotations:[{type:'speech_metadata',style:styledPrompt}]}]}],
+      response_format:{type:'audio',mime_type:'audio/wav',sample_rate:24000},
+      generation_config:{speech_config:[{voice:voiceName}]}
+    })
+  });
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(payload?.error?.message||('Gemini TTS HTTP '+response.status));
+  const audio=findGeminiAudio(payload);
+  if(!audio) throw new Error('Gemini TTS không trả về dữ liệu âm thanh.');
+  const bytes=Buffer.from(audio.data,'base64');
+  if(bytes.length<44 || bytes.toString('ascii',0,4)!=='RIFF'){
+    throw new Error('Gemini TTS trả về audio không phải WAV hợp lệ.');
+  }
+
+  const form=new FormData();
+  form.append('file',new Blob([bytes],{type:audio.mimeType}),'ktn-voiceover.wav');
+  const upload=await fetch(cfg.baseUrl+'/api/v1/musics',{
+    method:'POST',
+    headers:headers(cfg),
+    body:form
+  });
+  const uploaded=await upload.json().catch(()=>({}));
+  if(!upload.ok || uploaded?.status!==200){
+    throw new Error(uploaded?.message||('MPT audio upload HTTP '+upload.status));
+  }
+  const file=String(uploaded?.data?.file||'').trim();
+  if(!file) throw new Error('MPT không trả về custom audio key.');
+  return {file,model,voice:voiceName,bytes:bytes.length};
+}
+
 export default async function handler(req,res){
   const cfg=config();
 
@@ -154,6 +214,22 @@ export default async function handler(req,res){
   const aspect=['16:9','9:16','1:1'].includes(body?.video?.aspect)?body.video.aspect:'16:9';
   const transition=body?.video?.transition||null;
 
+  let customAudio=null;
+  const requestedProvider=String(body?.voice?.provider||'').trim().toLowerCase();
+  if(requestedProvider==='gemini'){
+    try{
+      customAudio=await stageGeminiVoiceover(cfg,{
+        script,
+        voice:body?.voice?.voice,
+        languageCode:body?.voice?.languageCode,
+        stylePreset:body?.voice?.stylePreset
+      });
+    }catch(error){
+      console.error('render_voiceover_failed',{provider:'gemini',message:error?.message});
+      return send(res,502,{error:'Không thể chuẩn bị voiceover Gemini: '+(error?.message||'Lỗi không xác định')});
+    }
+  }
+
   const requestBody={
     video_subject:topic,
     video_script:script,
@@ -169,6 +245,7 @@ export default async function handler(req,res){
     video_source:'local',
     video_materials:materials,
     video_language:'vi-VN',
+    custom_audio_file:customAudio?.file||null,
     voice_name:voiceName,
     voice_volume:1.0,
     voice_rate:voiceRate,
@@ -207,7 +284,8 @@ export default async function handler(req,res){
         voice:String(body?.voice?.voice||''),
         mpt_voice_name:voiceName,
         speed:voiceRate
-      }
+      },
+      voiceover:customAudio?{provider:'gemini',model:customAudio.model,voice:customAudio.voice,bytes:customAudio.bytes}:null
     });
   }catch(error){
     console.error('render_submit_failed',{message:error?.message});
