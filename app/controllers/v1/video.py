@@ -207,6 +207,22 @@ def create_task(
     task_id = utils.get_uuid()
     request_id = base.get_task_id(request)
     try:
+        raw_audio = getattr(body, "custom_audio_file", "")
+        requested_audio = raw_audio.strip() if isinstance(raw_audio, str) else ""
+        if requested_audio:
+            try:
+                source_audio = bgm_service.resolve_bgm_file(requested_audio)
+            except ValueError as exc:
+                raise ValueError(
+                    "custom audio must reference a file uploaded through /musics"
+                ) from exc
+
+            task_dir = utils.task_dir(task_id)
+            audio_name = f"custom-audio{pathlib.Path(source_audio).suffix.lower()}"
+            task_audio = os.path.join(task_dir, audio_name)
+            shutil.copy2(source_audio, task_audio)
+            body = body.model_copy(update={"custom_audio_file": audio_name})
+
         task = {
             "task_id": task_id,
             "request_id": request_id,
@@ -222,6 +238,9 @@ def create_task(
             # 接管任务（例如线程启动失败或 Redis 队列不可用），必须回滚该
             # 记录，否则 API 和 WebUI 会永久展示一个实际从未运行的任务。
             sm.state.delete_task(task_id)
+            task_path = os.path.join(utils.task_dir(), task_id)
+            if requested_audio and os.path.isdir(task_path):
+                shutil.rmtree(task_path)
             raise
         logger.success(f"Task created: {utils.to_json(task)}")
         return utils.get_response(200, task)
