@@ -1,6 +1,6 @@
 # KTN AI Video Studio - Evidence Index
 
-**Updated:** 2026-10-28
+**Updated:** 2026-10-30
 
 ## Canonical control
 
@@ -38,3 +38,20 @@
 | Local Chromium installation | Failed on truncated archive | Blocker evidence |
 
 Recovered evidence cannot close G08. The missing checks require a new reproducible browser run.
+
+
+## G08 connected-Chrome evidence - 2026-10-30
+
+| Evidence | Status | Strength |
+|---|---|---|
+| Create Project A/B with distinct data | PASS | Browser DOM observation |
+| A/B isolation after reload | PASS | Browser DOM observation |
+| Persistence diagnostic for A and B | PASS | Product read-back diagnostic |
+| Export Project A file | Owner-confirmed present | Owner observation |
+| Delete A while preserving B | PASS | Browser DOM + clean reload |
+| Import A and durable recovery | NOT PASS | Clean verification tab showed only B |
+| Post-import fingerprint | Not verified | Blocked by missing durable recovery |
+| Real Gemini multi-pass script | Did not complete | Browser observation; aborted by reload |
+| KTN FLUX / MPT worker readiness | Not connected | Product readiness UI |
+
+This run narrows G08 to import recovery and fingerprint verification. It does not authorize gate closure.
