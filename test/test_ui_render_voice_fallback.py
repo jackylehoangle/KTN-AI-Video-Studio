@@ -10,6 +10,7 @@ import pytest
 
 NODE = shutil.which("node")
 RENDER_API = Path(__file__).parents[1] / "ui_preview" / "api" / "render-video.js"
+DOWNLOAD_API = Path(__file__).parents[1] / "ui_preview" / "api" / "render-video-download.js"
 APP_JS = Path(__file__).parents[1] / "ui_preview" / "app.js"
 
 
@@ -174,3 +175,58 @@ process.stdout.write(JSON.stringify(context.result));
         "href": "https://worker.test/tasks/task-123/final-1.mp4?signature=signed",
         "download": "ktn-ai-video-task-123.mp4",
     }
+
+
+@pytest.mark.skipif(NODE is None, reason="Node.js is required for the UI contract test")
+def test_completed_render_downloads_same_origin_chunks_before_saving_blob():
+    script = f"""
+const fs = require('fs');
+const vm = require('vm');
+const source = fs.readFileSync({json.dumps(str(APP_JS))}, 'utf8');
+const start = source.indexOf('function renderedVideoFilename');
+const end = source.indexOf('async function pollRenderTask');
+const helperSource = source.slice(start, end);
+const calls = [];
+const responses = [
+  {{status:206,ok:true,headers:{{get:(name)=>name==='x-ktn-video-size'?'5':null}},arrayBuffer:async()=>Uint8Array.from([1,2,3]).buffer}},
+  {{status:206,ok:true,headers:{{get:(name)=>name==='x-ktn-video-size'?'5':null}},arrayBuffer:async()=>Uint8Array.from([4,5]).buffer}}
+];
+const anchor = {{style:{{}},click(){{calls.push('click');}},remove(){{calls.push('remove');}}}};
+const documentRef = {{createElement(){{return anchor;}},body:{{appendChild(){{calls.push('append');}}}}}};
+const fetchImpl = async url => {{calls.push(url); return responses.shift();}};
+class BlobRef {{constructor(parts,options){{this.parts=parts;this.type=options.type;}}}}
+const URLRef = {{createObjectURL(blob){{calls.push(['blob',blob.parts.map(x=>x.byteLength),blob.type]);return 'blob:test';}},revokeObjectURL(){{}}}};
+const context = {{console,setTimeout:()=>0}};
+vm.createContext(context);
+vm.runInContext(helperSource + `\nresultPromise=downloadRenderedVideo(
+  '/api/render-video-download?task_id=task-123','task-123',
+  {{fetchImpl,documentRef,URLRef,BlobRef}}
+);`, Object.assign(context,{{fetchImpl,documentRef,URLRef,BlobRef,calls}}));
+context.resultPromise.then(result=>process.stdout.write(JSON.stringify({{result,calls,href:anchor.href}})));
+"""
+    completed = subprocess.run(
+        [NODE, "-e", script], check=True, capture_output=True, text=True
+    )
+
+    assert json.loads(completed.stdout) == {
+        "result": {"bytes": 5, "parts": 2},
+        "calls": [
+            "/api/render-video-download?task_id=task-123&offset=0",
+            "/api/render-video-download?task_id=task-123&offset=3",
+            ["blob", [3, 2], "video/mp4"],
+            "append",
+            "click",
+            "remove",
+        ],
+        "href": "blob:test",
+    }
+
+
+def test_render_download_api_uses_bounded_authenticated_range_requests():
+    source = DOWNLOAD_API.read_text(encoding="utf-8")
+
+    assert "const CHUNK_BYTES=2*1024*1024" in source
+    assert "'x-api-key':cfg.apiKey" in source
+    assert "range:'bytes='+offset+'-'+end" in source
+    assert "res.statusCode=206" in source
+    assert "x-ktn-video-size" in source

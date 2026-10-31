@@ -194,7 +194,10 @@ export default async function handler(req,res){
         state_label:failed?'Render thất bại':complete?'Hoàn tất MP4':'MoneyPrinterTurbo đang render...',
         progress:Number(task.progress)||0,
         error:task.error||'',
-        video_url:videos.length?await signedVideoUrl(cfg,videos[0]):''
+        video_url:videos.length?await signedVideoUrl(cfg,videos[0]):'',
+        download_url:videos.length
+          ?'/api/render-video-download?task_id='+encodeURIComponent(taskId)
+          :''
       });
     }catch(error){
       return send(res,502,{error:'Không đọc được MPT task: '+(error?.message||'Lỗi không xác định')});

@@ -4558,6 +4558,39 @@ function triggerRenderedVideoDownload(videoUrl,taskId,documentRef=document){
   download.remove();
 }
 
+async function downloadRenderedVideo(downloadUrl,taskId,options={}){
+  const fetchImpl=options.fetchImpl||fetch;
+  const documentRef=options.documentRef||document;
+  const URLRef=options.URLRef||URL;
+  const BlobRef=options.BlobRef||Blob;
+  const chunks=[];
+  let offset=0;
+  let total=0;
+
+  for(let part=0;part<4096;part++){
+    const separator=downloadUrl.includes('?')?'&':'?';
+    const response=await fetchImpl(downloadUrl+separator+'offset='+offset,{
+      headers:{accept:'video/mp4'}
+    });
+    if(!response.ok) throw new Error('Không tải được MP4 (HTTP '+response.status+').');
+    const bytes=await response.arrayBuffer();
+    if(!bytes.byteLength) throw new Error('Chunk MP4 tải về bị rỗng.');
+    chunks.push(bytes);
+    offset+=bytes.byteLength;
+    total=Number(response.headers.get('x-ktn-video-size'))||total;
+    if((total&&offset>=total) || (!total&&response.status!==206)) break;
+  }
+
+  if(!chunks.length || (total&&offset<total)){
+    throw new Error('MP4 chưa được tải đầy đủ.');
+  }
+  const blob=new BlobRef(chunks,{type:'video/mp4'});
+  const objectUrl=URLRef.createObjectURL(blob);
+  triggerRenderedVideoDownload(objectUrl,taskId,documentRef);
+  setTimeout(()=>URLRef.revokeObjectURL(objectUrl),60000);
+  return {bytes:offset,parts:chunks.length};
+}
+
 async function pollRenderTask(taskId){
   const label=document.getElementById('renderProgressLabel');
   const value=document.getElementById('renderProgressValue');
@@ -4585,17 +4618,31 @@ async function pollRenderTask(taskId){
       value.textContent='100%'; bar.style.width='100%';
       label.textContent='Hoàn tất MP4';
       if(data.video_url){
+        const downloadUrl=data.download_url||data.video_url;
         const message=document.createElement('span');
         message.textContent='MP4 đã hoàn tất. Trình duyệt đang tải file về máy. ';
         const link=document.createElement('a');
-        link.href=data.video_url;
+        link.href=downloadUrl;
         link.rel='noopener noreferrer';
         link.download=renderedVideoFilename(taskId);
         link.textContent='Tải lại MP4';
+        link.addEventListener('click',event=>{
+          event.preventDefault();
+          link.textContent='Đang tải MP4...';
+          downloadRenderedVideo(downloadUrl,taskId)
+            .then(()=>{ link.textContent='Tải lại MP4'; })
+            .catch(error=>{
+              link.textContent='Thử tải lại MP4';
+              message.textContent=(error?.message||'Không tải được MP4.')+' ';
+            });
+        });
         result.innerHTML='';
         result.appendChild(message);
         result.appendChild(link);
-        triggerRenderedVideoDownload(data.video_url,taskId);
+        downloadRenderedVideo(downloadUrl,taskId).catch(error=>{
+          message.textContent=(error?.message||'Không tải tự động được MP4.')+' ';
+          link.textContent='Thử tải lại MP4';
+        });
       }else{
         result.textContent='Task hoàn tất nhưng chưa có URL video.';
       }
