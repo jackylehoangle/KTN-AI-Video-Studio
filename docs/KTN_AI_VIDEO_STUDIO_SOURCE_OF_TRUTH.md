@@ -534,3 +534,60 @@ Rules locked:
 - `v1-completion-01` is frozen because it diverged from the RC.
 - PR #13 remains Draft / Do Not Merge.
 - G08 remains open until export/import fingerprint and delete/recover pass in a reproducible browser run.
+
+## 16. Runtime and gate supersession - 2026-10-31
+
+This section supersedes older runtime statements in this document that describe
+KTN FLUX or the render worker as offline, unauthenticated or missing an API key.
+Those statements remain historical evidence only.
+
+### Current verified code/runtime
+
+- Canonical RC branch: `release/v1-rc1`.
+- Tested code head: `aaf9247a2717befb0bceb03e0148ec34ea6e5f13`.
+- Vercel Preview deployment: `dpl_8X9Rg6MGQQb4U52n54bac55krbJA`, READY.
+- KTN FLUX on Colab T4: runtime PASS; direct real image generation PASS.
+- MoneyPrinterTurbo worker: authenticated readiness PASS.
+- Real 14-scene product render: PASS at 100%.
+- MP4 same-origin proxy delivery: PASS for all 10,747,935 bytes.
+- MP4 playback/media QA: PENDING.
+- Six-minute Golden Brief: PENDING.
+
+### Current gate interpretation
+
+| Gate | Current status |
+|---|---|
+| V1-G05 | Runtime PASS / application generate-regenerate persistence E2E pending |
+| V1-G07 | Real render PASS / byte-complete download PASS / playback pending |
+| V1-G08 | PASS / CLOSED |
+| V1-G10 | PENDING six-minute Golden Brief to downloaded MP4 |
+| V1-G11 | PENDING owner acceptance and RC freeze |
+| V1-G12 | PENDING approved merge and production smoke |
+
+### Ordered completion path
+
+1. Produce one real six-minute Vietnamese Golden Brief project.
+2. Verify script duration, scenes, images, narration, SRT and persisted assets.
+3. Render MP4 and verify decoded duration, codec, playback, audio, subtitles,
+   black frames and complete browser download.
+4. Design the persistent worker migration. Colab and Quick Tunnels remain an
+   acceptance runtime, not production infrastructure.
+5. Provision paid infrastructure only after owner approval of provider, region,
+   budget and recurring cost.
+6. Close G10 only with the six-minute artifact evidence.
+7. Run owner acceptance and freeze the exact RC for G11.
+8. Merge only the approved RC to `main`, deploy production and run production
+   smoke before closing G12.
+
+Detailed MP4 evidence:
+`docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md`.
+
+### Stable worker migration control
+
+- Colab T4 and Cloudflare Quick Tunnel remain temporary acceptance infrastructure.
+- The persistent worker design and runbook are recorded in
+  `docs/V1_WORKER_STABLE_INFRA_MIGRATION_PLAN_2026-10-31.md`.
+- Paid provisioning is not authorized until the owner approves provider, region,
+  GPU type, maximum monthly budget, availability mode and endpoint strategy.
+- The six-minute G10 Golden Brief is the mandatory migration canary.
+- Infrastructure design readiness does not close G07, G10, G11 or G12.

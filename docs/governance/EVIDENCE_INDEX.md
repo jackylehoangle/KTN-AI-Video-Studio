@@ -1,6 +1,6 @@
 # KTN AI Video Studio - Evidence Index
 
-**Updated:** 2026-10-30
+**Updated:** 2026-10-31
 
 ## Canonical control
 
@@ -22,8 +22,11 @@
 - G05: `docs/V1_G05_IMAGE_PIPELINE_REGRESSION_2026-10-04.md`
 - G06: `docs/V1_G06_SUBTITLE_REGRESSION_2026-10-04.md`
 - G07: `docs/V1_G07_RENDER_PIPELINE_REGRESSION_2026-10-04.md`
+- G07 real MP4/download: `docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md`
 - G08: `docs/V1_G08_PROJECT_PERSISTENCE_REGRESSION_2026-10-04.md`
 - G09: `docs/V1_G09_PROVIDER_READINESS_REGRESSION_2026-10-04.md`
+- G10 six-minute execution spec: `docs/V1_G10_SIX_MINUTE_GOLDEN_E2E_SPEC_2026-10-31.md`
+- Stable worker migration plan: `docs/V1_WORKER_STABLE_INFRA_MIGRATION_PLAN_2026-10-31.md`
 
 ## G08 recovered evidence classification
 
@@ -83,4 +86,43 @@ Final verification completed after the asynchronous manual import finished. Comb
 | Gemini 3.7 rerun | Did not complete in observation window |
 | Focused regression tests | 13 PASS, one deprecation warning |
 
-G05 and G07 are not closed by readiness alone. G05 still requires application generate/regenerate persistence evidence; G07 still requires a completed MP4 task and playback.
+G05 is not closed by runtime readiness alone and still requires application
+generate/regenerate persistence evidence. G07 now has a completed product MP4
+task and byte-complete proxy delivery; playback/media QA remains before closure.
+
+## Real MP4 and download evidence - 2026-10-31
+
+| Evidence | Result |
+|---|---|
+| Tested code head | `aaf9247a2717befb0bceb03e0148ec34ea6e5f13` |
+| Vercel deployment | `dpl_8X9Rg6MGQQb4U52n54bac55krbJA` READY |
+| Minimal render task | `d98cd3b6-dc2f-476b-8526-8aac33582cbf` PASS |
+| Product UI render task | `436cc16e-1185-4c24-8db7-5104b5f5e01b` PASS, 100% |
+| Product scene assets | 14/14 |
+| MP4 size | 10,747,935 bytes |
+| Proxy byte coverage | PASS, six contiguous HTTP 206 ranges |
+| Browser local-file event | Not captured before automation timeout |
+| Playback/media QA | PENDING |
+| Six-minute Golden Brief | PENDING |
+
+## Stable worker migration readiness - 2026-10-31
+
+| Evidence | Result |
+|---|---|
+| Colab/Quick Tunnel classification | Temporary acceptance infrastructure |
+| Stable worker architecture and runbook | READY |
+| Security, persistence, monitoring and rollback requirements | DOCUMENTED |
+| Paid infrastructure provisioning | NOT STARTED |
+| Current blocker | Owner provider/region/GPU/budget/endpoint approval |
+| Migration canary | G10 six-minute Golden Brief |
+
+## Local regression - 2026-10-31
+
+| Check | Result |
+|---|---|
+| Full pytest suite | 1,338 passed, 19 skipped, 8 warnings |
+| Pytest subtests | 10,614 passed |
+| Duration profile focused tests | 7 passed |
+| JavaScript syntax | PASS |
+| Project state YAML parse/assert | PASS |
+| Git whitespace check | PASS |

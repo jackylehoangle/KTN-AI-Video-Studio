@@ -86,6 +86,7 @@ const DURATION_PROFILES = {
   '60-90s': {label:'60–90 giây', words:'140–220 từ'},
   '90-180s': {label:'90–180 giây', words:'220–450 từ'},
   '3-5m': {label:'3–5 phút', words:'450–750 từ'},
+  '5-7m': {label:'5–7 phút · khoảng 6 phút', words:'750–1.050 từ'},
   '8-12m': {label:'8–12 phút', words:'1.200–1.800 từ'},
   '12-20m': {label:'12–20 phút', words:'1.800–3.000 từ'},
   '20-30m': {label:'20–30 phút', words:'3.000–4.500 từ'}

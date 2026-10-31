@@ -1,6 +1,6 @@
 # KTN AI Video Studio - Current Session Handoff
 
-**Updated:** 2026-10-30 (GMT+7)  
+**Updated:** 2026-10-31 (GMT+7)
 **Canonical RC branch:** `release/v1-rc1`  
 **Verified pre-recovery HEAD:** `aa4ef4d249ccee402c9f784193b37d8c5bbf6420`  
 **PR:** #13, Open + Draft + Do Not Merge
@@ -13,7 +13,8 @@
 - G08 browser closure: PASS / CLOSED on 2026-10-30.
 - G02 remains blocked by Gemini high demand.
 - G05 has a proven live FLUX runtime; application generate/regenerate E2E remains.
-- G07 authenticated readiness is PASS; real MP4 completion/playback remains.
+- G07 authenticated readiness, real render completion and byte-complete MP4
+  delivery are PASS; local playback/media QA remains.
 - G10, G11 and G12 remain pending.
 
 ## Historical recovered G08 evidence
@@ -45,14 +46,34 @@ This section is retained as history. It was superseded by the complete 2026-10-3
 - Real Gemini multi-pass request did not complete during observation.
 - KTN FLUX and MoneyPrinterTurbo Worker remained not connected.
 
+## 2026-10-31 MP4 continuation
+
+- Restored the Colab stack on T4 and applied fresh image/render runtime values.
+- Deployed the same-origin chunked MP4 proxy in Vercel Preview deployment
+  `dpl_8X9Rg6MGQQb4U52n54bac55krbJA`.
+- Minimal 3-second task `d98cd3b6-dc2f-476b-8526-8aac33582cbf` completed.
+- Product UI task `436cc16e-1185-4c24-8db7-5104b5f5e01b` completed 14/14
+  scenes at 100% and produced a 10,747,935-byte MP4.
+- Six contiguous HTTP 206 ranges covered the complete MP4 without a gap.
+- Browser local-file event capture and playback/media QA remain pending.
+- The completed project is short-form and does not close the six-minute G10 gate.
+- Current local regression: 1,338 passed, 19 skipped, 8 warnings and 10,614
+  subtests passed in 270.96 seconds.
+
+Evidence: `docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md`.
+
 ## Exact next action
 
-`RERUN G02 WHEN GEMINI IS AVAILABLE -> APP IMAGE E2E -> REAL MPT MP4 E2E -> G10 GOLDEN BRIEF TO MP4`
+`SIX-MINUTE GOLDEN BRIEF -> SCRIPT/SCENES/ASSETS -> MP4 -> PLAYBACK/MEDIA QA -> G10 DECISION`
 
 Parallel runtime track:
 
-- Keep the current Colab T4 runtime and both tunnels alive.
-- Complete application image generation/regeneration and real MP4 rendering once scenes exist.
+- Preserve Colab only as the temporary acceptance runtime.
+- Stable worker migration design and runbook are ready in
+  `docs/V1_WORKER_STABLE_INFRA_MIGRATION_PLAN_2026-10-31.md`.
+- Do not provision paid infrastructure until provider, region, GPU type, budget,
+  availability mode, endpoint choice and owner approval are recorded.
+- Do not close G11 or G12 before the six-minute artifact and owner review pass.
 
 ## Start checklist for the next agent
 

@@ -32,3 +32,18 @@ This log is append-only. Corrections must be added as new entries.
 - Authenticated MPT readiness is proven with `workerStatus=200`; G07 still needs completed MP4 playback evidence.
 - Gemini high demand keeps G02 blocked; partial requests do not count as acceptance evidence.
 - Colab Quick Tunnels are temporary acceptance infrastructure, not production hosting.
+
+## 2026-10-31 - GOV-03 Six-minute acceptance and stable worker migration
+
+**Decision:** execute the six-minute Golden Brief as the release canary and move
+the image/render worker off Colab only after owner infrastructure approval.
+
+- The product exposes a `5-7m` profile targeting approximately six minutes.
+- G07 has real render and byte-complete download evidence, but playback/media QA
+  remains open.
+- G10 requires a real 345-375 second artifact and cannot be closed by a short
+  smoke render.
+- Paid worker provisioning requires recorded provider, region, GPU, budget,
+  availability mode and endpoint decisions.
+- G11 requires owner acceptance and an exact frozen RC commit.
+- G12 remains blocked until the approved RC is merged and production smoke passes.

@@ -70,3 +70,22 @@ Preview deployment `dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc` returned:
 The public worker OpenAPI page also loaded from the new Cloudflare tunnel. A regression fix now requires a successful HTTP response during bootstrap; authentication failures are no longer accepted as readiness.
 
 **Decision:** authenticated worker readiness is PASS. G07 remains open only for a real assets-to-MP4 task, polling completion and playback verification.
+
+## Real MP4/download continuation - 2026-10-31
+
+The render pipeline advanced beyond readiness:
+
+- Minimal 3-second render task completed at 100%.
+- Product UI render completed 14/14 scene assets at 100%.
+- Product task: `436cc16e-1185-4c24-8db7-5104b5f5e01b`.
+- Final MP4 size: 10,747,935 bytes.
+- Vercel same-origin proxy returned all bytes in six contiguous HTTP 206 ranges.
+- Full regression suite passed: 1,337 passed, 19 skipped and 10,614 subtests.
+
+The connected-browser controller timed out before it captured a final local-file
+download event. Playback, decoded duration, audio/subtitle synchronization and
+visual inspection were not recorded for this artifact.
+
+**Decision:** G07 is now
+`REAL_RENDER_PASS / BYTE_COMPLETE_DOWNLOAD_PASS / PLAYBACK_PENDING`.
+Detailed evidence: `docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md`.

@@ -22,6 +22,27 @@
 | V1-G11 | Owner acceptance + RC freeze | PENDING | Requires owner visual/function acceptance |
 | V1-G12 | Merge `main` + production smoke | PENDING | PR #13 remains Draft |
 
+## Runtime supersession - 2026-10-31
+
+The 2026-10-04 runtime rows above are retained as historical evidence. Current
+authoritative status is:
+
+- G05: KTN FLUX runtime PASS; application generate/regenerate persistence E2E pending.
+- G07: real 14-scene render PASS and all 10,747,935 MP4 bytes delivered through
+  six contiguous HTTP 206 ranges; playback/media QA pending.
+- G08: PASS / CLOSED.
+- G10: six-minute Golden Brief specification prepared; execution pending.
+- G11/G12: pending; PR #13 remains Draft / Do Not Merge.
+
+Evidence:
+- `docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md`
+- `docs/V1_G10_SIX_MINUTE_GOLDEN_E2E_SPEC_2026-10-31.md`
+- `docs/V1_WORKER_STABLE_INFRA_MIGRATION_PLAN_2026-10-31.md`
+
+Stable worker migration is design-ready but not provisioned. It is blocked on
+recorded owner approval for provider, region, GPU, budget, availability mode and
+endpoint. The G10 six-minute artifact is the required migration canary.
+
 ## V1-G03B owner/browser acceptance
 
 Preview:

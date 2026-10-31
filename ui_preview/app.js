@@ -7,6 +7,7 @@ const PLATFORM_PRESETS={
     paragraphCount:10,
     durations:[
       ['3-5m','3–5 phút · Mid-form'],
+      ['5-7m','5–7 phút · khoảng 6 phút'],
       ['8-12m','8–12 phút'],
       ['12-20m','12–20 phút'],
       ['20-30m','20–30 phút']

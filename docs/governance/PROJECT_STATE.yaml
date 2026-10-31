@@ -1,12 +1,12 @@
 schema_version: 1
 project: KTN AI Video Studio
-updated_at: "2026-10-30T14:25:00+07:00"
+updated_at: "2026-10-31T09:26:30+07:00"
 status: ACTIVE_RC_NOT_RELEASED
 
 canonical:
   repository: jackylehoangle/KTN-AI-Video-Studio
   rc_branch: release/v1-rc1
-  current_verified_rc_head: 4d53b52de78b8ef2127cd3f0ac408c0ebb2efa89
+  current_verified_rc_head: aaf9247a2717befb0bceb03e0148ec34ea6e5f13
   verified_rc_head_before_governance_recovery: aa4ef4d249ccee402c9f784193b37d8c5bbf6420
   governance_recovery_evidence_commit: 5fa456e6810837495ca808908e8f33c6080e1ffd
   release_pr: 13
@@ -30,7 +30,7 @@ gates:
   V1-G04: OWNER_BATCH_PASS_CLONE_CONSENT_AUDIO_PENDING
   V1-G05: RUNTIME_PASS_APP_E2E_PENDING
   V1-G06: TECH_PASS_FINAL_MP4_VERIFICATION_DEFERRED_TO_G07
-  V1-G07: AUTHENTICATED_READINESS_PASS_MP4_E2E_PENDING
+  V1-G07: REAL_RENDER_PASS_BYTE_DOWNLOAD_PASS_PLAYBACK_PENDING
   V1-G08: PASS
   V1-G09: TECH_PASS
   V1-G10: PENDING
@@ -57,14 +57,22 @@ runtime_current_observation:
   mpt_render_base_url: LIVE_CLOUDFLARE_TUNNEL
   mpt_render_api_key: CONFIGURED_BRANCH_SCOPED_PREVIEW
   mpt_render_worker: READY_AUTHENTICATED_HTTP_200
+  real_render_smoke_task: d98cd3b6-dc2f-476b-8526-8aac33582cbf
+  real_render_ui_task: 436cc16e-1185-4c24-8db7-5104b5f5e01b
+  real_render_ui_progress: PASS_100_PERCENT_14_SCENES
+  mp4_proxy_total_bytes: 10747935
+  mp4_proxy_range_integrity: PASS_6_CONTIGUOUS_HTTP_206_PARTS
+  mp4_browser_playback: PENDING
+  six_minute_golden_video: PENDING
+  stable_worker_migration: DESIGN_READY_AWAITING_OWNER_INFRA_APPROVAL
 
 next_actions:
-  primary: RUN_APP_IMAGE_E2E_AND_MPT_MP4_E2E_AFTER_G02_SCENES
+  primary: RUN_SIX_MINUTE_GOLDEN_BRIEF_TO_MP4_ACCEPTANCE
   parallel:
     - RERUN_G02_WHEN_GEMINI_CAPACITY_IS_AVAILABLE
-    - PRESERVE_COLAB_SESSION_AND_TUNNELS
+    - OWNER_APPROVE_PROVIDER_REGION_GPU_BUDGET_AND_ENDPOINT
   after_runtime:
-    - V1-G10_GOLDEN_BRIEF_TO_MP4
+    - VERIFY_MP4_PLAYBACK_DURATION_AUDIO_SUBTITLE_AND_DOWNLOAD
     - V1-G11_OWNER_ACCEPTANCE_AND_RC_FREEZE
     - V1-G12_MERGE_MAIN_AND_PRODUCTION_SMOKE
 
@@ -85,6 +93,42 @@ runtime_recovery_patch:
   render_readiness: PASS_AUTHENTICATED_WORKER_STATUS_200
   remaining_g05_condition: APP_UI_GENERATE_REGENERATE_E2E
   remaining_g07_condition: REAL_MP4_RENDER_PLAYBACK_E2E
+
+mp4_e2e_2026_10_31:
+  evidence: docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md
+  tested_code_head: aaf9247a2717befb0bceb03e0148ec34ea6e5f13
+  vercel_deployment: dpl_8X9Rg6MGQQb4U52n54bac55krbJA
+  product_task_id: 436cc16e-1185-4c24-8db7-5104b5f5e01b
+  scene_count: 14
+  mp4_size_bytes: 10747935
+  render_completion: PASS
+  download_byte_integrity: PASS
+  playback: PENDING
+
+stable_worker_migration_2026_10_31:
+  plan: docs/V1_WORKER_STABLE_INFRA_MIGRATION_PLAN_2026-10-31.md
+  design: READY
+  paid_provisioning: NOT_STARTED
+  blocker: OWNER_INFRASTRUCTURE_APPROVAL
+  required_decisions:
+    - PROVIDER
+    - REGION
+    - GPU_TYPE
+    - MAX_MONTHLY_BUDGET
+    - ALWAYS_ON_OR_SCHEDULED
+    - DOMAIN_OR_NAMED_TUNNEL
+  migration_canary: V1_G10_SIX_MINUTE_GOLDEN_VIDEO
+
+local_validation_2026_10_31:
+  full_pytest: PASS
+  passed: 1338
+  skipped: 19
+  warnings: 8
+  subtests_passed: 10614
+  duration_seconds: 270.96
+  javascript_syntax: PASS
+  project_state_yaml: PASS
+  git_diff_check: PASS
 
 authority:
   code_and_committed_evidence: GITHUB
