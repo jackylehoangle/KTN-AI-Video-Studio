@@ -106,7 +106,7 @@ async function generateKtnImage(baseUrl,token,model,prompt,aspectRatio){
     body:JSON.stringify({
       model,
       prompt,
-      size:aspectRatio==='1:1'?'1024x1024':'1360x768',
+      size:aspectRatio==='1:1' ? '1024x1024' : (aspectRatio==='9:16' ? '768x1360' : '1360x768'),
       n:1,
       response_format:'b64_json'
     })
@@ -120,7 +120,7 @@ async function generateKtnImage(baseUrl,token,model,prompt,aspectRatio){
   return {b64_json:image.b64_json,mime_type:'image/jpeg'};
 }
 
-async function generateOpenAIImage(key,model,prompt){
+async function generateOpenAIImage(key,model,prompt,aspectRatio){
   const response=await fetch('https://api.openai.com/v1/images/generations',{
     method:'POST',
     headers:{
@@ -131,7 +131,7 @@ async function generateOpenAIImage(key,model,prompt){
       model,
       prompt,
       n:1,
-      size:'1536x1024',
+      size:aspectRatio==='1:1' ? '1024x1024' : (aspectRatio==='9:16' ? '1024x1536' : '1536x1024'),
       quality:'low',
       output_format:'jpeg'
     })
@@ -151,6 +151,41 @@ async function generateOpenAIImage(key,model,prompt){
 
 export default async function handler(req,res){
   if(req.method==='GET'){
+    const selftest=String(req.query?.selftest||'').toLowerCase();
+    if(selftest==='gemini'){
+      const key=process.env.GEMINI_API_KEY||'';
+      const model=process.env.GEMINI_IMAGE_MODEL||PROVIDERS.gemini.defaultModel;
+      const aspect=['16:9','9:16','1:1'].includes(req.query?.aspect)?req.query.aspect:'16:9';
+      if(!key) return send(res,503,{ok:false,error:'GEMINI_API_KEY chưa cấu hình.',code:'provider_key_missing'});
+      try{
+        const prompt=[
+          'A clean cinematic documentary frame of a Vietnamese creator working at a desk with a laptop,',
+          'natural daylight, realistic photography, professional composition, no text, no logo, no watermark.'
+        ].join(' ');
+        const image=await generateGeminiImage(key,model,prompt,aspect);
+        const bytes=Buffer.from(image.b64_json,'base64');
+        return send(res,200,{
+          ok:true,
+          service:'KTN Image Generator Self-Test',
+          provider:'gemini',
+          model,
+          aspect_ratio:aspect,
+          mime_type:image.mime_type,
+          bytes:bytes.length,
+          jpeg_magic:bytes.length>=2 && bytes[0]===0xff && bytes[1]===0xd8,
+          createdAt:new Date().toISOString()
+        });
+      }catch(error){
+        return send(res,502,{
+          ok:false,
+          provider:'gemini',
+          model,
+          aspect_ratio:aspect,
+          error:String(error?.message||'Image self-test failed.')
+        });
+      }
+    }
+
     return send(res,200,{
       ok:true,
       service:'KTN Image Generator',
@@ -168,7 +203,7 @@ export default async function handler(req,res){
         gemini:{responseMimeType:'image/jpeg'},
         openai:{
           responseMimeType:'image/jpeg',
-          size:'1536x1024',
+          sizes:['1536x1024','1024x1536','1024x1024'],
           quality:'low'
         }
       }
@@ -181,7 +216,7 @@ export default async function handler(req,res){
   const provider=String(body.provider||'gemini').toLowerCase();
   const prompt=String(body.prompt||'').trim();
   const sceneId=String(body.sceneId||'').trim().slice(0,100);
-  const aspectRatio=body.aspectRatio==='1:1'?'1:1':'16:9';
+  const aspectRatio=['16:9','9:16','1:1'].includes(body.aspectRatio)?body.aspectRatio:'16:9';
 
   if(!PROVIDERS[provider]) return send(res,400,{error:'Nhà cung cấp ảnh chưa được hỗ trợ.'});
   if(!prompt) return send(res,400,{error:'Image prompt không được để trống.'});
@@ -218,7 +253,7 @@ export default async function handler(req,res){
     const image=provider==='gemini'
       ? await generateGeminiImage(key,model,finalPrompt,aspectRatio)
       : (provider==='openai'
-        ? await generateOpenAIImage(key,model,finalPrompt)
+        ? await generateOpenAIImage(key,model,finalPrompt,aspectRatio)
         : await generateKtnImage(gatewayUrl,gatewayToken,model,finalPrompt,aspectRatio));
 
     return send(res,200,{

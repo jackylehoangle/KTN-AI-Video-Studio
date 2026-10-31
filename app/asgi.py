@@ -1,8 +1,11 @@
 """Application implementation - ASGI."""
 
+import hashlib
+import hmac
 import os
+import time
 from contextlib import asynccontextmanager
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -255,6 +258,32 @@ def get_application() -> FastAPI:
 app = get_application()
 
 
+def is_valid_task_download_signature(
+    request_path: str,
+    expires_value: str | None,
+    signature: str | None,
+    api_key: str | None,
+    *,
+    now: int | None = None,
+) -> bool:
+    """Validate a short-lived task download URL without exposing the API key."""
+
+    if not isinstance(api_key, str) or not api_key or not signature:
+        return False
+    try:
+        expires = int(expires_value or "")
+    except (TypeError, ValueError):
+        return False
+
+    current_time = int(time.time()) if now is None else int(now)
+    if expires <= current_time or expires > current_time + 3600:
+        return False
+
+    message = f"{request_path}\n{expires}".encode("utf-8")
+    expected = hmac.new(api_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, str(signature))
+
+
 @app.middleware("http")
 async def protect_generated_task_files(request: Request, call_next):
     """保护任务产物静态路由，防止绕过 API 鉴权直接下载。
@@ -266,13 +295,29 @@ async def protect_generated_task_files(request: Request, call_next):
 
     request_path = request.url.path
     is_task_file = request_path == "/tasks" or request_path.startswith("/tasks/")
-    if is_task_file and request.method != "OPTIONS":
+    signed_download = is_task_file and is_valid_task_download_signature(
+        request_path,
+        request.query_params.get("expires"),
+        request.query_params.get("signature"),
+        config.app.get("api_key", ""),
+    )
+    if is_task_file and request.method != "OPTIONS" and not signed_download:
         try:
             base.verify_token(request)
         except HttpException as exception:
             return exception_handler(request, exception)
 
-    return await call_next(request)
+    response = await call_next(request)
+    if (
+        signed_download
+        and request.query_params.get("download") == "1"
+        and response.status_code < 400
+    ):
+        filename = os.path.basename(request_path) or "ktn-video.mp4"
+        response.headers["Content-Disposition"] = (
+            "attachment; filename*=UTF-8''" + quote(filename, safe="")
+        )
+    return response
 
 
 # 默认遵循浏览器同源策略；仅在用户显式配置可信网页来源时开放跨域。

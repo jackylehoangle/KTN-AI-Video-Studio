@@ -16,24 +16,149 @@ function headers(cfg,extra={}){
   return {...extra,...(cfg.apiKey?{'x-api-key':cfg.apiKey}:{})};
 }
 
+
+const DEFAULT_MPT_EDGE_VOICE='vi-VN-HoaiMyNeural';
+
+function envEnabled(value){
+  return ['1','true','yes','on'].includes(String(value||'').trim().toLowerCase());
+}
+
+function mptVoiceName(voiceConfig={},env=process.env){
+  const provider=String(voiceConfig?.provider||'').trim().toLowerCase();
+  const voice=String(voiceConfig?.voice||'').trim();
+  const edgeVoice=String(env?.MPT_RENDER_EDGE_VOICE||'').trim()||DEFAULT_MPT_EDGE_VOICE;
+  if(!voice) return edgeVoice;
+  if(provider==='gemini'){
+    if(!envEnabled(env?.MPT_RENDER_GEMINI_TTS_ENABLED)) return edgeVoice;
+    return voice.startsWith('gemini:')?voice:('gemini:'+voice);
+  }
+  if(provider==='elevenlabs'){
+    if(!envEnabled(env?.MPT_RENDER_ELEVENLABS_TTS_ENABLED)) return edgeVoice;
+    return voice.startsWith('elevenlabs:')?voice:('elevenlabs:'+voice+':KTN');
+  }
+  return voice;
+}
+
+function safeVoiceRate(value){
+  const parsed=Number(value);
+  if(!Number.isFinite(parsed) || parsed<=0) return 1;
+  return Math.max(0.5,Math.min(2,parsed));
+}
+
 function publicVideoUrl(baseUrl,value){
   if(!value) return '';
   if(/^https?:\/\//i.test(value)) return value;
   return baseUrl+'/'+String(value).replace(/^\//,'');
 }
 
+async function signedVideoUrl(cfg,value,nowSeconds=Math.floor(Date.now()/1000)){
+  const publicUrl=publicVideoUrl(cfg.baseUrl,value);
+  if(!publicUrl || !cfg.apiKey) return publicUrl;
+  const url=new URL(publicUrl);
+  if(url.origin!==new URL(cfg.baseUrl).origin || !url.pathname.startsWith('/tasks/')) return publicUrl;
+  const expires=nowSeconds+3600;
+  const {createHmac}=await import('node:crypto');
+  const signature=createHmac('sha256',cfg.apiKey)
+    .update(url.pathname+'\n'+expires)
+    .digest('hex');
+  url.searchParams.set('expires',String(expires));
+  url.searchParams.set('signature',signature);
+  url.searchParams.set('download','1');
+  return url.toString();
+}
+
+function findGeminiAudio(payload){
+  const steps=Array.isArray(payload?.steps)?payload.steps:[];
+  for(let i=steps.length-1;i>=0;i--){
+    const content=Array.isArray(steps[i]?.content)?steps[i].content:[];
+    for(let j=content.length-1;j>=0;j--){
+      const item=content[j];
+      if(item?.type==='audio' && typeof item?.data==='string' && item.data.length>100){
+        return {data:item.data,mimeType:String(item.mime_type||item.mimeType||'audio/wav')};
+      }
+    }
+  }
+  return null;
+}
+
+async function stageGeminiVoiceover(cfg,{script,voice,languageCode,stylePreset}){
+  const key=String(process.env.GEMINI_API_KEY||'').trim();
+  if(!key) throw new Error('GEMINI_API_KEY chưa cấu hình cho voiceover render.');
+  const model=String(process.env.GEMINI_TTS_MODEL||'gemini-3.8-flash-lite-tts').trim();
+  const voiceName=String(voice||'Kore').trim();
+  const language=String(languageCode||'vi-VN').trim();
+  const style=language==='vi-VN'
+    ? 'Đọc tiếng Việt tự nhiên, rõ ràng, có nhịp kể chuyện như người thật, phát âm chính xác và không thêm bất kỳ lời nào ngoài bản chép lời.'
+    : 'Natural, clear professional video narration. Do not add words beyond the transcript.';
+  const styledPrompt=[style,String(stylePreset||'').trim()].filter(Boolean).join(' ');
+
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-goog-api-key':key},
+    body:JSON.stringify({
+      model,
+      input:[{type:'user_input',content:[{type:'text',text:script,annotations:[{type:'speech_metadata',style:styledPrompt}]}]}],
+      response_format:{type:'audio',mime_type:'audio/wav',sample_rate:24000},
+      generation_config:{speech_config:[{voice:voiceName}]}
+    })
+  });
+  const payload=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(payload?.error?.message||('Gemini TTS HTTP '+response.status));
+  const audio=findGeminiAudio(payload);
+  if(!audio) throw new Error('Gemini TTS không trả về dữ liệu âm thanh.');
+  const bytes=Buffer.from(audio.data,'base64');
+  if(bytes.length<44 || bytes.toString('ascii',0,4)!=='RIFF'){
+    throw new Error('Gemini TTS trả về audio không phải WAV hợp lệ.');
+  }
+
+  const form=new FormData();
+  form.append('file',new Blob([bytes],{type:audio.mimeType}),'ktn-voiceover.wav');
+  const upload=await fetch(cfg.baseUrl+'/api/v1/musics',{
+    method:'POST',
+    headers:headers(cfg),
+    body:form
+  });
+  const uploaded=await upload.json().catch(()=>({}));
+  if(!upload.ok || uploaded?.status!==200){
+    throw new Error(uploaded?.message||('MPT audio upload HTTP '+upload.status));
+  }
+  const file=String(uploaded?.data?.file||'').trim();
+  if(!file) throw new Error('MPT không trả về custom audio key.');
+  return {file,model,voice:voiceName,bytes:bytes.length};
+}
+
 export default async function handler(req,res){
   const cfg=config();
 
   if(req.method==='GET' && !req.query?.task_id){
-    if(!cfg.baseUrl) return send(res,200,{ok:true,configured:false,ready:false});
+    if(!cfg.baseUrl || !cfg.apiKey){
+      return send(res,200,{
+        ok:true,
+        configured:Boolean(cfg.baseUrl && cfg.apiKey),
+        ready:false,
+        baseUrlConfigured:Boolean(cfg.baseUrl),
+        apiKeyConfigured:Boolean(cfg.apiKey)
+      });
+    }
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),8000);
     try{
-      const response=await fetch(cfg.baseUrl+'/docs',{headers:headers(cfg),signal:controller.signal,cache:'no-store'});
-      return send(res,200,{ok:true,configured:true,ready:response.ok});
+      const response=await fetch(cfg.baseUrl+'/api/v1/tasks?page=1&page_size=1',{
+        headers:headers(cfg),
+        signal:controller.signal,
+        cache:'no-store'
+      });
+      return send(res,200,{
+        ok:true,
+        configured:true,
+        ready:response.ok,
+        authenticated:response.ok,
+        workerStatus:response.status,
+        baseUrlConfigured:true,
+        apiKeyConfigured:true
+      });
     }catch{
-      return send(res,200,{ok:true,configured:true,ready:false});
+      return send(res,200,{ok:true,configured:true,ready:false,authenticated:false,baseUrlConfigured:true,apiKeyConfigured:true});
     }finally{
       clearTimeout(timer);
     }
@@ -41,6 +166,9 @@ export default async function handler(req,res){
 
   if(!cfg.baseUrl){
     return send(res,503,{error:'Chưa cấu hình MPT_RENDER_BASE_URL trên Vercel.',code:'render_worker_missing'});
+  }
+  if(!cfg.apiKey){
+    return send(res,503,{error:'Chưa cấu hình MPT_RENDER_API_KEY trên Vercel.',code:'render_worker_auth_missing'});
   }
 
   if(req.method==='GET'){
@@ -66,7 +194,10 @@ export default async function handler(req,res){
         state_label:failed?'Render thất bại':complete?'Hoàn tất MP4':'MoneyPrinterTurbo đang render...',
         progress:Number(task.progress)||0,
         error:task.error||'',
-        video_url:videos.length?publicVideoUrl(cfg.baseUrl,videos[0]):''
+        video_url:videos.length?await signedVideoUrl(cfg,videos[0]):'',
+        download_url:videos.length
+          ?'/api/render-video-download?task_id='+encodeURIComponent(taskId)
+          :''
       });
     }catch(error){
       return send(res,502,{error:'Không đọc được MPT task: '+(error?.message||'Lỗi không xác định')});
@@ -97,9 +228,26 @@ export default async function handler(req,res){
     1,
     ...materials.map(item=>item.duration)
   );
-  const voiceName='vi-VN-HoaiMyNeural';
+  const voiceName=mptVoiceName(body?.voice||{});
+  const voiceRate=safeVoiceRate(body?.voice?.speed);
   const aspect=['16:9','9:16','1:1'].includes(body?.video?.aspect)?body.video.aspect:'16:9';
   const transition=body?.video?.transition||null;
+
+  let customAudio=null;
+  const requestedProvider=String(body?.voice?.provider||'').trim().toLowerCase();
+  if(requestedProvider==='gemini'){
+    try{
+      customAudio=await stageGeminiVoiceover(cfg,{
+        script,
+        voice:body?.voice?.voice,
+        languageCode:body?.voice?.languageCode,
+        stylePreset:body?.voice?.stylePreset
+      });
+    }catch(error){
+      console.error('render_voiceover_failed',{provider:'gemini',message:error?.message});
+      return send(res,502,{error:'Không thể chuẩn bị voiceover Gemini: '+(error?.message||'Lỗi không xác định')});
+    }
+  }
 
   const requestBody={
     video_subject:topic,
@@ -116,13 +264,15 @@ export default async function handler(req,res){
     video_source:'local',
     video_materials:materials,
     video_language:'vi-VN',
+    custom_audio_file:customAudio?.file||null,
     voice_name:voiceName,
     voice_volume:1.0,
-    voice_rate:1.0,
+    voice_rate:voiceRate,
     bgm_type:'',
     bgm_file:'',
     bgm_volume:0,
     subtitle_enabled:Boolean(body?.video?.subtitles),
+    custom_subtitle_content:String(body?.subtitle_srt||'').trim().slice(0,200000),
     subtitle_position:'bottom',
     subtitle_display_mode:'sentence',
     subtitle_animation:'none',
@@ -145,7 +295,17 @@ export default async function handler(req,res){
     }
     const taskId=payload?.data?.task_id;
     if(!taskId) throw new Error('MPT không trả về task_id.');
-    return send(res,200,{ok:true,task_id:taskId});
+    return send(res,200,{
+      ok:true,
+      task_id:taskId,
+      voice:{
+        provider:String(body?.voice?.provider||''),
+        voice:String(body?.voice?.voice||''),
+        mpt_voice_name:voiceName,
+        speed:voiceRate
+      },
+      voiceover:customAudio?{provider:'gemini',model:customAudio.model,voice:customAudio.voice,bytes:customAudio.bytes}:null
+    });
   }catch(error){
     console.error('render_submit_failed',{message:error?.message});
     return send(res,502,{error:'Không thể tạo MPT render task: '+(error?.message||'Lỗi không xác định')});

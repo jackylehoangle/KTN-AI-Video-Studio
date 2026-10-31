@@ -1,0 +1,161 @@
+schema_version: 1
+project: KTN AI Video Studio
+updated_at: "2026-10-31T09:26:30+07:00"
+status: ACTIVE_RC_NOT_RELEASED
+
+canonical:
+  repository: jackylehoangle/KTN-AI-Video-Studio
+  rc_branch: release/v1-rc1
+  current_verified_rc_head: aaf9247a2717befb0bceb03e0148ec34ea6e5f13
+  verified_rc_head_before_governance_recovery: aa4ef4d249ccee402c9f784193b37d8c5bbf6420
+  governance_recovery_evidence_commit: 5fa456e6810837495ca808908e8f33c6080e1ffd
+  release_pr: 13
+  release_pr_state: OPEN_DRAFT_DO_NOT_MERGE
+  production_branch: main
+  verified_production_head: 570e329118842dca86167bd56b3d9bde911d44a4
+  rc_ahead_of_production_commits: 52
+
+branch_control:
+  permitted_rc_baseline: release/v1-rc1
+  v1_completion_01: FROZEN_DIVERGED_PENDING_RECONCILIATION
+  v1_completion_01_ahead_of_rc: 5
+  v1_completion_01_behind_rc: 51
+  script_model_01: FROZEN_V2
+  destructive_branch_action_authorized: false
+
+gates:
+  V1-G01: PASS
+  V1-G02: BLOCKED_PROVIDER_HIGH_DEMAND
+  V1-G03: PASS
+  V1-G04: OWNER_BATCH_PASS_CLONE_CONSENT_AUDIO_PENDING
+  V1-G05: RUNTIME_PASS_APP_E2E_PENDING
+  V1-G06: TECH_PASS_FINAL_MP4_VERIFICATION_DEFERRED_TO_G07
+  V1-G07: REAL_RENDER_PASS_BYTE_DOWNLOAD_PASS_PLAYBACK_PENDING
+  V1-G08: PASS
+  V1-G09: TECH_PASS
+  V1-G10: PENDING
+  V1-G11: PENDING
+  V1-G12: PENDING
+
+g08_current_browser_evidence:
+  run_date: "2026-10-30"
+  project_ab_isolation: PASS
+  reload_restore: PASS
+  project_a_persistence_diagnostic: PASS
+  project_b_persistence_diagnostic: PASS
+  project_a_export_file: OWNER_CONFIRMED_IN_DOWNLOADS
+  project_a_delete_isolation: PASS
+  project_a_import_recovery: PASS_AFTER_ASYNC_MANUAL_IMPORT
+  export_import_fingerprint: PASS_VISIBLE_NAME_TOPIC_AUDIENCE_PLATFORM
+  browser_upload_note: AUTOMATION_HUNG_MANUAL_IMPORT_COMPLETED_ASYNCHRONOUSLY
+  close_gate_authorized: true
+runtime_current_observation:
+  gemini_script_catalog: CONFIGURED_DEFAULT_GEMINI_3_8_FLASH
+  gemini_real_multipass_script: BLOCKED_HIGH_DEMAND_3_8_AND_3_7_RERUN_PENDING
+  gemini_image_selftest_16_9: BLOCKED_FREE_TIER_ZERO_REQUESTS_PER_DAY
+  ktn_flux: LIVE_T4_TWO_REAL_IMAGES_HTTP_200
+  mpt_render_base_url: LIVE_CLOUDFLARE_TUNNEL
+  mpt_render_api_key: CONFIGURED_BRANCH_SCOPED_PREVIEW
+  mpt_render_worker: READY_AUTHENTICATED_HTTP_200
+  real_render_smoke_task: d98cd3b6-dc2f-476b-8526-8aac33582cbf
+  real_render_ui_task: 436cc16e-1185-4c24-8db7-5104b5f5e01b
+  real_render_ui_progress: PASS_100_PERCENT_14_SCENES
+  mp4_proxy_total_bytes: 10747935
+  mp4_proxy_range_integrity: PASS_6_CONTIGUOUS_HTTP_206_PARTS
+  mp4_browser_playback: PENDING
+  six_minute_golden_video: PENDING
+  stable_worker_migration: DESIGN_READY_AWAITING_OWNER_INFRA_APPROVAL
+
+next_actions:
+  primary: RUN_SIX_MINUTE_GOLDEN_BRIEF_TO_MP4_ACCEPTANCE
+  parallel:
+    - RERUN_G02_WHEN_GEMINI_CAPACITY_IS_AVAILABLE
+    - OWNER_APPROVE_PROVIDER_REGION_GPU_BUDGET_AND_ENDPOINT
+  after_runtime:
+    - VERIFY_MP4_PLAYBACK_DURATION_AUDIO_SUBTITLE_AND_DOWNLOAD
+    - V1-G11_OWNER_ACCEPTANCE_AND_RC_FREEZE
+    - V1-G12_MERGE_MAIN_AND_PRODUCTION_SMOKE
+
+runtime_recovery_patch:
+  commit: 71af1ad6ce509cca9f6a51d96277351231553725
+  live_evidence_commit: 4d53b52de78b8ef2127cd3f0ac408c0ebb2efa89
+  vercel_preview_deployment: dpl_DWYWjZMUev49r6uPmrDUz4KLHasA
+  vercel_preview_state: READY
+  colab_branch: release/v1-rc1
+  render_key_generation: IMPLEMENTED
+  render_key_written_to_worker_config: IMPLEMENTED
+  render_readiness_authenticated_probe: IMPLEMENTED
+  live_vercel_preview_deployment: dpl_7dr6MG9XKeMLJSrf2YeJmyE1CuPc
+  live_vercel_preview_url: ktn-ai-video-studio-qgva9ygzu-jackylehoangles-projects.vercel.app
+  local_tests: 13_PASS_1_WARNING
+  runtime_execution: PASS_COLAB_T4_READY_5_5_MINUTES
+  flux_smoke: PASS_TWO_IMAGES_HTTP_200
+  render_readiness: PASS_AUTHENTICATED_WORKER_STATUS_200
+  remaining_g05_condition: APP_UI_GENERATE_REGENERATE_E2E
+  remaining_g07_condition: REAL_MP4_RENDER_PLAYBACK_E2E
+
+mp4_e2e_2026_10_31:
+  evidence: docs/V1_G07B_MP4_DOWNLOAD_E2E_2026-10-31.md
+  tested_code_head: aaf9247a2717befb0bceb03e0148ec34ea6e5f13
+  vercel_deployment: dpl_8X9Rg6MGQQb4U52n54bac55krbJA
+  product_task_id: 436cc16e-1185-4c24-8db7-5104b5f5e01b
+  scene_count: 14
+  mp4_size_bytes: 10747935
+  render_completion: PASS
+  download_byte_integrity: PASS
+  playback: PENDING
+
+stable_worker_migration_2026_10_31:
+  plan: docs/V1_WORKER_STABLE_INFRA_MIGRATION_PLAN_2026-10-31.md
+  design: READY
+  paid_provisioning: NOT_STARTED
+  blocker: OWNER_INFRASTRUCTURE_APPROVAL
+  required_decisions:
+    - PROVIDER
+    - REGION
+    - GPU_TYPE
+    - MAX_MONTHLY_BUDGET
+    - ALWAYS_ON_OR_SCHEDULED
+    - DOMAIN_OR_NAMED_TUNNEL
+  migration_canary: V1_G10_SIX_MINUTE_GOLDEN_VIDEO
+
+local_validation_2026_10_31:
+  full_pytest: PASS
+  passed: 1338
+  skipped: 19
+  warnings: 8
+  subtests_passed: 10614
+  duration_seconds: 270.96
+  javascript_syntax: PASS
+  project_state_yaml: PASS
+  git_diff_check: PASS
+
+authority:
+  code_and_committed_evidence: GITHUB
+  user_deliverables_and_secondary_archive: CHATGPT_LIBRARY
+  browser_project_data: INDEXEDDB_PER_ORIGIN
+  chat_work_codex_memory: NON_AUTHORITATIVE
+  temporary_workspace: EPHEMERAL
+
+required_session_protocol:
+  start:
+    - FETCH_CANONICAL_BRANCH
+    - VERIFY_HEAD
+    - READ_PROJECT_STATE
+    - READ_SESSION_HANDOFF
+    - READ_SOURCE_OF_TRUTH
+    - READ_RELEVANT_GATE_EVIDENCE
+  finish:
+    - UPDATE_PROJECT_STATE
+    - UPDATE_SESSION_HANDOFF
+    - UPDATE_EVIDENCE_INDEX
+    - COMMIT_AND_PUSH
+    - REPORT_EXACT_COMMIT
+  uncommitted_session_is_handed_over: false
+
+g08_closure:
+  closed_at: "2026-10-30"
+  clean_reload_projects: 2
+  project_a_readback: PASS
+  project_b_isolation_after_import: PASS
+  binary_asset_restore_supporting_evidence: G04B_FRESH_TAB_3_OF_3_AUDIO

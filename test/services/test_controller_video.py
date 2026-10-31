@@ -16,7 +16,12 @@ from app.controllers.manager.base_manager import TaskQueueFullError
 from app.controllers.v1 import video as video_controller
 from app.models import const
 from app.models.exception import HttpException
-from app.models.schema import TaskDeletionResponse, TaskListResponse, TaskQueryResponse
+from app.models.schema import (
+    TaskDeletionResponse,
+    TaskListResponse,
+    TaskQueryResponse,
+    TaskVideoRequest,
+)
 from app.services import material_upload
 from app.services import state as sm
 from app.utils import utils
@@ -142,6 +147,41 @@ class TestVideoControllerTasks(unittest.TestCase):
             task_id="task-123",
             params=body,
             stop_at="audio",
+        )
+
+    def test_create_task_copies_uploaded_custom_audio_into_task_directory(self):
+        body = TaskVideoRequest(
+            video_subject="Coffee",
+            video_script="A complete narration.",
+            custom_audio_file="uploaded.wav",
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_audio = Path(temp_dir, "uploaded.wav")
+            source_audio.write_bytes(b"RIFF-valid-audio")
+            task_dir = Path(temp_dir, "task-123")
+            task_dir.mkdir()
+
+            with (
+                patch.object(video_controller.utils, "get_uuid", return_value="task-123"),
+                patch.object(video_controller.utils, "task_dir", return_value=str(task_dir)),
+                patch.object(
+                    video_controller.bgm_service,
+                    "resolve_bgm_file",
+                    return_value=str(source_audio),
+                ),
+                patch.object(video_controller.sm.state, "update_task"),
+                patch.object(video_controller.task_manager, "add_task") as add_task,
+            ):
+                response = video_controller.create_task(
+                    self._request(), body, stop_at="video"
+                )
+
+        self.assertEqual(response["status"], 200)
+        queued_body = add_task.call_args.kwargs["params"]
+        self.assertEqual(queued_body.custom_audio_file, "custom-audio.wav")
+        self.assertEqual(
+            queued_body.model_dump()["custom_audio_file"], "custom-audio.wav"
         )
 
     def test_create_task_removes_state_when_queue_is_full(self):
